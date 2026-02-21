@@ -23,7 +23,7 @@ export default function PublicLayout() {
           <Link to="/" className="flex items-center gap-2">
             <Trophy className="h-7 w-7 text-primary" />
             <span className="font-display text-xl font-bold uppercase tracking-tight">
-              Hockey en Línea
+              Fedepatin - Hockey en Línea
             </span>
           </Link>
 
@@ -86,7 +86,7 @@ export default function PublicLayout() {
       {/* Footer */}
       <footer className="border-t bg-card py-6">
         <div className="container text-center text-sm text-muted-foreground">
-          © 2025 Torneo de Hockey en Línea. Todos los derechos reservados.
+          © 2025 Fedepatin - Hockey en Línea. Todos los derechos reservados.
         </div>
       </footer>
     </div>
