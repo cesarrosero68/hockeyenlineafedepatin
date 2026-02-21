@@ -38,10 +38,10 @@ export default function Index() {
       {/* Hero */}
       <section className="text-center space-y-4 py-8">
         <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight">
-          Torneo de Hockey en Línea
+          Fedepatin - Hockey en Línea
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Resultados, posiciones y estadísticas en tiempo real
+          Programación, resultados, posiciones y estadísticas en tiempo real
         </p>
       </section>
 
