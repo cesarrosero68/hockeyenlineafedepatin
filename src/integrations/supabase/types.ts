@@ -787,6 +787,15 @@ export type Database = {
         }
         Relationships: []
       }
+      player_stats_view: {
+        Row: {
+          asistencias: number | null
+          goles: number | null
+          player_id: string | null
+          puntos: number | null
+        }
+        Relationships: []
+      }
       players_public: {
         Row: {
           created_at: string | null
