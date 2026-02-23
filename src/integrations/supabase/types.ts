@@ -778,6 +778,15 @@ export type Database = {
       }
     }
     Views: {
+      player_scoring_totals: {
+        Row: {
+          asistencias: number | null
+          goles: number | null
+          player_id: string | null
+          puntos: number | null
+        }
+        Relationships: []
+      }
       player_stats_aggregate: {
         Row: {
           asistencias: number | null
