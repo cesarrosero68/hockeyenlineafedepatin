@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Trophy, Calendar, BarChart3, Users, Shield, Menu, X } from "lucide-react";
+import { Trophy, Calendar, BarChart3, Shield, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -19,11 +19,15 @@ export default function PublicLayout() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <Trophy className="h-7 w-7 text-primary" />
-            <span className="font-display text-xl font-bold uppercase tracking-tight">
-              Fedepatin - Hockey en Línea
+        <div className="container flex h-20 items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            <img
+              src="/logos/fedepatin-logo.png"
+              alt="Fedepatin Logo"
+              className="h-[70px] w-auto object-contain"
+            />
+            <span className="font-display text-xl font-bold uppercase tracking-tight hidden sm:inline">
+              Hockey en Línea
             </span>
           </Link>
 
