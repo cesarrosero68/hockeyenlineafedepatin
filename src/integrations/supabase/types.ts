@@ -322,6 +322,30 @@ export type Database = {
           },
         ]
       }
+      match_import: {
+        Row: {
+          away_team: string | null
+          categoria: string
+          division: string
+          home_team: string | null
+          match_code: string
+        }
+        Insert: {
+          away_team?: string | null
+          categoria: string
+          division: string
+          home_team?: string | null
+          match_code: string
+        }
+        Update: {
+          away_team?: string | null
+          categoria?: string
+          division?: string
+          home_team?: string | null
+          match_code?: string
+        }
+        Relationships: []
+      }
       match_teams: {
         Row: {
           id: string
@@ -481,67 +505,6 @@ export type Database = {
           },
         ]
       }
-      player_stats_aggregate: {
-        Row: {
-          assists: number
-          category_id: string
-          games_played: number
-          goals: number
-          id: string
-          penalty_minutes: number
-          player_id: string
-          points: number
-          team_id: string
-          updated_at: string
-        }
-        Insert: {
-          assists?: number
-          category_id: string
-          games_played?: number
-          goals?: number
-          id?: string
-          penalty_minutes?: number
-          player_id: string
-          points?: number
-          team_id: string
-          updated_at?: string
-        }
-        Update: {
-          assists?: number
-          category_id?: string
-          games_played?: number
-          goals?: number
-          id?: string
-          penalty_minutes?: number
-          player_id?: string
-          points?: number
-          team_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "player_stats_aggregate_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_stats_aggregate_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "player_stats_aggregate_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       players: {
         Row: {
           created_at: string
@@ -566,6 +529,51 @@ export type Database = {
           id?: string
           jersey_number?: number | null
           last_name?: string
+        }
+        Relationships: []
+      }
+      playoff_bracket: {
+        Row: {
+          category_id: string | null
+          id: string
+          round: string | null
+          slot: number | null
+          source_match_id: string | null
+          team_id: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          id?: string
+          round?: string | null
+          slot?: number | null
+          source_match_id?: string | null
+          team_id?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          id?: string
+          round?: string | null
+          slot?: number | null
+          source_match_id?: string | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
+      playoff_slots: {
+        Row: {
+          category_id: string
+          seed: number
+          team_id: string | null
+        }
+        Insert: {
+          category_id: string
+          seed: number
+          team_id?: string | null
+        }
+        Update: {
+          category_id?: string
+          seed?: number
+          team_id?: string | null
         }
         Relationships: []
       }
@@ -742,7 +750,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      player_stats_aggregate: {
+        Row: {
+          asistencias: number | null
+          goles: number | null
+          player_id: string | null
+          puntos: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_playoffs: {
@@ -761,11 +777,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalc_player_stats: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "editor"
       extra_time_type: "none" | "ot" | "so"
-      match_phase: "regular" | "playoff"
+      match_phase: "regular" | "playoff" | "final" | "third_place" | "ranking"
       match_status: "scheduled" | "in_progress" | "closed" | "locked"
     }
     CompositeTypes: {
@@ -896,7 +913,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "editor"],
       extra_time_type: ["none", "ot", "so"],
-      match_phase: ["regular", "playoff"],
+      match_phase: ["regular", "playoff", "final", "third_place", "ranking"],
       match_status: ["scheduled", "in_progress", "closed", "locked"],
     },
   },
