@@ -300,6 +300,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "goal_events_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "goal_events_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
@@ -311,6 +318,13 @@ export type Database = {
             columns: ["scorer_player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_events_scorer_player_id_fkey"
+            columns: ["scorer_player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
             referencedColumns: ["id"]
           },
           {
@@ -497,6 +511,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "penalties_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "penalties_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
@@ -611,6 +632,13 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rosters_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players_public"
             referencedColumns: ["id"]
           },
           {
@@ -756,6 +784,30 @@ export type Database = {
           goles: number | null
           player_id: string | null
           puntos: number | null
+        }
+        Relationships: []
+      }
+      players_public: {
+        Row: {
+          created_at: string | null
+          first_name: string | null
+          id: string | null
+          jersey_number: number | null
+          last_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
         }
         Relationships: []
       }
