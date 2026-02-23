@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Link } from "react-router-dom";
 
 interface MatchWithDetails {
   id: string;
@@ -23,86 +24,69 @@ interface MatchWithDetails {
   away_score: number | null;
 }
 
-interface Division {
-  id: string;
-  name: string;
-}
+interface Division { id: string; name: string; }
 
 const statusLabels: Record<string, string> = {
-  scheduled: "Programado",
-  in_progress: "En juego",
-  closed: "Finalizado",
-  locked: "Bloqueado",
+  scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Bloqueado",
 };
-
 const statusColors: Record<string, string> = {
-  scheduled: "secondary",
-  in_progress: "default",
-  closed: "outline",
-  locked: "destructive",
+  scheduled: "secondary", in_progress: "default", closed: "outline", locked: "destructive",
 };
 
 export default function Schedule() {
-  const [matches, setMatches] = useState<MatchWithDetails[]>([]);
-  const [divisions, setDivisions] = useState<Division[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: divisions = [] } = useQuery({
+    queryKey: ["divisions"],
+    queryFn: async () => {
+      const { data } = await supabase.from("divisions").select("id, name");
+      return (data ?? []) as Division[];
+    },
+  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [divRes, matchRes] = await Promise.all([
-        supabase.from("divisions").select("id, name"),
-        supabase
-          .from("matches")
-          .select(`
-            id, match_date, status, phase, round_number, venue,
-            categories!inner(name, division_id, divisions!inner(id, name)),
-            match_teams(side, score_regular, teams!inner(name))
-          `)
-          .order("match_date", { ascending: true }),
-      ]);
+  const { data: matches = [], isLoading } = useQuery({
+    queryKey: ["schedule-matches"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("matches")
+        .select(`
+          id, match_date, status, phase, round_number, venue,
+          categories!inner(name, division_id, divisions!inner(id, name)),
+          match_teams(side, score_regular, teams!inner(name))
+        `)
+        .order("match_date", { ascending: true });
 
-      if (divRes.data) setDivisions(divRes.data);
-
-      if (matchRes.data) {
-        const mapped: MatchWithDetails[] = matchRes.data.map((m: any) => {
-          const homeTeam = m.match_teams?.find((mt: any) => mt.side === "home");
-          const awayTeam = m.match_teams?.find((mt: any) => mt.side === "away");
-          return {
-            id: m.id,
-            match_date: m.match_date,
-            status: m.status,
-            phase: m.phase,
-            round_number: m.round_number,
-            venue: m.venue,
-            category_name: m.categories?.name ?? "",
-            division_name: m.categories?.divisions?.name ?? "",
-            division_id: m.categories?.divisions?.id ?? "",
-            home_team: homeTeam?.teams?.name ?? null,
-            away_team: awayTeam?.teams?.name ?? null,
-            home_score: homeTeam?.score_regular ?? null,
-            away_score: awayTeam?.score_regular ?? null,
-          };
-        });
-        setMatches(mapped);
-      }
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
+      return (data ?? []).map((m: any) => {
+        const home = m.match_teams?.find((mt: any) => mt.side === "home");
+        const away = m.match_teams?.find((mt: any) => mt.side === "away");
+        return {
+          id: m.id,
+          match_date: m.match_date,
+          status: m.status,
+          phase: m.phase,
+          round_number: m.round_number,
+          venue: m.venue,
+          category_name: m.categories?.name ?? "",
+          division_name: m.categories?.divisions?.name ?? "",
+          division_id: m.categories?.divisions?.id ?? "",
+          home_team: home?.teams?.name ?? null,
+          away_team: away?.teams?.name ?? null,
+          home_score: home?.score_regular ?? null,
+          away_score: away?.score_regular ?? null,
+        } as MatchWithDetails;
+      });
+    },
+  });
 
   const groupByDate = (items: MatchWithDetails[]) => {
     const groups: Record<string, MatchWithDetails[]> = {};
     items.forEach((m) => {
-      const key = m.match_date
-        ? format(new Date(m.match_date), "yyyy-MM-dd")
-        : "sin-fecha";
+      const key = m.match_date ? format(new Date(m.match_date), "yyyy-MM-dd") : "sin-fecha";
       if (!groups[key]) groups[key] = [];
       groups[key].push(m);
     });
     return groups;
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="container py-8 flex justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -176,69 +160,58 @@ export default function Schedule() {
 }
 
 function MatchCard({ match }: { match: MatchWithDetails }) {
-  const time = match.match_date
-    ? format(new Date(match.match_date), "h:mm a")
-    : null;
+  const time = match.match_date ? format(new Date(match.match_date), "h:mm a") : null;
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          {/* Category & Phase */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="secondary" className="text-xs">
-              {match.category_name}
+    <Link to={`/match/${match.id}`}>
+      <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
+              {match.phase !== "regular" && (
+                <Badge variant="outline" className="text-xs capitalize">{match.phase}</Badge>
+              )}
+            </div>
+            <Badge variant={statusColors[match.status] as any} className="text-xs">
+              {statusLabels[match.status] ?? match.status}
             </Badge>
-            {match.phase !== "regular" && (
-              <Badge variant="outline" className="text-xs capitalize">
-                {match.phase}
-              </Badge>
-            )}
           </div>
 
-          {/* Status */}
-          <Badge variant={statusColors[match.status] as any} className="text-xs">
-            {statusLabels[match.status] ?? match.status}
-          </Badge>
-        </div>
+          <div className="mt-3 flex items-center justify-center gap-4 text-center">
+            <span className="flex-1 text-right font-semibold text-sm sm:text-base truncate">
+              {match.home_team ?? "Por definir"}
+            </span>
+            <div className="flex items-center gap-1 font-display font-bold text-lg min-w-[60px] justify-center">
+              {match.status === "closed" || match.status === "in_progress" || match.status === "locked" ? (
+                <>
+                  <span>{match.home_score ?? 0}</span>
+                  <span className="text-muted-foreground">-</span>
+                  <span>{match.away_score ?? 0}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground text-sm">vs</span>
+              )}
+            </div>
+            <span className="flex-1 text-left font-semibold text-sm sm:text-base truncate">
+              {match.away_team ?? "Por definir"}
+            </span>
+          </div>
 
-        {/* Teams & Score */}
-        <div className="mt-3 flex items-center justify-center gap-4 text-center">
-          <span className="flex-1 text-right font-semibold text-sm sm:text-base truncate">
-            {match.home_team ?? "Por definir"}
-          </span>
-          <div className="flex items-center gap-1 font-display font-bold text-lg min-w-[60px] justify-center">
-            {match.status === "closed" || match.status === "in_progress" ? (
-              <>
-                <span>{match.home_score ?? 0}</span>
-                <span className="text-muted-foreground">-</span>
-                <span>{match.away_score ?? 0}</span>
-              </>
-            ) : (
-              <span className="text-muted-foreground text-sm">vs</span>
+          <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+            {time && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />{time}
+              </span>
+            )}
+            {match.venue && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />{match.venue}
+              </span>
             )}
           </div>
-          <span className="flex-1 text-left font-semibold text-sm sm:text-base truncate">
-            {match.away_team ?? "Por definir"}
-          </span>
-        </div>
-
-        {/* Meta */}
-        <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-          {time && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {time}
-            </span>
-          )}
-          {match.venue && (
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {match.venue}
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

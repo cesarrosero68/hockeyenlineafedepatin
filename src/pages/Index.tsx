@@ -1,37 +1,26 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Calendar, Star, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
-interface Division {
-  id: string;
-  name: string;
-  logo_url: string | null;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  division_id: string;
-}
-
 export default function Index() {
-  const [divisions, setDivisions] = useState<Division[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { data: divisions = [] } = useQuery({
+    queryKey: ["divisions"],
+    queryFn: async () => {
+      const { data } = await supabase.from("divisions").select("*");
+      return data ?? [];
+    },
+  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [divRes, catRes] = await Promise.all([
-        supabase.from("divisions").select("*"),
-        supabase.from("categories").select("*").order("sort_order"),
-      ]);
-      if (divRes.data) setDivisions(divRes.data);
-      if (catRes.data) setCategories(catRes.data);
-    };
-    fetchData();
-  }, []);
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("*").order("sort_order");
+      return data ?? [];
+    },
+  });
 
   return (
     <div className="container py-8 space-y-10">
@@ -61,29 +50,23 @@ export default function Index() {
               </CardContent>
             </Card>
           ) : (
-            divisions.map((div) => (
+            divisions.map((div: any) => (
               <Card key={div.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardHeader className="flex flex-row items-center gap-4 pb-3">
+                <CardContent className="flex items-center gap-4 py-6">
                   {div.logo_url && (
-                    <img
-                      src={div.logo_url}
-                      alt={div.name}
-                      className="h-16 w-16 object-contain rounded-lg"
-                    />
+                    <img src={div.logo_url} alt={div.name} className="h-16 w-16 object-contain rounded-lg" />
                   )}
                   <div>
-                    <CardTitle className="font-display uppercase">{div.name}</CardTitle>
+                    <p className="font-display font-bold uppercase">{div.name}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {categories
-                        .filter((c) => c.division_id === div.id)
-                        .map((cat) => (
-                          <Badge key={cat.id} variant="secondary" className="text-xs">
-                            {cat.name}
-                          </Badge>
+                        .filter((c: any) => c.division_id === div.id)
+                        .map((cat: any) => (
+                          <Badge key={cat.id} variant="secondary" className="text-xs">{cat.name}</Badge>
                         ))}
                     </div>
                   </div>
-                </CardHeader>
+                </CardContent>
               </Card>
             ))
           )}

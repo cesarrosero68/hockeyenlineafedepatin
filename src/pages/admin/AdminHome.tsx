@@ -1,28 +1,27 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Users, Calendar, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function AdminHome() {
-  const [counts, setCounts] = useState({ divisions: 0, teams: 0, matches: 0, players: 0 });
-
-  useEffect(() => {
-    const fetchCounts = async () => {
+  const { data: counts = { divisions: 0, teams: 0, matches: 0, players: 0 } } = useQuery({
+    queryKey: ["admin-counts"],
+    queryFn: async () => {
       const [d, t, m, p] = await Promise.all([
         supabase.from("divisions").select("id", { count: "exact", head: true }),
         supabase.from("teams").select("id", { count: "exact", head: true }),
         supabase.from("matches").select("id", { count: "exact", head: true }),
-        supabase.from("players").select("id", { count: "exact", head: true }),
+        supabase.from("rosters").select("id", { count: "exact", head: true }),
       ]);
-      setCounts({
+      return {
         divisions: d.count ?? 0,
         teams: t.count ?? 0,
         matches: m.count ?? 0,
         players: p.count ?? 0,
-      });
-    };
-    fetchCounts();
-  }, []);
+      };
+    },
+  });
 
   const stats = [
     { label: "Divisiones", value: counts.divisions, icon: Trophy, color: "text-primary" },
@@ -49,8 +48,4 @@ export default function AdminHome() {
       </div>
     </div>
   );
-}
-
-function cn(...classes: (string | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
 }
