@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { publicClient } from "@/integrations/supabase/public-client";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,7 +24,7 @@ export default function TeamsPage() {
   } = useQuery({
     queryKey: ["divisions"],
     queryFn: async () => {
-      const { data, error } = await publicClient.from("divisions").select("id, name, logo_url").order("name");
+      const { data, error } = await supabase.from("divisions").select("id, name, logo_url").order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -33,7 +33,7 @@ export default function TeamsPage() {
   const { data: categories = [], isLoading: loadingCategories, isError: errorCategories } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      const { data, error } = await publicClient.from("categories").select("id, name, division_id").order("sort_order");
+      const { data, error } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
       if (error) throw error;
       return data ?? [];
     },
@@ -42,7 +42,7 @@ export default function TeamsPage() {
   const { data: teams = [], isLoading: loadingTeams, isError: errorTeams } = useQuery({
     queryKey: ["all-teams"],
     queryFn: async () => {
-      const { data, error } = await publicClient
+      const { data, error } = await supabase
         .from("teams")
         .select("id, name, logo_url, category_id, clubs(name, logo_url)")
         .order("name");
@@ -54,7 +54,7 @@ export default function TeamsPage() {
   const { data: rosterRows = [], isLoading: loadingRosters } = useQuery({
     queryKey: ["all-rosters"],
     queryFn: async () => {
-      const { data, error } = await publicClient
+      const { data, error } = await supabase
         .from("rosters")
         .select("id, jersey_number, position, team_id, player_id")
         .order("jersey_number");
@@ -66,7 +66,7 @@ export default function TeamsPage() {
   const { data: players = [] } = useQuery({
     queryKey: ["players-public"],
     queryFn: async () => {
-      const { data, error } = await publicClient.from("players_public").select("id, first_name, last_name, jersey_number");
+      const { data, error } = await supabase.from("players_public").select("id, first_name, last_name, jersey_number");
       if (error) throw error;
       return data ?? [];
     },

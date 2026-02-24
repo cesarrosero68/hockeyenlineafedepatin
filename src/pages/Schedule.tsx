@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { publicClient } from "@/integrations/supabase/public-client";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,7 +37,7 @@ export default function Schedule() {
   const { data: divisions = [] } = useQuery({
     queryKey: ["divisions"],
     queryFn: async () => {
-      const { data } = await publicClient.from("divisions").select("id, name");
+      const { data } = await supabase.from("divisions").select("id, name");
       return (data ?? []) as Division[];
     },
   });
@@ -45,7 +45,7 @@ export default function Schedule() {
   const { data: matches = [], isLoading } = useQuery({
     queryKey: ["schedule-matches"],
     queryFn: async () => {
-      const { data } = await publicClient
+      const { data } = await supabase
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue,
