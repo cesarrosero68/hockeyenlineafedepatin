@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { useRealtimeUpdates } from "@/hooks/use-realtime";
 import PublicLayout from "@/components/PublicLayout";
 import Index from "./pages/Index";
+import Teams from "./pages/Teams";
 import Schedule from "./pages/Schedule";
 import Standings from "./pages/Standings";
 import Stats from "./pages/Stats";
@@ -37,6 +38,7 @@ const App = () => (
               {/* Public Routes */}
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<Index />} />
+                <Route path="/teams" element={<Teams />} />
                 <Route path="/schedule" element={<Schedule />} />
                 <Route path="/standings" element={<Standings />} />
                 <Route path="/stats" element={<Stats />} />

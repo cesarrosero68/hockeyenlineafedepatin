@@ -51,34 +51,30 @@ export default function Standings() {
         Tabla de Posiciones
       </h1>
 
-      {standings.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>Las posiciones se calcularán automáticamente al cerrar partidos.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Tabs defaultValue={defaultTab}>
-          <TabsList className="flex-wrap h-auto gap-1">
-            {divisions.map((d: any) => (
-              <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">{d.name}</TabsTrigger>
-            ))}
-          </TabsList>
+      <Tabs defaultValue={defaultTab}>
+        <TabsList className="flex-wrap h-auto gap-1">
+          {divisions.map((d: any) => (
+            <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">{d.name}</TabsTrigger>
+          ))}
+        </TabsList>
 
-          {divisions.map((div: any) => {
-            const divCategories = categories.filter((c: any) => c.division_id === div.id);
-            return (
-              <TabsContent key={div.id} value={div.id} className="space-y-6">
-                {divCategories.map((cat: any) => {
-                  const catStandings = standings.filter((s: any) => s.category_id === cat.id);
-                  if (catStandings.length === 0) return null;
-                  return (
-                    <Card key={cat.id}>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-display uppercase">{cat.name}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="overflow-x-auto">
+        {divisions.map((div: any) => {
+          const divCategories = categories.filter((c: any) => c.division_id === div.id);
+          return (
+            <TabsContent key={div.id} value={div.id} className="space-y-6">
+              {divCategories.map((cat: any) => {
+                const catStandings = standings.filter((s: any) => s.category_id === cat.id);
+                return (
+                  <Card key={cat.id}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-display uppercase">{cat.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="overflow-x-auto">
+                      {catStandings.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          Sin datos aún. Las posiciones se calcularán al cerrar partidos.
+                        </p>
+                      ) : (
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-muted-foreground text-xs">
@@ -111,15 +107,15 @@ export default function Standings() {
                             ))}
                           </tbody>
                         </table>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </TabsContent>
-            );
-          })}
-        </Tabs>
-      )}
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </TabsContent>
+          );
+        })}
+      </Tabs>
     </div>
   );
 }
