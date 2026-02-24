@@ -42,15 +42,12 @@ const App = () => (
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/fair-play" element={<FairPlay />} />
                 <Route path="/match/:id" element={<MatchDetail />} />
-              </Route>
 
-              {/* Auth */}
-              <Route path="/login" element={<Login />} />
-
-              {/* Admin Routes */}
-              <Route path="/admin" element={<AdminDashboard />}>
-                <Route index element={<AdminHome />} />
-                <Route path="matches" element={<AdminMatches />} />
+                {/* Admin Routes — nested under PublicLayout for shared header */}
+                <Route path="/admin" element={<AdminDashboard />}>
+                  <Route index element={<AdminHome />} />
+                  <Route path="matches" element={<AdminMatches />} />
+                </Route>
               </Route>
 
               <Route path="*" element={<NotFound />} />
