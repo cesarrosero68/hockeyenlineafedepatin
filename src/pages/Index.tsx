@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { publicClient } from "@/integrations/supabase/public-client";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Calendar, Star, TrendingUp, AlertTriangle } from "lucide-react";
@@ -13,7 +13,7 @@ export default function Index() {
   } = useQuery({
     queryKey: ["divisions"],
     queryFn: async () => {
-      const { data, error } = await publicClient.from("divisions").select("id, name, logo_url").order("name");
+      const { data, error } = await supabase.from("divisions").select("id, name, logo_url").order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -22,7 +22,7 @@ export default function Index() {
   const { data: categories = [], isError: isErrorCategories } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      const { data, error } = await publicClient.from("categories").select("id, name, division_id").order("sort_order");
+      const { data, error } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
       if (error) throw error;
       return data ?? [];
     },
