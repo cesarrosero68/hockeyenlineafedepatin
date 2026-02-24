@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { publicClient } from "@/integrations/supabase/public-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield } from "lucide-react";
@@ -8,7 +8,7 @@ export default function FairPlay() {
   const { data: divisions = [] } = useQuery({
     queryKey: ["divisions"],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
+      const { data } = await publicClient.from("divisions").select("id, name");
       return data ?? [];
     },
   });
@@ -16,7 +16,7 @@ export default function FairPlay() {
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      const { data } = await publicClient.from("categories").select("id, name, division_id").order("sort_order");
       return data ?? [];
     },
   });
@@ -24,7 +24,7 @@ export default function FairPlay() {
   const { data: fairPlay = [], isLoading } = useQuery({
     queryKey: ["fair-play"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("fair_play_aggregate")
         .select("*, teams!inner(name)")
         .order("total_penalty_minutes", { ascending: true });
