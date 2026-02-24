@@ -142,7 +142,7 @@ export default function Schedule() {
                           ? "Sin fecha asignada"
                           : format(new Date(dateKey + "T12:00:00"), "EEEE d 'de' MMMM yyyy", { locale: es })}
                       </h3>
-                      <div className="grid gap-2">
+                      <div className="grid gap-2 max-w-2xl">
                         {grouped[dateKey].map((match) => (
                           <MatchCard key={match.id} match={match} />
                         ))}
