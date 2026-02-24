@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { publicClient } from "@/integrations/supabase/public-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,7 @@ export default function MatchDetail() {
   const { data: match, isLoading } = useQuery({
     queryKey: ["match", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await publicClient
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, notes, extra_time,
@@ -42,7 +42,7 @@ export default function MatchDetail() {
   const { data: goals } = useQuery({
     queryKey: ["match-goals", id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("goal_events")
         .select(`
           id, period, game_time, is_overtime, is_shootout, team_id,
@@ -60,7 +60,7 @@ export default function MatchDetail() {
   const { data: penaltiesList } = useQuery({
     queryKey: ["match-penalties", id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("penalties")
         .select(`
           id, period, game_time, penalty_code, penalty_description, penalty_minutes, team_id,
@@ -79,7 +79,7 @@ export default function MatchDetail() {
     queryFn: async () => {
       const teamIds = [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean);
       if (teamIds.length === 0) return [];
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("rosters")
         .select(`
           id, jersey_number, position, team_id,
