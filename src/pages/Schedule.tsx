@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin } from "lucide-react";
+import { formatBogota, toBogotaDate } from "@/lib/timezone";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
@@ -40,6 +41,7 @@ export default function Schedule() {
       const { data } = await supabase.from("divisions").select("id, name");
       return (data ?? []) as Division[];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: matches = [], isLoading } = useQuery({
@@ -79,7 +81,8 @@ export default function Schedule() {
   const groupByDate = (items: MatchWithDetails[]) => {
     const groups: Record<string, MatchWithDetails[]> = {};
     items.forEach((m) => {
-      const key = m.match_date ? format(new Date(m.match_date), "yyyy-MM-dd") : "sin-fecha";
+      const bogota = toBogotaDate(m.match_date);
+      const key = bogota ? format(bogota, "yyyy-MM-dd") : "sin-fecha";
       if (!groups[key]) groups[key] = [];
       groups[key].push(m);
     });
@@ -160,7 +163,7 @@ export default function Schedule() {
 }
 
 function MatchCard({ match }: { match: MatchWithDetails }) {
-  const time = match.match_date ? format(new Date(match.match_date), "h:mm a") : null;
+  const time = match.match_date ? formatBogota(match.match_date, "h:mm a") : null;
 
   return (
     <Link to={`/match/${match.id}`}>

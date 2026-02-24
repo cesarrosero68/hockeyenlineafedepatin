@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatBogota, utcToBogotaInput, bogotaInputToUTC } from "@/lib/timezone";
 import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -26,6 +26,17 @@ export default function AdminMatches() {
   const queryClient = useQueryClient();
   const [editingDateId, setEditingDateId] = useState<string | null>(null);
   const [editDateValue, setEditDateValue] = useState("");
+  const [filterDivision, setFilterDivision] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const { data: divisions = [] } = useQuery({
+    queryKey: ["admin-divisions"],
+    queryFn: async () => {
+      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      return data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["admin-matches"],
@@ -34,7 +45,7 @@ export default function AdminMatches() {
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue,
-          categories!inner(name, divisions!inner(name)),
+          categories!inner(name, division_id, divisions!inner(id, name)),
           match_teams(side, score_regular, score_extra, team_id, teams!inner(name))
         `)
         .order("match_date", { ascending: true });
@@ -43,11 +54,21 @@ export default function AdminMatches() {
     },
   });
 
+  const filteredMatches = useMemo(() => {
+    if (!matches) return [];
+    return matches.filter((m: any) => {
+      if (filterDivision !== "all" && m.categories?.divisions?.id !== filterDivision) return false;
+      if (filterStatus !== "all" && m.status !== filterStatus) return false;
+      return true;
+    });
+  }, [matches, filterDivision, filterStatus]);
+
   const updateDateMutation = useMutation({
     mutationFn: async ({ matchId, date }: { matchId: string; date: string }) => {
+      const utcDate = date ? bogotaInputToUTC(date) : null;
       const { error } = await supabase
         .from("matches")
-        .update({ match_date: date || null })
+        .update({ match_date: utcDate })
         .eq("id", matchId);
       if (error) throw error;
     },
@@ -139,7 +160,7 @@ export default function AdminMatches() {
 
   const startEditingDate = (matchId: string, currentDate: string | null) => {
     setEditingDateId(matchId);
-    setEditDateValue(currentDate ? currentDate.slice(0, 16) : "");
+    setEditDateValue(utcToBogotaInput(currentDate));
   };
 
   if (isLoading) {
@@ -157,8 +178,37 @@ export default function AdminMatches() {
         Gestión de Partidos
       </h1>
 
+      {/* Filters */}
+      <div className="flex gap-3 flex-wrap">
+        <Select value={filterDivision} onValueChange={setFilterDivision}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="División" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las divisiones</SelectItem>
+            {divisions.map((d: any) => (
+              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            {Object.entries(statusLabels).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground self-center">
+          {filteredMatches.length} partidos
+        </span>
+      </div>
+
       <div className="space-y-3">
-        {matches?.map((match: any) => {
+        {filteredMatches.map((match: any) => {
           const home = match.match_teams?.find((mt: any) => mt.side === "home");
           const away = match.match_teams?.find((mt: any) => mt.side === "away");
           const isLocked = match.status === "locked";
@@ -171,18 +221,15 @@ export default function AdminMatches() {
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="secondary" className="text-xs">{match.categories?.name}</Badge>
-                      <Badge variant="outline" className="text-xs">{match.categories?.divisions?.name}</Badge>
-                      <Badge
-                        variant={
-                          match.status === "locked" ? "destructive" :
-                          match.status === "closed" ? "outline" :
-                          match.status === "in_progress" ? "default" : "secondary"
-                        }
-                        className="text-xs"
-                      >
+                      <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-0.5 rounded">{match.categories?.name}</span>
+                      <span className="text-xs border px-2 py-0.5 rounded">{match.categories?.divisions?.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        match.status === "locked" ? "bg-destructive text-destructive-foreground" :
+                        match.status === "closed" ? "border" :
+                        match.status === "in_progress" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                      }`}>
                         {statusLabels[match.status]}
-                      </Badge>
+                      </span>
                       {isLocked && <Lock className="h-4 w-4 text-destructive" />}
                     </div>
                     <p className="font-semibold">
@@ -200,17 +247,16 @@ export default function AdminMatches() {
                         />
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
+                          className="h-8 gap-1"
                           onClick={() =>
                             updateDateMutation.mutate({
                               matchId: match.id,
-                              date: editDateValue ? new Date(editDateValue).toISOString() : "",
+                              date: editDateValue,
                             })
                           }
                           disabled={updateDateMutation.isPending}
                         >
-                          <Save className="h-4 w-4 text-primary" />
+                          <Save className="h-4 w-4" /> OK
                         </Button>
                         <Button
                           size="sm"
@@ -224,7 +270,7 @@ export default function AdminMatches() {
                     ) : (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         {match.match_date ? (
-                          <span>{format(new Date(match.match_date), "d MMM yyyy, h:mm a", { locale: es })}</span>
+                          <span>{formatBogota(match.match_date, "d MMM yyyy, h:mm a")} (Bogotá)</span>
                         ) : (
                           <span className="italic">Sin fecha asignada</span>
                         )}

@@ -1,0 +1,104 @@
+===============================================
+MANUAL DE OPERACIÓN — FEDEPATIN HOCKEY EN LÍNEA
+===============================================
+
+1. ACCESO AL PANEL ADMINISTRATIVO
+-----------------------------------
+- Navegar a: /admin
+- Si no tiene sesión, será redirigido a /login
+- Credenciales: admin@torneo.com / Admin2025!
+- Una vez autenticado, verá el panel con la barra de navegación administrativa
+
+2. GESTIÓN DE PARTIDOS
+-----------------------
+- Ir a: Admin > Partidos
+- Se muestra la lista completa de partidos con filtros por División y Estado
+- Cada partido muestra: categoría, división, equipos, marcador, estado y fecha
+
+3. CAMBIAR HORARIO DE UN PARTIDO
+----------------------------------
+a) Buscar el partido en la lista (usar filtros si necesario)
+b) Hacer clic en el ícono de lápiz (✏) junto a la fecha
+c) Se abrirá un campo de fecha y hora
+d) Seleccionar la nueva fecha y hora (en hora de Bogotá)
+e) Hacer clic en el botón "OK" para confirmar
+f) El cambio se guarda inmediatamente y se refleja en toda la app
+
+4. INICIAR UN PARTIDO
+-----------------------
+a) El partido debe estar en estado "Programado"
+b) Hacer clic en el botón "Iniciar"
+c) El estado cambiará a "En juego"
+d) Ahora se pueden registrar goles y sanciones
+
+5. CERRAR UN PARTIDO
+----------------------
+a) El partido debe estar en estado "En juego"
+b) Hacer clic en el botón "Cerrar"
+c) El sistema verificará que los goles registrados coincidan con el marcador
+d) Si hay discrepancia, mostrará un error indicando la diferencia
+e) Si es correcto, confirmar el cierre
+f) El estado cambiará a "Finalizado"
+
+6. BLOQUEAR UN PARTIDO
+------------------------
+a) El partido debe estar en estado "Finalizado"
+b) Hacer clic en el botón "Bloquear"
+c) Confirmar la acción
+d) El partido quedará en estado "Bloqueado" y no podrá editarse más
+
+7. REGISTRAR GOLES
+--------------------
+a) Navegar al detalle del partido desde la programación pública
+b) Los goles se registran mediante la interfaz del partido
+c) Seleccionar el equipo, jugador, periodo y tiempo de juego
+d) El gol se guarda automáticamente en la base de datos
+e) El marcador se actualiza en tiempo real
+
+8. REGISTRAR SANCIONES
+------------------------
+a) Navegar al detalle del partido
+b) Las sanciones se registran indicando: equipo, jugador, código, descripción, minutos, periodo
+c) Los datos se reflejan inmediatamente en la tabla de fair play
+
+9. ZONA HORARIA
+-----------------
+- TODAS las fechas se muestran en hora de Bogotá (UTC-5)
+- Al ingresar una fecha, hacerlo en hora de Bogotá
+- El sistema convierte automáticamente a UTC para almacenamiento
+- La visualización siempre muestra hora de Bogotá
+
+10. ACTUALIZAR LOGOS
+---------------------
+- Los logos se encuentran en: public/logos/
+- copa-futuras-estrellas.png
+- copa-nacional.png
+- fedepatin-logo.png
+- Para cambiar un logo: reemplazar el archivo manteniendo el mismo nombre
+- Los logos de las divisiones se configuran en la base de datos (campo logo_url)
+
+11. ESTRUCTURA DE NAVEGACIÓN PÚBLICA
+--------------------------------------
+- Inicio: /
+- Equipos: /teams
+- Programación: /schedule
+- Posiciones: /standings
+- Estadísticas: /stats
+- Fair Play: /fair-play
+- Detalle de partido: /match/:id
+
+12. ESTRUCTURA DE NAVEGACIÓN ADMIN
+-------------------------------------
+- Dashboard: /admin
+- Partidos: /admin/matches
+
+13. SOLUCIÓN DE PROBLEMAS
+---------------------------
+- Si la página no carga: verificar conexión a internet y recargar
+- Si no puede iniciar sesión: verificar credenciales
+- Si un partido no permite edición: verificar que no esté bloqueado
+- Si los goles no coinciden al cerrar: registrar los goles faltantes
+
+===============================================
+FIN DEL MANUAL
+===============================================
