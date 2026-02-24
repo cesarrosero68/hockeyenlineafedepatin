@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { publicClient } from "@/integrations/supabase/public-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +9,7 @@ export default function Standings() {
   const { data: divisions = [] } = useQuery({
     queryKey: ["divisions"],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
+      const { data } = await publicClient.from("divisions").select("id, name");
       return data ?? [];
     },
   });
@@ -17,7 +17,7 @@ export default function Standings() {
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      const { data } = await publicClient.from("categories").select("id, name, division_id").order("sort_order");
       return data ?? [];
     },
   });
@@ -25,7 +25,7 @@ export default function Standings() {
   const { data: standings = [], isLoading } = useQuery({
     queryKey: ["standings"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("standings_aggregate")
         .select("*, teams!inner(name)")
         .order("points", { ascending: false })
@@ -51,7 +51,7 @@ export default function Standings() {
         Tabla de Posiciones
       </h1>
 
-      <Tabs defaultValue={defaultTab}>
+      <Tabs defaultValue={defaultTab} key={defaultTab}>
         <TabsList className="flex-wrap h-auto gap-1">
           {divisions.map((d: any) => (
             <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">{d.name}</TabsTrigger>
