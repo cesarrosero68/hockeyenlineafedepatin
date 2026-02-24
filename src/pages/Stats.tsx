@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { publicClient } from "@/integrations/supabase/public-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,7 +23,7 @@ export default function Stats() {
   const { data: stats = [], isLoading } = useQuery({
     queryKey: ["player-stats"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("player_stats_view")
         .select("player_id, goles, asistencias, puntos")
         .order("puntos", { ascending: false })
@@ -38,7 +38,7 @@ export default function Stats() {
     queryKey: ["stat-players", playerIds],
     queryFn: async () => {
       if (playerIds.length === 0) return [];
-      const { data } = await supabase
+      const { data } = await publicClient
         .from("players_public")
         .select("id, first_name, last_name, jersey_number")
         .in("id", playerIds);
@@ -73,7 +73,7 @@ export default function Stats() {
         </Badge>
       )}
 
-      <Tabs defaultValue="points">
+      <Tabs defaultValue="points" key={hasRealData ? "real" : "placeholder"}>
         <TabsList>
           <TabsTrigger value="points" className="flex items-center gap-1">
             <Star className="h-4 w-4" /> Puntos
