@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Lock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
@@ -23,6 +24,8 @@ const statusLabels: Record<string, string> = {
 
 export default function AdminMatches() {
   const queryClient = useQueryClient();
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [editDateValue, setEditDateValue] = useState("");
 
   const { data: matches, isLoading } = useQuery({
     queryKey: ["admin-matches"],
@@ -40,9 +43,26 @@ export default function AdminMatches() {
     },
   });
 
+  const updateDateMutation = useMutation({
+    mutationFn: async ({ matchId, date }: { matchId: string; date: string }) => {
+      const { error } = await supabase
+        .from("matches")
+        .update({ match_date: date || null })
+        .eq("id", matchId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
+      setEditingDateId(null);
+      toast({ title: "Fecha actualizada" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error al actualizar fecha", description: err.message, variant: "destructive" });
+    },
+  });
+
   const closeMatchMutation = useMutation({
     mutationFn: async (matchId: string) => {
-      // Validate goals match score
       const match = matches?.find((m: any) => m.id === matchId);
       if (!match) throw new Error("Partido no encontrado");
 
@@ -117,6 +137,11 @@ export default function AdminMatches() {
     },
   });
 
+  const startEditingDate = (matchId: string, currentDate: string | null) => {
+    setEditingDateId(matchId);
+    setEditDateValue(currentDate ? currentDate.slice(0, 16) : "");
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -138,13 +163,14 @@ export default function AdminMatches() {
           const away = match.match_teams?.find((mt: any) => mt.side === "away");
           const isLocked = match.status === "locked";
           const isClosed = match.status === "closed";
+          const isEditingDate = editingDateId === match.id;
 
           return (
             <Card key={match.id} className={isLocked ? "opacity-70" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary" className="text-xs">{match.categories?.name}</Badge>
                       <Badge variant="outline" className="text-xs">{match.categories?.divisions?.name}</Badge>
                       <Badge
@@ -162,10 +188,57 @@ export default function AdminMatches() {
                     <p className="font-semibold">
                       {home?.teams?.name ?? "TBD"} {home?.score_regular ?? 0} - {away?.score_regular ?? 0} {away?.teams?.name ?? "TBD"}
                     </p>
-                    {match.match_date && (
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(match.match_date), "d MMM yyyy, h:mm a", { locale: es })}
-                      </p>
+
+                    {/* Date display / editor */}
+                    {isEditingDate ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          type="datetime-local"
+                          value={editDateValue}
+                          onChange={(e) => setEditDateValue(e.target.value)}
+                          className="w-auto text-xs h-8"
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={() =>
+                            updateDateMutation.mutate({
+                              matchId: match.id,
+                              date: editDateValue ? new Date(editDateValue).toISOString() : "",
+                            })
+                          }
+                          disabled={updateDateMutation.isPending}
+                        >
+                          <Save className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setEditingDateId(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        {match.match_date ? (
+                          <span>{format(new Date(match.match_date), "d MMM yyyy, h:mm a", { locale: es })}</span>
+                        ) : (
+                          <span className="italic">Sin fecha asignada</span>
+                        )}
+                        {!isLocked && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 ml-1"
+                            onClick={() => startEditingDate(match.id, match.match_date)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
 
