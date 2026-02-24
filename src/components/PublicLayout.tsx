@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Trophy, Calendar, BarChart3, Shield, Menu, X } from "lucide-react";
+import { Trophy, Calendar, BarChart3, Shield, Menu, X, Settings } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -48,6 +48,13 @@ export default function PublicLayout() {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to="/admin"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground ml-2"
+            >
+              <Settings className="h-4 w-4" />
+              Admin
+            </Link>
           </nav>
 
           {/* Mobile Toggle */}
@@ -78,6 +85,14 @@ export default function PublicLayout() {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to="/admin"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted border-t mt-1 pt-2"
+            >
+              <Settings className="h-4 w-4" />
+              Admin
+            </Link>
           </div>
         )}
       </header>
