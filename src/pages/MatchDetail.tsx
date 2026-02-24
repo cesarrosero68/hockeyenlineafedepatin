@@ -19,7 +19,7 @@ export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
 
   const { data: match, isLoading } = useQuery({
-    queryKey: ["match", id],
+    queryKey: ["match-detail", id],
     queryFn: async () => {
       const { data, error } = await publicClient
         .from("matches")
