@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin, Target, ShieldAlert, Users } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatBogota } from "@/lib/timezone";
 
 const statusLabels: Record<string, string> = {
   scheduled: "Programado",
@@ -109,7 +108,6 @@ export default function MatchDetail() {
   }
 
   const m = match as any;
-  const matchDate = m.match_date ? new Date(m.match_date) : null;
 
   const getTeamName = (teamId: string) => {
     if (homeTeam?.teams?.id === teamId) return homeTeam.teams.name;
@@ -128,15 +126,15 @@ export default function MatchDetail() {
             {statusLabels[m.status] ?? m.status}
           </Badge>
         </div>
-        {matchDate && (
+        {m.match_date && (
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              {format(matchDate, "EEEE d 'de' MMMM yyyy", { locale: es })}
+              {formatBogota(m.match_date, "EEEE d 'de' MMMM yyyy")}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              {format(matchDate, "h:mm a")}
+              {formatBogota(m.match_date, "h:mm a")}
             </span>
             {m.venue && (
               <span className="flex items-center gap-1">
