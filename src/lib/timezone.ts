@@ -30,15 +30,8 @@ export function formatBogota(dateStr: string | null | undefined, pattern: string
  */
 export function bogotaInputToUTC(localValue: string): string {
   if (!localValue) return "";
-  // localValue is like "2026-03-01T10:00" in Bogota time
-  // Bogota is UTC-5, so add 5 hours to get UTC
-  const d = new Date(localValue);
-  d.setHours(d.getHours() + 5 - (d.getTimezoneOffset() / -60));
-  // Simpler: treat the input as Bogota time directly
-  // Parse as-is and add 5 hours offset
-  const bogotaMs = new Date(localValue + ":00").getTime();
-  const utcMs = bogotaMs + 5 * 3600000;
-  return new Date(utcMs).toISOString();
+  // Treat input as Bogota time (UTC-5) by appending offset
+  return new Date(localValue + ":00-05:00").toISOString();
 }
 
 /**
