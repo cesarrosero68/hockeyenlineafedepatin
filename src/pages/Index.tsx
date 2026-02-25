@@ -17,6 +17,7 @@ export default function Index() {
       if (error) throw error;
       return data ?? [];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: categories = [], isError: isErrorCategories } = useQuery({
@@ -26,6 +27,7 @@ export default function Index() {
       if (error) throw error;
       return data ?? [];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   return (
@@ -54,7 +56,7 @@ export default function Index() {
             <CardContent className="py-12 text-center text-muted-foreground">
               <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-destructive" />
               <p>No se pudieron cargar las divisiones.</p>
-              <p className="text-sm mt-1">Recarga la página. Si persiste, reviso la conexión del backend.</p>
+              <p className="text-sm mt-1">Recarga la página. Si persiste, revisa la conexión del backend.</p>
             </CardContent>
           </Card>
         ) : (
