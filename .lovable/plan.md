@@ -1,181 +1,117 @@
 
-# 🏒 Sistema Completo de Gestión — Torneo de Hockey en Línea
 
-## Resumen Ejecutivo
+# Plan: Admin Modules Completos + Flujo de Partido en Vivo
 
-Aplicación web full-stack para gestionar dos divisiones de hockey en línea con panel administrativo completo, dashboard público optimizado, motor de estadísticas basado en eventos y arquitectura escalable lista para producción.
+## Diagnostico
 
----
-
-## Fase 1 — Modelo de Datos y Base de Datos (Lovable Cloud)
-
-Crear todas las tablas normalizadas con integridad referencial estricta:
-
-- **divisions** — Copa Futuras Estrellas / Copa Nacional Hockey en Línea con logos precargados
-- **categories** — Sub-8, Sub-10, Sub-12, Sub-14, Sub-16 Mixto, Juvenil con configuración de formato (rondas RR + tipo playoff)
-- **clubs** — con campo logo_url editable
-- **teams** — con logo_url, vinculado a club y categoría
-- **players** — datos personales + número de dorsal
-- **rosters** — relación jugador ↔ equipo por temporada
-- **matches** — incluyendo fase (regular/playoff), estado (programado/en curso/cerrado/bloqueado), marcador tiempo regular separado del resultado final, campo OT/SO flag
-- **match_teams** — relación equipo ↔ partido con marcador individual
-- **goal_events** — goles con scorer, asistente, período, tiempo mm:ss, flag si fue en OT/SO
-- **penalties** — código oficial, minutos, período, tiempo, jugador
-- **standings_aggregate** — tabla snapshot materializada: PJ, W, E, L, GF, GC, DG, Pts
-- **player_stats_aggregate** — G, A, Pts por jugador/categoría
-- **fair_play_aggregate** — minutos de penalización por equipo/categoría/club
-- **brackets** — estructura de playoffs con placement, cruces y resultados
-- **user_roles** — tabla separada de roles (admin / editor) sin mezclar con perfiles
-- **audit_logs** — trazabilidad completa de cambios
+### Problema raiz
+1. **Divisiones, Clubes, Equipos, Jugadores, Auditoria**: No existen los archivos de pagina ni las rutas en `App.tsx`. Solo hay `AdminHome.tsx` y `AdminMatches.tsx` en `src/pages/admin/`. El `AdminDashboard.tsx` tiene los links en la nav pero al hacer click se muestra 404.
+2. **Hora de Bogota en partidos**: La funcion `bogotaInputToUTC` en `src/lib/timezone.ts` tiene un bug de doble conversion (lineas 35-41). Calcula el offset dos veces.
+3. **Iniciar partido**: Actualmente el boton "Iniciar" solo cambia el status a `in_progress`. No abre ningun menu para registrar goles ni sanciones.
+4. **RLS restrictivas**: Todas las policies publicas siguen marcadas como `RESTRICTIVE` (no `PERMISSIVE`), lo que puede bloquear lecturas. Se necesita una migracion para corregirlas.
 
 ---
 
-## Fase 2 — Motor de Reglas y Lógica de Negocio
+## Archivos nuevos a crear (6)
 
-### Sistema de Puntos
-- Victoria = 3 pts / Empate = 1 pt / Derrota = 0 pts / Forfeit = −3 pts
-- Calculado automáticamente desde eventos, nunca ingresado manual
+### 1. `src/pages/admin/AdminDivisions.tsx`
+- CRUD de divisiones: tabla con nombre, logo_url
+- Formulario inline para crear/editar division
+- Consulta `supabase.from("divisions").select("*")`
+- Mutaciones INSERT/UPDATE/DELETE
 
-### Algoritmo de Desempates Automático
-Implementación del algoritmo oficial en cascada:
-1. Mayor puntos acumulados
-2. Resultado del partido directo entre empatados
-3. Diferencia de goles en partidos directos
-4. Menos goles en contra (general)
-5. Más goles a favor (general)
-- Para 3+ empatados: subgrupo recursivo aplicando mismos criterios
+### 2. `src/pages/admin/AdminClubs.tsx`
+- CRUD de clubes: tabla con nombre, logo_url
+- Formulario inline para crear/editar club
+- Consulta `supabase.from("clubs").select("*")`
 
-### Manejo de OT y Penales
-- Resultado tiempo regular siempre preservado en DB
-- Marcador público muestra tiempo regular + etiqueta "Gana X en OT" o "Gana X en Penales (SO)"
-- Gol de OT no se suma al marcador oficial
-- Fase regular: empates permitidos, sin OT
-- Playoffs: OT muerte súbita → penales 3 tiradores → muerte súbita
+### 3. `src/pages/admin/AdminTeams.tsx`
+- CRUD de equipos: nombre, club_id (dropdown de clubs), category_id (dropdown de categorias), logo_url
+- Consultas con joins a clubs y categories
+- Formulario con selects para club y categoria
 
-### Recálculo Automático al Cerrar Partido
-Al cambiar estado a "cerrado", trigger automático que refresca:
-- standings_aggregate de la categoría
-- player_stats_aggregate de los jugadores participantes
-- fair_play_aggregate de los equipos
-- Posiciones de bracket si aplica
+### 4. `src/pages/admin/AdminPlayers.tsx`
+- CRUD de jugadores: first_name, last_name, jersey_number, date_of_birth
+- Gestion de rosters: asignar jugador a equipo con posicion y numero
+- Consulta `supabase.from("players")` y `supabase.from("rosters")`
 
----
+### 5. `src/pages/admin/AdminAudit.tsx`
+- Vista de solo lectura de `audit_logs`
+- Tabla con columnas: fecha, usuario, tabla, accion, datos anteriores/nuevos
+- Filtros por tabla y accion
 
-## Fase 3 — Panel Administrativo
+### 6. `src/pages/admin/MatchLivePanel.tsx`
+- Panel que se abre al hacer click en "Iniciar" un partido (o al abrir un partido `in_progress`)
+- Dos secciones con tabs: **Goles** y **Sanciones**
 
-### Autenticación y Roles
-- Login seguro con Lovable Cloud Auth
-- Rol **Admin**: acceso total incluyendo desbloquear partidos, gestionar usuarios, editar calendario
-- Rol **Editor**: carga de partidos, eventos de gol y penalizaciones
+**Seccion Goles:**
+- Dropdown equipo (local/visitante)
+- Dropdown jugador goleador (filtrado por roster del equipo seleccionado)
+- Dropdown jugador asistencia (mismo roster + opcion "N/A")
+- Input tiempo de juego mm:ss
+- Dropdown periodo: 1T / 2T / OT
+- Boton agregar gol → INSERT en `goal_events`
+- Lista de goles registrados con opcion de eliminar
 
-### Flujo Obligatorio de Carga de Partido
-1. **Programar** — fecha, hora (UTC-5 Bogotá almacenado UTC), sede, equipos
-2. **Registrar marcador** — tiempo regular de cada equipo
-3. **Ingresar GoalEvents** — goleador, asistente, período, tiempo, tipo (regular/OT/SO)
-4. **Registrar Penalizaciones** — lista desplegable con 33 códigos oficiales (sigla + descripción completa visible)
-5. **Validar consistencia** — botón que verifica suma de eventos = marcador; bloquea cierre si hay error
-6. **Cerrar partido** — dispara recálculo automático
-7. **Bloquear** (opcional) — solo Admin puede modificar después
-
-### Gestión Completa
-- CRUD de divisiones, categorías, clubes, equipos, jugadores, roster
-- Editor de calendario con drag-and-drop o formulario
-- Edición de logos desde interfaz (campo logo_url)
-- AuditLog visible para Admin: quién modificó qué y cuándo
-- Herramienta para generación automática del calendario round-robin base
+**Seccion Sanciones:**
+- Dropdown equipo
+- Dropdown jugador (roster del equipo)
+- Dropdown tipo sancion (33 codigos exactos):
+  BC: BODY CHECKING, BDG: BOARDING, BE: BUTT ENDING, BP: BENCH PENALTY, BS: BROKEN STICK, CC: CROSS CHECKING, CFB: CC FROM BEHIND, CH: CHARGING, DG: DELAY OF GAME, ELB: ELBOWING, FI: FIGHTING, FOP: FALLING ON PUCK, FOV: FACE OFF VIOL., GE: GAME EJECTION, GM: GAME MISSCONDUCT, HKG: HOOKING, HO: HOLDING, HP: HAND PASS, HS: HIGH STICK, IE: ILLEGAL EQUIPMENT, INT: INTERFERENCE, INTG: INT. OF GOALTENDER, KNE: KNEEING, MP: MATCH PENALTY, MSC: MISSCONDUCT, OA: OFFICIAL ABUSE, PS: PENALTY SHOOT, RO: ROUGHING, SL: SLASHING, SP: SPEARING, TMM: TOO MANY MEN, TR: TRIPPING, USC: UNSPORTSMANLIKE
+- Dropdown tiempo sancion predeterminado: 1:30, 4:00, 10:00 + opcion "Manual" con input
+- Dropdown periodo: 1T / 2T / OT
+- Boton agregar sancion → INSERT en `penalties`
+- Lista de sanciones registradas con opcion de eliminar
 
 ---
 
-## Fase 4 — Dashboard Público
+## Archivos a modificar (3)
 
-### Home
-- Próximos partidos (máx. 5) y últimos resultados (máx. 5) con marcadores correctos
-- Tabla de posiciones resumida por división
-- Top 10 goleadores / asistentes / puntos (calculados desde events, nunca manuales)
-- Logos de divisiones precargados
+### 7. `src/App.tsx`
+- Agregar lazy imports para los 6 nuevos componentes
+- Agregar rutas hijas dentro de `<Route path="/admin">`:
+  - `divisions` → AdminDivisions
+  - `clubs` → AdminClubs
+  - `teams` → AdminTeams
+  - `players` → AdminPlayers
+  - `matches` → AdminMatches (ya existe)
+  - `audit` → AdminAudit
 
-### Programación y Resultados
-- Vista de calendario con filtros: división, categoría, equipo, fecha, fase (regular/playoff)
-- Marcador con etiqueta OT/SO cuando aplica
+### 8. `src/lib/timezone.ts`
+- Corregir `bogotaInputToUTC`: eliminar la logica duplicada. El input datetime-local debe tratarse como hora Bogota (UTC-5), simplemente concatenar `"-05:00"` al string y crear Date.
 
-### Tabla de Posiciones
-- Por categoría con todas las métricas: PJ, W, E, L, GF, GC, DG, Pts
-- Criterios de desempate explicados en tooltip/modal
-
-### Página de Partido
-- Marcador oficial (tiempo regular) con etiqueta clara de OT o SO
-- Timeline de goles con período, tiempo, goleador, asistente
-- Marcador de penales opcional
-- Lista de penalizaciones del partido
-
-### Página de Equipo
-- Roster completo con dorsales
-- Resultados (W/E/L) y próximos partidos
-- Estadísticas de equipo
-
-### Página de Jugador
-- Goles, asistencias, puntos por categoría
-- Minutos de penalización
-- Historial de partidos jugados
-
-### Bracket de Playoffs
-- Visualización interactiva con cruces actualizados en tiempo real
-- Placement completo (1°, 2°, 3°, 4°...) según resultados
-
-### Fair Play
-- Tabla por división / categoría / equipo: ranking por MENOS minutos de penalización
-- Ranking club global con fórmula de promedio ponderado explicada en UI
+### 9. `src/pages/admin/AdminMatches.tsx`
+- Cambiar el boton "Iniciar" para que ademas de cambiar status, abra/navegue al `MatchLivePanel`
+- Para partidos `in_progress`, mostrar un boton "Gestionar" que abre el panel de eventos en vivo
+- El marcador (score_regular) se actualizara automaticamente al contar goles registrados
 
 ---
 
-## Fase 5 — Carga de Datos Iniciales
+## Migracion de base de datos
 
-- Ingesta de los datos proporcionados (equipos, clubes, jugadores ya conocidos)
-- Generación del calendario base con round-robin correcto por número de rondas configuradas por categoría:
-  - Sub-8: 3 rondas / Sub-10: 2 rondas / Sub-12: 3 rondas
-  - Sub-14: 2 rondas / Sub-16: 1 ronda / Juvenil: 2 rondas
-- Estructura de playoffs vacía lista para enlazarse con resultados de fase regular
+### Migracion: Corregir RLS policies a PERMISSIVE
+Todas las policies `Public read X` y `Admin manage X` estan como RESTRICTIVE. Se necesita recrearlas como PERMISSIVE para que funcionen correctamente. Esto afecta todas las tablas: divisions, categories, clubs, teams, matches, match_teams, goal_events, penalties, standings_aggregate, fair_play_aggregate, brackets, playoff_bracket, playoff_slots, rosters, match_import, audit_logs, user_roles.
 
 ---
 
-## Fase 6 — Optimización y Performance
+## Detalles tecnicos
 
-- Las tablas _aggregate actúan como materialized views: el dashboard público NUNCA recalcula en cada request
-- Caché de standings por categoría actualizado solo al cerrar partidos
-- Queries indexados en match_id, team_id, player_id, category_id
+### Estructura de datos para el panel en vivo
+- Rosters se consultan via: `supabase.from("rosters").select("id, jersey_number, position, team_id, player:players!rosters_player_id_fkey(id, first_name, last_name)").in("team_id", [homeTeamId, awayTeamId])`
+- Nota: `players` tiene RLS restrictiva para admin/editor, lo cual esta bien ya que el panel solo lo usan admins autenticados
+- Al agregar un gol se hace INSERT en `goal_events` y UPDATE del `score_regular` en `match_teams`
+- Al agregar una sancion se hace INSERT en `penalties` con `penalty_minutes` convertido de string "1:30" → entero minutos (se guardara como el valor en minutos enteros mas cercano o como texto segun la columna, que es integer, asi que 1:30 = 2 min, 4:00 = 4 min, 10:00 = 10 min)
 
----
+### Correccion timezone
+```typescript
+export function bogotaInputToUTC(localValue: string): string {
+  if (!localValue) return "";
+  return new Date(localValue + ":00-05:00").toISOString();
+}
+```
 
-## Integraciones (Fase 2 — Post-lanzamiento)
+### Flujo de "Iniciar partido"
+1. Click "Iniciar" → cambia status a `in_progress` → navega a `/admin/matches?live=MATCH_ID` o abre dialog
+2. El MatchLivePanel se muestra como un Dialog grande (Sheet) con toda la interfaz de registro
+3. Al cerrar el panel, se vuelve a la lista de partidos
 
-- Webhook POST automático a n8n al cerrar/bloquear partido con payload JSON completo
-- Mirror a Google Sheets via n8n workflow
-- Zona horaria: almacenamiento UTC, visualización UTC-5 Bogotá en toda la UI
-
----
-
-## Entregables Incluidos
-
-- ✅ Aplicación completa funcional en Lovable Cloud
-- ✅ Panel admin con roles seguros y audit log
-- ✅ Dashboard público optimizado sin recálculo en tiempo real
-- ✅ Motor de desempates automático
-- ✅ 33 códigos de penalización oficiales implementados
-- ✅ Visualización correcta de OT/SO sin alterar marcador
-- ✅ Bracket interactivo de playoffs
-- ✅ Tabla de Fair Play con fórmula visible
-- ✅ Guía de uso integrada en el admin (cómo cargar partido, cerrar, editar logos, editar calendario)
-
----
-
-## Implementación por Etapas
-
-Dado que el torneo **ya comenzó**, la implementación priorizará:
-
-1. **Base de datos completa** con todas las tablas y relaciones
-2. **Panel admin funcional** para empezar a cargar datos históricos inmediatamente
-3. **Dashboard público** con toda la visualización
-4. **Motor de estadísticas** y desempates
-5. **Carga de datos iniciales** con los equipos/jugadores que proporcionarás
-
-**Nota importante**: Por la magnitud del sistema (15+ tablas, múltiples servicios, lógica de negocio compleja, dos vistas separadas), lo construiremos en etapas iterativas. La primera implementación establecerá la arquitectura base, la autenticación, el modelo de datos completo y las vistas principales. Las funciones avanzadas se irán agregando en iteraciones siguientes para garantizar calidad y consistencia.
