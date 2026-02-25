@@ -26,6 +26,7 @@ const AdminClubs = lazy(() => import("./pages/admin/AdminClubs"));
 const AdminTeams = lazy(() => import("./pages/admin/AdminTeams"));
 const AdminPlayers = lazy(() => import("./pages/admin/AdminPlayers"));
 const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
+const AdminUpload = lazy(() => import("./pages/admin/AdminUpload"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ const App = () => (
                     <Route path="teams" element={<AdminTeams />} />
                     <Route path="players" element={<AdminPlayers />} />
                     <Route path="audit" element={<AdminAudit />} />
+                    <Route path="upload" element={<AdminUpload />} />
                   </Route>
                 </Route>
 

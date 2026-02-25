@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Trophy, Calendar, FileText,
-  Shield, LogOut, ChevronRight
+  Shield, LogOut, ChevronRight, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
@@ -17,6 +17,7 @@ const adminNavItems = [
   { to: "/admin/players", label: "Jugadores", icon: Users },
   { to: "/admin/matches", label: "Partidos", icon: Calendar },
   { to: "/admin/audit", label: "Auditoría", icon: FileText },
+  { to: "/admin/upload", label: "Cargue CSV", icon: Upload },
 ];
 
 export default function AdminDashboard() {

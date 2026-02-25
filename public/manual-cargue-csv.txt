@@ -1,0 +1,159 @@
+===============================================
+MANUAL DE CARGUE MASIVO — CSV
+FEDEPATIN HOCKEY EN LÍNEA
+===============================================
+
+Este manual explica cómo preparar los archivos CSV
+para cargar programación de partidos y jugadores/roster
+desde el panel de administración > Cargue Masivo.
+
+===============================================
+1. CARGUE DE PROGRAMACIÓN DE PARTIDOS
+===============================================
+
+FORMATO DEL ARCHIVO:
+- Extensión: .csv
+- Separador: coma (,) o punto y coma (;)
+- Codificación: UTF-8 (para tildes y caracteres especiales)
+
+COLUMNAS OBLIGATORIAS (primera fila = encabezado):
+  division, categoria, equipo_local, equipo_visitante, fecha, fase, ronda
+
+DESCRIPCIÓN DE COLUMNAS:
+  - division: Nombre exacto de la división tal como aparece en el sistema.
+              Ejemplo: "Copa Nacional", "Copa Futuras Estrellas"
+  
+  - categoria: Nombre exacto de la categoría dentro de la división.
+               Ejemplo: "Sub-10", "Sub-12", "Sub-14", "Juvenil", "Sub-16 Mixto"
+  
+  - equipo_local: Nombre exacto del equipo local registrado en esa categoría.
+  
+  - equipo_visitante: Nombre exacto del equipo visitante registrado en esa categoría.
+  
+  - fecha: Fecha y hora del partido en hora de Bogotá (UTC-5).
+           Formatos aceptados:
+             YYYY-MM-DD           → se asume 00:00 hora Bogotá
+             YYYY-MM-DDTHH:mm     → hora exacta en Bogotá
+           Ejemplo: 2025-07-15T10:30
+           Si se deja vacío, el partido queda sin fecha asignada.
+  
+  - fase: Fase del partido. Valores permitidos:
+          regular, playoff, final, third_place, ranking
+          Si se deja vacío, se asume "regular".
+  
+  - ronda: Número de ronda (entero). Dejar vacío si no aplica.
+
+EJEMPLO:
+  division,categoria,equipo_local,equipo_visitante,fecha,fase,ronda
+  Copa Nacional,Sub-12,Club Bogotá,Club Medellín,2025-07-15T09:00,regular,1
+  Copa Nacional,Sub-12,Club Cali,Club Barranquilla,2025-07-15T11:00,regular,1
+  Copa Nacional,Sub-14,Club Bogotá,Club Cali,2025-07-16T08:00,regular,1
+
+NOTAS IMPORTANTES:
+  - Las divisiones, categorías y equipos DEBEN existir previamente en el sistema.
+  - Los nombres deben coincidir exactamente (no distingue mayúsculas/minúsculas).
+  - Antes de confirmar el cargue, se mostrará una vista previa de los datos.
+  - Si hay errores en alguna fila, se indicará el número de fila y el problema.
+
+===============================================
+2. CARGUE DE JUGADORES Y ROSTER
+===============================================
+
+FORMATO DEL ARCHIVO:
+- Extensión: .csv
+- Separador: coma (,) o punto y coma (;)
+- Codificación: UTF-8
+
+COLUMNAS OBLIGATORIAS (primera fila = encabezado):
+  nombre, apellido, dorsal, equipo, categoria, division
+
+COLUMNAS OPCIONALES:
+  posicion, fecha_nacimiento
+
+DESCRIPCIÓN DE COLUMNAS:
+  - nombre: Primer nombre del jugador. Ejemplo: "Juan"
+  
+  - apellido: Apellido del jugador. Ejemplo: "Pérez"
+  
+  - dorsal: Número de camiseta (entero). Ejemplo: 10
+            Si no tiene, dejar vacío.
+  
+  - equipo: Nombre exacto del equipo al que pertenece, tal como está
+            registrado en el sistema dentro de la categoría indicada.
+  
+  - categoria: Nombre exacto de la categoría. Ejemplo: "Sub-12"
+  
+  - division: Nombre exacto de la división. Ejemplo: "Copa Nacional"
+  
+  - posicion: (Opcional) Posición del jugador en el equipo.
+              Ejemplo: "Portero", "Defensa", "Delantero"
+  
+  - fecha_nacimiento: (Opcional) Fecha de nacimiento en formato YYYY-MM-DD.
+                      Ejemplo: 2013-05-20
+
+EJEMPLO:
+  nombre,apellido,dorsal,equipo,categoria,division,posicion,fecha_nacimiento
+  Juan,Pérez,10,Club Bogotá,Sub-12,Copa Nacional,Delantero,2013-05-20
+  María,López,1,Club Bogotá,Sub-12,Copa Nacional,Portero,2013-08-15
+  Carlos,Gómez,7,Club Medellín,Sub-12,Copa Nacional,,2013-01-10
+  Ana,Rodríguez,5,Club Cali,Sub-14,Copa Nacional,Defensa,
+
+NOTAS IMPORTANTES:
+  - Los equipos, categorías y divisiones DEBEN existir previamente en el sistema.
+  - Cada fila crea un nuevo jugador y lo asigna al roster del equipo indicado.
+  - Si un jugador ya existe con el mismo nombre, se creará un registro duplicado.
+    Verifique que no haya duplicados antes de cargar.
+  - El dorsal en el roster puede ser diferente al dorsal global del jugador;
+    el sistema usa el dorsal del CSV para ambos campos.
+  - La temporada se asigna automáticamente como "2025".
+  - Antes de confirmar el cargue, se mostrará una vista previa.
+
+===============================================
+3. PROCESO DE CARGUE PASO A PASO
+===============================================
+
+1. Ir al panel de administración: /admin/upload
+2. Seleccionar la pestaña correspondiente:
+   - "Programación" para partidos
+   - "Jugadores / Roster" para jugadores
+3. Hacer clic en "Seleccionar archivo CSV"
+4. Seleccionar el archivo .csv desde su computador
+5. El sistema validará las columnas del encabezado
+6. Si el encabezado es correcto, se mostrará una VISTA PREVIA
+   con los datos que se van a cargar (hasta 50 filas)
+7. Revisar que los datos sean correctos
+8. Hacer clic en "Confirmar cargue"
+9. El sistema validará cada fila contra la base de datos:
+   - Verificará que las divisiones, categorías y equipos existan
+   - Indicará errores específicos por número de fila
+10. Si todo es correcto, los registros se insertarán
+11. Se mostrará un mensaje de confirmación
+
+===============================================
+4. SOLUCIÓN DE PROBLEMAS
+===============================================
+
+ERROR: "Columnas faltantes: ..."
+  → Verifique que la primera fila del CSV contenga exactamente
+    los nombres de columna indicados en este manual.
+
+ERROR: "División X no encontrada"
+  → El nombre de la división debe coincidir exactamente con el
+    registrado en Admin > Divisiones.
+
+ERROR: "Equipo X no encontrado en categoría Y"
+  → El equipo debe estar registrado en la categoría indicada.
+    Verifique en Admin > Equipos.
+
+ERROR: "Fecha inválida"
+  → Use el formato YYYY-MM-DD o YYYY-MM-DDTHH:mm.
+    Ejemplo correcto: 2025-07-15T10:30
+
+El archivo no se procesa:
+  → Verifique que la extensión sea .csv
+  → Verifique que el separador sea coma (,) o punto y coma (;)
+  → Guarde el archivo en codificación UTF-8
+
+===============================================
+FIN DEL MANUAL DE CARGUE
+===============================================
