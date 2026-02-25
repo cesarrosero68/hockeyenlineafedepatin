@@ -21,6 +21,11 @@ const Login = lazy(() => import("./pages/Login"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminHome = lazy(() => import("./pages/admin/AdminHome"));
 const AdminMatches = lazy(() => import("./pages/admin/AdminMatches"));
+const AdminDivisions = lazy(() => import("./pages/admin/AdminDivisions"));
+const AdminClubs = lazy(() => import("./pages/admin/AdminClubs"));
+const AdminTeams = lazy(() => import("./pages/admin/AdminTeams"));
+const AdminPlayers = lazy(() => import("./pages/admin/AdminPlayers"));
+const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -62,6 +67,11 @@ const App = () => (
                   <Route path="/admin" element={<AdminDashboard />}>
                     <Route index element={<AdminHome />} />
                     <Route path="matches" element={<AdminMatches />} />
+                    <Route path="divisions" element={<AdminDivisions />} />
+                    <Route path="clubs" element={<AdminClubs />} />
+                    <Route path="teams" element={<AdminTeams />} />
+                    <Route path="players" element={<AdminPlayers />} />
+                    <Route path="audit" element={<AdminAudit />} />
                   </Route>
                 </Route>
 

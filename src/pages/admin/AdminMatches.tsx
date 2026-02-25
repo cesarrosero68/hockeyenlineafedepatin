@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X } from "lucide-react";
+import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play } from "lucide-react";
 import { formatBogota, utcToBogotaInput, bogotaInputToUTC } from "@/lib/timezone";
 import { toast } from "@/hooks/use-toast";
+import MatchLivePanel from "./MatchLivePanel";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -28,6 +29,7 @@ export default function AdminMatches() {
   const [editDateValue, setEditDateValue] = useState("");
   const [filterDivision, setFilterDivision] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [liveMatchId, setLiveMatchId] = useState<string | null>(null);
 
   const { data: divisions = [] } = useQuery({
     queryKey: ["admin-divisions"],
@@ -290,8 +292,17 @@ export default function AdminMatches() {
 
                   <div className="flex gap-2 flex-wrap">
                     {match.status === "scheduled" && (
-                      <Button size="sm" onClick={() => startMatchMutation.mutate(match.id)}>
-                        Iniciar
+                      <Button size="sm" className="gap-1" onClick={() => {
+                        startMatchMutation.mutate(match.id);
+                        setLiveMatchId(match.id);
+                      }}>
+                        <Play className="h-4 w-4" /> Iniciar
+                      </Button>
+                    )}
+
+                    {match.status === "in_progress" && (
+                      <Button size="sm" variant="secondary" className="gap-1" onClick={() => setLiveMatchId(match.id)}>
+                        <Play className="h-4 w-4" /> Gestionar
                       </Button>
                     )}
 
@@ -353,6 +364,13 @@ export default function AdminMatches() {
           );
         })}
       </div>
+
+      <MatchLivePanel
+        matchId={liveMatchId}
+        matchData={matches?.find((m: any) => m.id === liveMatchId)}
+        open={!!liveMatchId}
+        onOpenChange={(open) => { if (!open) setLiveMatchId(null); }}
+      />
     </div>
   );
 }
