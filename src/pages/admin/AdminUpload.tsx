@@ -368,6 +368,24 @@ function RosterUpload() {
         const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
         if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}"`); continue; }
 
+        // --- Anti-duplicate check: look for existing player already in this team's roster ---
+        const { data: existingRosters } = await supabase
+          .from("rosters")
+          .select("id, player_id, players_public!inner(first_name, last_name)")
+          .eq("team_id", team.id)
+          .eq("season", "2026");
+
+        const alreadyExists = existingRosters?.some((r: any) => {
+          const fn = r.players_public?.first_name ?? "";
+          const ln = r.players_public?.last_name ?? "";
+          return normalize(fn) === normalize(firstName) && normalize(ln) === normalize(lastName);
+        });
+
+        if (alreadyExists) {
+          errs.push(`Fila ${i + 2}: jugador "${firstName} ${lastName}" ya existe en el roster de "${teamName}" — omitido`);
+          continue;
+        }
+
         const { data: player, error: pErr } = await supabase
           .from("players")
           .insert({
