@@ -244,8 +244,34 @@ function ScheduleUpload() {
   );
 }
 
+// ---- helpers ----
+function normalize(s: string): string {
+  return s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function parseFlexDate(raw: string): string | null {
+  if (!raw) return null;
+  // Try YYYY-MM-DD first
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // Try M/D/YYYY or MM/DD/YYYY
+  const parts = raw.split("/");
+  if (parts.length === 3) {
+    const [m, d, y] = parts;
+    const mm = m.padStart(2, "0");
+    const dd = d.padStart(2, "0");
+    if (y.length === 4) return `${y}-${mm}-${dd}`;
+  }
+  return null;
+}
+
 // ---- Players/Roster upload ----
 const ROSTER_HEADERS = ["nombre", "apellido", "dorsal", "equipo", "categoria", "division"];
+
+// Map alternate header names to expected names
+const HEADER_ALIASES: Record<string, string> = {
+  fecha_de_nacimiento: "fecha_nacimiento",
+  observacion: "observacion",
+};
 
 function RosterUpload() {
   const [rows, setRows] = useState<string[][]>([]);
@@ -287,7 +313,12 @@ function RosterUpload() {
         setRows([]);
         return;
       }
-      const header = parsed[0].map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+      // Normalize headers and apply aliases
+      const header = parsed[0].map((h) => {
+        let key = h.toLowerCase().replace(/\s+/g, "_").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (HEADER_ALIASES[key]) key = HEADER_ALIASES[key];
+        return key;
+      });
       const missing = ROSTER_HEADERS.filter((h) => !header.includes(h));
       if (missing.length > 0) {
         setErrors([`Columnas faltantes: ${missing.join(", ")}`]);
@@ -304,14 +335,18 @@ function RosterUpload() {
   const confirmMutation = useMutation({
     mutationFn: async () => {
       if (rows.length < 2) throw new Error("Sin datos");
-      const header = rows[0].map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+      const header = rows[0].map((h) => {
+        let key = h.toLowerCase().replace(/\s+/g, "_").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (HEADER_ALIASES[key]) key = HEADER_ALIASES[key];
+        return key;
+      });
       const dataRows = rows.slice(1);
       const errs: string[] = [];
       let count = 0;
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        const get = (col: string) => row[header.indexOf(col)] ?? "";
+        const get = (col: string) => row[header.indexOf(col)]?.trim() ?? "";
         const firstName = get("nombre");
         const lastName = get("apellido");
         const jersey = get("dorsal");
@@ -319,31 +354,30 @@ function RosterUpload() {
         const catName = get("categoria");
         const divName = get("division");
         const position = header.includes("posicion") ? get("posicion") : null;
-        const dob = header.includes("fecha_nacimiento") ? get("fecha_nacimiento") : null;
+        const dobRaw = header.includes("fecha_nacimiento") ? get("fecha_nacimiento") : "";
+        const dob = parseFlexDate(dobRaw);
 
         if (!firstName || !lastName) { errs.push(`Fila ${i + 2}: nombre o apellido vacío`); continue; }
 
-        const div = divisions?.find((d) => d.name.toLowerCase() === divName.toLowerCase());
+        const div = divisions?.find((d) => normalize(d.name) === normalize(divName));
         if (!div) { errs.push(`Fila ${i + 2}: división "${divName}" no encontrada`); continue; }
-        const cat = categories?.find((c) => c.name.toLowerCase() === catName.toLowerCase() && c.division_id === div.id);
+        const cat = categories?.find((c) => normalize(c.name) === normalize(catName) && c.division_id === div.id);
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada`); continue; }
-        const team = teams?.find((t) => t.name.toLowerCase() === teamName.toLowerCase() && t.category_id === cat.id);
+        const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
         if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}"`); continue; }
 
-        // Upsert player
         const { data: player, error: pErr } = await supabase
           .from("players")
           .insert({
             first_name: firstName,
             last_name: lastName,
             jersey_number: jersey ? parseInt(jersey) || null : null,
-            date_of_birth: dob || null,
+            date_of_birth: dob,
           })
           .select("id")
           .single();
         if (pErr) { errs.push(`Fila ${i + 2}: error insertando jugador — ${pErr.message}`); continue; }
 
-        // Insert roster
         const { error: rErr } = await supabase.from("rosters").insert({
           player_id: player.id,
           team_id: team.id,
