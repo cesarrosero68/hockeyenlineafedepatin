@@ -385,7 +385,7 @@ function RosterUpload() {
           team_id: team.id,
           jersey_number: jersey ? parseInt(jersey) || null : null,
           position: position || null,
-          season: "2025",
+          season: "2026",
         });
         if (rErr) { errs.push(`Fila ${i + 2}: error insertando roster — ${rErr.message}`); continue; }
 
