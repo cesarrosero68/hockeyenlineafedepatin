@@ -126,12 +126,12 @@ function ScheduleUpload() {
         let awayTeamId: string | null = null;
 
         if (!homePlaceholder) {
-          const home = teams?.find((t) => normalize(t.name) === normalize(homeName) && t.category_id === cat.id);
+          const home = teams?.find((t) => normalizeStripped(t.name) === normalizeStripped(homeName) && t.category_id === cat.id);
           if (!home) { errs.push(`Fila ${i + 2}: equipo local "${homeName}" no encontrado en categoría "${catName}"`); continue; }
           homeTeamId = home.id;
         }
         if (!awayPlaceholder) {
-          const away = teams?.find((t) => normalize(t.name) === normalize(awayName) && t.category_id === cat.id);
+          const away = teams?.find((t) => normalizeStripped(t.name) === normalizeStripped(awayName) && t.category_id === cat.id);
           if (!away) { errs.push(`Fila ${i + 2}: equipo visitante "${awayName}" no encontrado en categoría "${catName}"`); continue; }
           awayTeamId = away.id;
         }
@@ -274,7 +274,16 @@ function ScheduleUpload() {
 
 // ---- helpers ----
 function normalize(s: string): string {
-  return s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return s.trim()
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeStripped(s: string): string {
+  return normalize(s).replace(/[-\s]/g, '');
 }
 
 function parseFlexDate(raw: string): string | null {
