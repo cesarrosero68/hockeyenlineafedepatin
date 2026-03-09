@@ -1,13 +1,14 @@
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, MapPin } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatBogota, toBogotaDate } from "@/lib/timezone";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface MatchWithDetails {
   id: string;
@@ -25,8 +26,6 @@ interface MatchWithDetails {
   away_score: number | null;
 }
 
-interface Division { id: string; name: string; }
-
 const statusLabels: Record<string, string> = {
   scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Bloqueado",
 };
@@ -35,14 +34,8 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Schedule() {
-  const { data: divisions = [] } = useQuery({
-    queryKey: ["divisions"],
-    queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
-      return (data ?? []) as Division[];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const [currentMonth, setCurrentMonth] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { data: matches = [], isLoading } = useQuery({
     queryKey: ["schedule-matches"],
@@ -78,16 +71,44 @@ export default function Schedule() {
     },
   });
 
-  const groupByDate = (items: MatchWithDetails[]) => {
+  // Group matches by date key (yyyy-MM-dd in Bogota time)
+  const matchesByDate = useMemo(() => {
     const groups: Record<string, MatchWithDetails[]> = {};
-    items.forEach((m) => {
+    matches.forEach((m) => {
       const bogota = toBogotaDate(m.match_date);
-      const key = bogota ? format(bogota, "yyyy-MM-dd") : "sin-fecha";
+      const key = bogota ? format(bogota, "yyyy-MM-dd") : null;
+      if (!key) return;
       if (!groups[key]) groups[key] = [];
       groups[key].push(m);
     });
     return groups;
-  };
+  }, [matches]);
+
+  // Dates that have matches (for highlighting in calendar)
+  const datesWithMatches = useMemo(() => new Set(Object.keys(matchesByDate)), [matchesByDate]);
+
+  // Calendar grid
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+  const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+  // Auto-select first date with matches if none selected
+  const effectiveSelected = useMemo(() => {
+    if (selectedDate && matchesByDate[selectedDate]) return selectedDate;
+    // Find first date with matches in current month
+    const sorted = Object.keys(matchesByDate).sort();
+    const inMonth = sorted.find((d) => {
+      const date = new Date(d + "T12:00:00");
+      return isSameMonth(date, currentMonth);
+    });
+    return inMonth ?? sorted[0] ?? null;
+  }, [selectedDate, matchesByDate, currentMonth]);
+
+  const selectedMatches = effectiveSelected ? (matchesByDate[effectiveSelected] ?? []) : [];
 
   if (isLoading) {
     return (
@@ -97,66 +118,114 @@ export default function Schedule() {
     );
   }
 
-  const defaultTab = divisions[0]?.id ?? "";
-
   return (
     <div className="container py-8 space-y-6">
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <Calendar className="h-7 w-7 text-primary" />
+        <CalendarIcon className="h-7 w-7 text-primary" />
         Programación y Resultados
       </h1>
 
       {matches.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-30" />
+            <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-30" />
             <p>No hay partidos programados aún.</p>
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue={defaultTab} key={defaultTab}>
-          <TabsList className="flex-wrap h-auto gap-1">
-            {divisions.map((d) => (
-              <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">
-                {d.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+          {/* Calendar */}
+          <Card className="w-full lg:w-[340px]">
+            <CardContent className="p-4">
+              {/* Month navigation */}
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
+                  className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <span className="font-display font-bold capitalize text-sm">
+                  {format(currentMonth, "MMMM yyyy", { locale: es })}
+                </span>
+                <button
+                  onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+                  className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
 
-          {divisions.map((div) => {
-            const divMatches = matches.filter((m) => m.division_id === div.id);
-            const grouped = groupByDate(divMatches);
-            const dateKeys = Object.keys(grouped).sort();
+              {/* Week headers */}
+              <div className="grid grid-cols-7 mb-1">
+                {weekDays.map((d) => (
+                  <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">
+                    {d}
+                  </div>
+                ))}
+              </div>
 
-            return (
-              <TabsContent key={div.id} value={div.id} className="space-y-6">
-                {divMatches.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-8 text-center text-muted-foreground">
-                      No hay partidos en esta división.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  dateKeys.map((dateKey) => (
-                    <div key={dateKey} className="space-y-3">
-                      <h3 className="font-display font-bold uppercase text-sm text-muted-foreground flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        {dateKey === "sin-fecha"
-                          ? "Sin fecha asignada"
-                          : format(new Date(dateKey + "T12:00:00"), "EEEE d 'de' MMMM yyyy", { locale: es })}
-                      </h3>
-                      <div className="grid gap-2 max-w-2xl">
-                        {grouped[dateKey].map((match) => (
-                          <MatchCard key={match.id} match={match} />
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+              {/* Days grid */}
+              <div className="grid grid-cols-7">
+                {calendarDays.map((day) => {
+                  const key = format(day, "yyyy-MM-dd");
+                  const hasMatches = datesWithMatches.has(key);
+                  const isSelected = key === effectiveSelected;
+                  const isCurrentMonth = isSameMonth(day, currentMonth);
+                  const isToday = isSameDay(day, new Date());
+
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => hasMatches && setSelectedDate(key)}
+                      disabled={!hasMatches}
+                      className={cn(
+                        "relative h-10 w-full flex items-center justify-center text-sm rounded-md transition-colors",
+                        !isCurrentMonth && "opacity-30",
+                        hasMatches && "cursor-pointer font-semibold hover:bg-accent",
+                        !hasMatches && "text-muted-foreground cursor-default",
+                        isSelected && "bg-primary text-primary-foreground hover:bg-primary/90",
+                        isToday && !isSelected && "ring-1 ring-primary"
+                      )}
+                    >
+                      {format(day, "d")}
+                      {hasMatches && !isSelected && (
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Matches for selected date */}
+          <div className="space-y-3">
+            {effectiveSelected && (
+              <h3 className="font-display font-bold uppercase text-sm text-muted-foreground flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                {format(new Date(effectiveSelected + "T12:00:00"), "EEEE d 'de' MMMM yyyy", { locale: es })}
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {selectedMatches.length} {selectedMatches.length === 1 ? "partido" : "partidos"}
+                </Badge>
+              </h3>
+            )}
+
+            {selectedMatches.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  Selecciona un día con partidos en el calendario.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-2 max-w-2xl">
+                {selectedMatches.map((match) => (
+                  <MatchCard key={match.id} match={match} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -172,6 +241,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
+              <Badge variant="outline" className="text-xs">{match.division_name}</Badge>
               {match.phase !== "regular" && (
                 <Badge variant="outline" className="text-xs capitalize">{match.phase}</Badge>
               )}
