@@ -93,13 +93,15 @@ function ScheduleUpload() {
     e.target.value = "";
   }, []);
 
+  const isPlaceholder = (name: string) => /^(seed|winner|loser|win\s|winnersub)/i.test(name.trim());
+
   const confirmMutation = useMutation({
     mutationFn: async () => {
       if (rows.length < 2) throw new Error("Sin datos");
       const header = rows[0].map((h) => h.toLowerCase().replace(/\s+/g, "_"));
       const dataRows = rows.slice(1);
       const errs: string[] = [];
-      const inserts: { category_id: string; match_date: string | null; phase: string; round_number: number | null; home_team_id: string; away_team_id: string }[] = [];
+      const inserts: { category_id: string; match_date: string | null; phase: string; round_number: number | null; home_team_id: string | null; away_team_id: string | null; notes: string | null }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -109,17 +111,30 @@ function ScheduleUpload() {
         const homeName = get("equipo_local");
         const awayName = get("equipo_visitante");
         const fecha = get("fecha");
-        const fase = get("fase") || "regular";
+        const fase = (get("fase") || "regular").toLowerCase();
         const ronda = get("ronda");
 
         const div = divisions?.find((d) => normalize(d.name) === normalize(divName));
         if (!div) { errs.push(`Fila ${i + 2}: división "${divName}" no encontrada`); continue; }
         const cat = categories?.find((c) => normalize(c.name) === normalize(catName) && c.division_id === div.id);
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada en división "${divName}"`); continue; }
-        const home = teams?.find((t) => normalize(t.name) === normalize(homeName) && t.category_id === cat.id);
-        if (!home) { errs.push(`Fila ${i + 2}: equipo local "${homeName}" no encontrado en categoría "${catName}"`); continue; }
-        const away = teams?.find((t) => normalize(t.name) === normalize(awayName) && t.category_id === cat.id);
-        if (!away) { errs.push(`Fila ${i + 2}: equipo visitante "${awayName}" no encontrado en categoría "${catName}"`); continue; }
+
+        const homePlaceholder = isPlaceholder(homeName);
+        const awayPlaceholder = isPlaceholder(awayName);
+
+        let homeTeamId: string | null = null;
+        let awayTeamId: string | null = null;
+
+        if (!homePlaceholder) {
+          const home = teams?.find((t) => normalize(t.name) === normalize(homeName) && t.category_id === cat.id);
+          if (!home) { errs.push(`Fila ${i + 2}: equipo local "${homeName}" no encontrado en categoría "${catName}"`); continue; }
+          homeTeamId = home.id;
+        }
+        if (!awayPlaceholder) {
+          const away = teams?.find((t) => normalize(t.name) === normalize(awayName) && t.category_id === cat.id);
+          if (!away) { errs.push(`Fila ${i + 2}: equipo visitante "${awayName}" no encontrado en categoría "${catName}"`); continue; }
+          awayTeamId = away.id;
+        }
 
         let matchDate: string | null = null;
         if (fecha) {
@@ -128,13 +143,21 @@ function ScheduleUpload() {
           matchDate = d.toISOString();
         }
 
+        // Build notes for placeholder matches
+        const noteParts: string[] = [];
+        if (homePlaceholder) noteParts.push(`Local: ${homeName.trim()}`);
+        if (awayPlaceholder) noteParts.push(`Visitante: ${awayName.trim()}`);
+
+        const roundNum = (ronda && ronda.toUpperCase() !== "NULL") ? parseInt(ronda) || null : null;
+
         inserts.push({
           category_id: cat.id,
           match_date: matchDate,
-          phase: fase as any,
-          round_number: ronda ? parseInt(ronda) || null : null,
-          home_team_id: home.id,
-          away_team_id: away.id,
+          phase: fase,
+          round_number: roundNum,
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
+          notes: noteParts.length > 0 ? noteParts.join(" | ") : null,
         });
       }
 
@@ -150,16 +173,19 @@ function ScheduleUpload() {
             phase: ins.phase as any,
             round_number: ins.round_number,
             status: "scheduled" as const,
+            notes: ins.notes,
           })
           .select("id")
           .single();
         if (mErr) throw mErr;
 
-        const { error: mtErr } = await supabase.from("match_teams").insert([
-          { match_id: match.id, team_id: ins.home_team_id, side: "home", score_regular: 0 },
-          { match_id: match.id, team_id: ins.away_team_id, side: "away", score_regular: 0 },
-        ]);
-        if (mtErr) throw mtErr;
+        const teamInserts: { match_id: string; team_id: string; side: string; score_regular: number }[] = [];
+        if (ins.home_team_id) teamInserts.push({ match_id: match.id, team_id: ins.home_team_id, side: "home", score_regular: 0 });
+        if (ins.away_team_id) teamInserts.push({ match_id: match.id, team_id: ins.away_team_id, side: "away", score_regular: 0 });
+        if (teamInserts.length > 0) {
+          const { error: mtErr } = await supabase.from("match_teams").insert(teamInserts);
+          if (mtErr) throw mtErr;
+        }
       }
 
       return inserts.length;
