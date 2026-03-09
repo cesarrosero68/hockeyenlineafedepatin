@@ -11,7 +11,9 @@ import { toast } from "@/hooks/use-toast";
 
 // ---- CSV parser (simple, handles quoted fields) ----
 function parseCSV(text: string): string[][] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  // Strip BOM (Byte Order Mark) that Excel/Google Sheets may add
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim() !== "");
   return lines.map((line) => {
     const cells: string[] = [];
     let current = "";
