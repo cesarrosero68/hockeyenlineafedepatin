@@ -68,7 +68,7 @@ COLUMNAS OBLIGATORIAS (primera fila = encabezado):
   nombre, apellido, dorsal, equipo, categoria, division
 
 COLUMNAS OPCIONALES:
-  posicion, fecha_nacimiento
+  posicion, fecha_nacimiento (o "fecha de nacimiento")
 
 DESCRIPCIÓN DE COLUMNAS:
   - nombre: Primer nombre del jugador. Ejemplo: "Juan"
@@ -83,20 +83,24 @@ DESCRIPCIÓN DE COLUMNAS:
   
   - categoria: Nombre exacto de la categoría. Ejemplo: "Sub-12"
   
-  - division: Nombre exacto de la división. Ejemplo: "Copa Nacional"
+  - division: Nombre exacto de la división. Ejemplo: "Copa Nacional Hockey en Línea"
+              La comparación NO distingue mayúsculas/minúsculas ni acentos.
   
   - posicion: (Opcional) Posición del jugador en el equipo.
-              Ejemplo: "Portero", "Defensa", "Delantero"
+              Ejemplo: "Portero", "Defensa", "Delantero", "Arquero"
   
-  - fecha_nacimiento: (Opcional) Fecha de nacimiento en formato YYYY-MM-DD.
-                      Ejemplo: 2013-05-20
+  - fecha_nacimiento / fecha de nacimiento: (Opcional) Fecha de nacimiento.
+              Formatos aceptados:
+                YYYY-MM-DD    → Ejemplo: 2013-05-20
+                M/D/YYYY      → Ejemplo: 5/20/2013
+                MM/DD/YYYY    → Ejemplo: 05/20/2013
 
 EJEMPLO:
-  nombre,apellido,dorsal,equipo,categoria,division,posicion,fecha_nacimiento
-  Juan,Pérez,10,Club Bogotá,Sub-12,Copa Nacional,Delantero,2013-05-20
-  María,López,1,Club Bogotá,Sub-12,Copa Nacional,Portero,2013-08-15
-  Carlos,Gómez,7,Club Medellín,Sub-12,Copa Nacional,,2013-01-10
-  Ana,Rodríguez,5,Club Cali,Sub-14,Copa Nacional,Defensa,
+  nombre,apellido,dorsal,equipo,categoria,division,posicion,fecha de nacimiento
+  Juan,Pérez,10,Club Bogotá,Sub-12,Copa Nacional Hockey en Línea,Delantero,2013-05-20
+  María,López,1,Club Bogotá,Sub-12,Copa Nacional Hockey en Línea,Portero,8/15/2013
+  Carlos,Gómez,7,Club Medellín,Sub-12,Copa Nacional Hockey en Línea,,1/10/2013
+  Ana,Rodríguez,5,Club Cali,Sub-14,Copa Nacional Hockey en Línea,Defensa,
 
 NOTAS IMPORTANTES:
   - Los equipos, categorías y divisiones DEBEN existir previamente en el sistema.
