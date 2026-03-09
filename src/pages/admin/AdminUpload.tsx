@@ -274,7 +274,16 @@ function ScheduleUpload() {
 
 // ---- helpers ----
 function normalize(s: string): string {
-  return s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return s.trim()
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeStripped(s: string): string {
+  return normalize(s).replace(/[-\s]/g, '');
 }
 
 function parseFlexDate(raw: string): string | null {
