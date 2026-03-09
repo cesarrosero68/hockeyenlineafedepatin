@@ -11,7 +11,9 @@ import { toast } from "@/hooks/use-toast";
 
 // ---- CSV parser (simple, handles quoted fields) ----
 function parseCSV(text: string): string[][] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  // Strip BOM (Byte Order Mark) that Excel/Google Sheets may add
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim() !== "");
   return lines.map((line) => {
     const cells: string[] = [];
     let current = "";
@@ -360,7 +362,7 @@ function RosterUpload() {
         if (!firstName || !lastName) { errs.push(`Fila ${i + 2}: nombre o apellido vacío`); continue; }
 
         const div = divisions?.find((d) => normalize(d.name) === normalize(divName));
-        if (!div) { errs.push(`Fila ${i + 2}: división "${divName}" no encontrada`); continue; }
+        if (!div) { errs.push(`Fila ${i + 2}: división "${divName}" no encontrada (disponibles: ${divisions?.map(d=>d.name).join(", ") ?? "cargando..."})`); continue; }
         const cat = categories?.find((c) => normalize(c.name) === normalize(catName) && c.division_id === div.id);
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada`); continue; }
         const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
@@ -383,7 +385,7 @@ function RosterUpload() {
           team_id: team.id,
           jersey_number: jersey ? parseInt(jersey) || null : null,
           position: position || null,
-          season: "2025",
+          season: "2026",
         });
         if (rErr) { errs.push(`Fila ${i + 2}: error insertando roster — ${rErr.message}`); continue; }
 
