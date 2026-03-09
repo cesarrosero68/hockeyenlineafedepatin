@@ -110,13 +110,13 @@ function ScheduleUpload() {
         const fase = get("fase") || "regular";
         const ronda = get("ronda");
 
-        const div = divisions?.find((d) => d.name.toLowerCase() === divName.toLowerCase());
+        const div = divisions?.find((d) => normalize(d.name) === normalize(divName));
         if (!div) { errs.push(`Fila ${i + 2}: división "${divName}" no encontrada`); continue; }
-        const cat = categories?.find((c) => c.name.toLowerCase() === catName.toLowerCase() && c.division_id === div.id);
+        const cat = categories?.find((c) => normalize(c.name) === normalize(catName) && c.division_id === div.id);
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada en división "${divName}"`); continue; }
-        const home = teams?.find((t) => t.name.toLowerCase() === homeName.toLowerCase() && t.category_id === cat.id);
+        const home = teams?.find((t) => normalize(t.name) === normalize(homeName) && t.category_id === cat.id);
         if (!home) { errs.push(`Fila ${i + 2}: equipo local "${homeName}" no encontrado en categoría "${catName}"`); continue; }
-        const away = teams?.find((t) => t.name.toLowerCase() === awayName.toLowerCase() && t.category_id === cat.id);
+        const away = teams?.find((t) => normalize(t.name) === normalize(awayName) && t.category_id === cat.id);
         if (!away) { errs.push(`Fila ${i + 2}: equipo visitante "${awayName}" no encontrado en categoría "${catName}"`); continue; }
 
         let matchDate: string | null = null;
