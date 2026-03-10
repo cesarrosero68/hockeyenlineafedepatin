@@ -18,6 +18,8 @@ export default function Index() {
       return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const { data: categories = [], isError: isErrorCategories } = useQuery({
