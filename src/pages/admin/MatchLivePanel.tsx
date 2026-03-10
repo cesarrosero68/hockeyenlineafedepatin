@@ -366,9 +366,13 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
+                <Input value={penMatchTime} onChange={e => setPenMatchTime(e.target.value)} placeholder="00:00" className="w-[100px]" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Tiempo Sanción</label>
+                  <label className="text-xs font-medium">Duración Sanción</label>
                   <Select value={penTimePreset} onValueChange={setPenTimePreset}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{PENALTY_TIMES.map(t => <SelectItem key={t.label} value={t.label}>{t.label}</SelectItem>)}</SelectContent>
