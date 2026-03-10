@@ -69,6 +69,9 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
   const [penTimePreset, setPenTimePreset] = useState("1:30");
   const [penTimeManual, setPenTimeManual] = useState("");
   const [penPeriod, setPenPeriod] = useState("1");
+  const [penMatchTime, setPenMatchTime] = useState("");
+
+  const isValidMatchTime = (v: string) => /^\d{2}:\d{2}$/.test(v);
 
   // Fetch rosters for both teams
   const { data: rosters = [] } = useQuery({
