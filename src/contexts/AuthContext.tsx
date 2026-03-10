@@ -88,6 +88,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Safety timeout: force loading=false after 5s to prevent infinite spinner
+  useEffect(() => {
+    if (!loading) return;
+    const timeout = setTimeout(() => {
+      console.warn("Auth initialization timed out, forcing loading to false");
+      setLoading(false);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
