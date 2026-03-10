@@ -206,6 +206,9 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       const preset = PENALTY_TIMES.find(t => t.label === penTimePreset);
       const minutes = penTimePreset === "Manual" ? (parseInt(penTimeManual) || 2) : (preset?.minutes ?? 2);
 
+      if (penMatchTime && !isValidMatchTime(penMatchTime)) {
+        throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 10:15)");
+      }
       const { error } = await supabase.from("penalties").insert({
         match_id: matchId,
         team_id: penTeamId,
@@ -215,7 +218,8 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
         penalty_minutes: minutes,
         period: parseInt(penPeriod),
         game_time: penTimePreset === "Manual" ? penTimeManual : penTimePreset,
-      });
+        penalty_time: penMatchTime || null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
