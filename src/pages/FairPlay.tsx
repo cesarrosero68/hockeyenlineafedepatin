@@ -11,6 +11,7 @@ export default function FairPlay() {
       const { data } = await supabase.from("divisions").select("id, name");
       return data ?? [];
     },
+    staleTime: 5 * 60_000,
   });
 
   const { data: categories = [] } = useQuery({
@@ -19,6 +20,7 @@ export default function FairPlay() {
       const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
       return data ?? [];
     },
+    staleTime: 5 * 60_000,
   });
 
   const { data: fairPlay = [], isLoading } = useQuery({

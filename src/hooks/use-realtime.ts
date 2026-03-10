@@ -3,10 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+// Removed "live-match-detail" from match_teams and goal_events to avoid
+// competing with MatchLivePanel's own refetch logic
 const TABLE_QUERY_KEYS: Record<string, string[]> = {
   matches: ["schedule-matches", "match-detail", "admin-matches", "admin-counts"],
-  match_teams: ["schedule-matches", "match-detail", "standings", "fair-play", "admin-matches", "admin-counts", "live-match-detail"],
-  goal_events: ["match-detail", "match-goals", "player-stats", "live-match-detail"],
+  match_teams: ["schedule-matches", "match-detail", "standings", "fair-play", "admin-matches", "admin-counts"],
+  goal_events: ["match-detail", "match-goals", "player-stats"],
   penalties: ["match-detail", "match-penalties", "fair-play"],
   standings_aggregate: ["standings"],
   fair_play_aggregate: ["fair-play"],
@@ -16,6 +18,7 @@ export function useRealtimeUpdates() {
   const queryClient = useQueryClient();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isErrorRef = useRef(false);
 
   useEffect(() => {
     const pending = new Set<string>();
@@ -49,6 +52,7 @@ export function useRealtimeUpdates() {
 
     const createChannel = () => {
       destroyChannel();
+      isErrorRef.current = false;
 
       const channel = supabase
         .channel("tournament_update")
@@ -60,13 +64,15 @@ export function useRealtimeUpdates() {
         .on("postgres_changes", { event: "*", schema: "public", table: "fair_play_aggregate" }, () => queueInvalidation("fair_play_aggregate"))
         .subscribe((status) => {
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            // Auto-reconnect after error with backoff
+            isErrorRef.current = true;
             if (!reconnectTimerRef.current) {
               reconnectTimerRef.current = setTimeout(() => {
                 reconnectTimerRef.current = null;
                 createChannel();
               }, 2000);
             }
+          } else if (status === "SUBSCRIBED") {
+            isErrorRef.current = false;
           }
         });
 
@@ -75,15 +81,17 @@ export function useRealtimeUpdates() {
 
     createChannel();
 
-    // Reconnect realtime channel when tab becomes visible or network comes back online
+    // Only recreate channel if it was in error state; otherwise Supabase reconnects automatically
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && isErrorRef.current) {
         createChannel();
       }
     };
 
     const handleOnline = () => {
-      createChannel();
+      if (isErrorRef.current) {
+        createChannel();
+      }
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
