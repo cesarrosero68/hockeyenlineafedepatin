@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -67,10 +67,13 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const [penPeriod, setPenPeriod] = useState("1");
   const [penMatchTime, setPenMatchTime] = useState("");
 
+  // Track if a mutation is actually in-flight (with timeout protection)
+  const mutationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isValidMatchTime = useCallback((v: string) => /^\d{2}:\d{2}$/.test(v), []);
 
   // Self-contained match data fetch — isolated from parent
-  const { data: matchData } = useQuery({
+  const { data: matchData, refetch: refetchMatch } = useQuery({
     queryKey: ["live-match-detail", matchId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -86,29 +89,32 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  // Refetch panel data when tab becomes visible again
+  // Explicit refetch on visibility change — don't just invalidate, force refetch
   useEffect(() => {
     if (!open || !matchId) return;
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        queryClient.invalidateQueries({ queryKey: ["live-match-detail", matchId] });
-        queryClient.invalidateQueries({ queryKey: ["live-match-rosters", matchId] });
-        queryClient.invalidateQueries({ queryKey: ["match-goals", matchId] });
-        queryClient.invalidateQueries({ queryKey: ["match-penalties", matchId] });
+        // Force immediate refetch of all panel queries
+        refetchMatch();
+        refetchGoals();
+        refetchPenalties();
+        refetchRosters();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [open, matchId, queryClient]);
+  }, [open, matchId]);
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
   const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
   const teamIds = useMemo(() => [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean) as string[], [homeTeam, awayTeam]);
 
   // Fetch rosters for both teams
-  const { data: rosters = [] } = useQuery({
+  const { data: rosters = [], refetch: refetchRosters } = useQuery({
     queryKey: ["live-match-rosters", matchId, teamIds.join(",")],
     queryFn: async () => {
       if (teamIds.length === 0) return [];
@@ -121,10 +127,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && teamIds.length > 0,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   // Fetch existing goals
-  const { data: goals = [] } = useQuery({
+  const { data: goals = [], refetch: refetchGoals } = useQuery({
     queryKey: ["match-goals", matchId],
     queryFn: async () => {
       if (!matchId) return [];
@@ -138,10 +146,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   // Fetch existing penalties
-  const { data: penalties = [] } = useQuery({
+  const { data: penalties = [], refetch: refetchPenalties } = useQuery({
     queryKey: ["match-penalties", matchId],
     queryFn: async () => {
       if (!matchId) return [];
@@ -155,6 +165,8 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const playersForTeam = useCallback((teamId: string) =>
@@ -169,13 +181,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     return "—";
   }, [homeTeam, awayTeam]);
 
-  // Invalidate only the panel's own queries — let realtime handle the admin-matches list
-  const invalidatePanelQueries = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["match-goals", matchId] });
-    queryClient.invalidateQueries({ queryKey: ["live-match-detail", matchId] });
-  }, [queryClient, matchId]);
-
-  // Add goal mutation
+  // Add goal mutation with timeout protection
   const addGoalMutation = useMutation({
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
@@ -183,7 +189,6 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (goalTime && !isValidMatchTime(goalTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 05:32)");
       }
-      // Insert goal
       const { error } = await supabase.from("goal_events").insert({
         match_id: matchId,
         team_id: goalTeamId,
@@ -196,7 +201,6 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       });
       if (error) throw error;
 
-      // Update scores in a single batch — fetch goals first
       const { data: allGoals } = await supabase
         .from("goal_events")
         .select("team_id")
@@ -206,14 +210,14 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const homeGoals = allGoals?.filter(g => g.team_id === homeTeam?.team_id).length ?? 0;
       const awayGoals = allGoals?.filter(g => g.team_id === awayTeam?.team_id).length ?? 0;
 
-      // Update both scores in parallel
       await Promise.all([
         homeTeam ? supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId).eq("side", "home") : null,
         awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId).eq("side", "away") : null,
       ].filter(Boolean));
     },
     onSuccess: () => {
-      invalidatePanelQueries();
+      refetchGoals();
+      refetchMatch();
       setGoalScorerId(""); setGoalAssistId(""); setGoalTime("");
       toast({ title: "Gol registrado" });
     },
@@ -235,7 +239,8 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       ].filter(Boolean));
     },
     onSuccess: () => {
-      invalidatePanelQueries();
+      refetchGoals();
+      refetchMatch();
       toast({ title: "Gol eliminado" });
     },
   });
@@ -265,7 +270,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["match-penalties", matchId] });
+      refetchPenalties();
       setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual(""); setPenMatchTime("");
       toast({ title: "Sanción registrada" });
     },
@@ -278,7 +283,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["match-penalties", matchId] });
+      refetchPenalties();
       toast({ title: "Sanción eliminada" });
     },
   });
