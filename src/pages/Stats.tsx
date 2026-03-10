@@ -51,7 +51,7 @@ export default function Stats() {
   const getPlayer = (id: string) => players.find((p: any) => p.id === id);
 
   const hasRealData = stats.length > 0;
-  const placeholder = generatePlaceholderStats(15);
+  const placeholder = useMemo(() => generatePlaceholderStats(15), []);
 
   if (isLoading) {
     return (
