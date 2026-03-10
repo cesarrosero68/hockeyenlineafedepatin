@@ -53,7 +53,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Revalidate session when tab becomes visible or network reconnects
+    const revalidateSession = () => {
+      supabase.auth.getSession().then(({ data: { session: freshSession } }) => {
+        if (freshSession) {
+          setSession(freshSession);
+          setUser(freshSession.user);
+        }
+      });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        revalidateSession();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", revalidateSession);
+
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", revalidateSession);
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
