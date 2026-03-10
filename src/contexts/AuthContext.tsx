@@ -22,12 +22,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .maybeSingle();
-    setRole((data?.role as AppRole) ?? null);
+    try {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      setRole((data?.role as AppRole) ?? null);
+    } catch (err) {
+      console.warn("fetchRole failed", err);
+      setRole(null);
+    }
   };
 
   useEffect(() => {
@@ -82,6 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("online", revalidateSession);
     };
   }, []);
+
+  // Safety timeout: force loading=false after 5s to prevent infinite spinner
+  useEffect(() => {
+    if (!loading) return;
+    const timeout = setTimeout(() => {
+      console.warn("Auth initialization timed out, forcing loading to false");
+      setLoading(false);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [loading]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

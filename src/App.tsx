@@ -35,6 +35,7 @@ const queryClient = new QueryClient({
       staleTime: 2 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
+      retry: 2,
     },
   },
 });
@@ -56,10 +57,10 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <RealtimeProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <RealtimeProvider>
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 {/* Public Routes */}
@@ -89,8 +90,8 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+            </RealtimeProvider>
           </BrowserRouter>
-        </RealtimeProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
