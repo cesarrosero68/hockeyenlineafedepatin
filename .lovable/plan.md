@@ -1,117 +1,100 @@
 
 
-# Plan: Admin Modules Completos + Flujo de Partido en Vivo
+# Auditoría Completa y Plan de Corrección
 
-## Diagnostico
+## Hallazgos de la Auditoría
 
-### Problema raiz
-1. **Divisiones, Clubes, Equipos, Jugadores, Auditoria**: No existen los archivos de pagina ni las rutas en `App.tsx`. Solo hay `AdminHome.tsx` y `AdminMatches.tsx` en `src/pages/admin/`. El `AdminDashboard.tsx` tiene los links en la nav pero al hacer click se muestra 404.
-2. **Hora de Bogota en partidos**: La funcion `bogotaInputToUTC` en `src/lib/timezone.ts` tiene un bug de doble conversion (lineas 35-41). Calcula el offset dos veces.
-3. **Iniciar partido**: Actualmente el boton "Iniciar" solo cambia el status a `in_progress`. No abre ningun menu para registrar goles ni sanciones.
-4. **RLS restrictivas**: Todas las policies publicas siguen marcadas como `RESTRICTIVE` (no `PERMISSIVE`), lo que puede bloquear lecturas. Se necesita una migracion para corregirlas.
+### 1. Consultas duplicadas entre páginas
+- `"divisions"` query key se usa en **Index, Teams, FairPlay, Standings** — todas con la misma consulta pero algunas sin `staleTime`. El staleTime global de 2min cubre esto, pero la falta de consistencia causa confusión.
+- `"categories"` query key duplicado en **Teams, FairPlay, Standings, Index** — misma situación.
+- `"admin-teams"` en **CreateMatchDialog** y **EditMatchDialog** — comparten query key correctamente (bien).
+- `"admin-teams-list"` en **AdminPlayers** es diferente de `"admin-teams"` — consultas similares con keys distintos.
 
----
+### 2. Teams page carga TODO innecesariamente
+- `Teams.tsx` ejecuta 5 queries paralelas: divisions, categories, all-teams, all-rosters, players-public. La query `"all-rosters"` carga **todos** los rosters del torneo de golpe, sin filtrar. Esto es pesado.
 
-## Archivos nuevos a crear (6)
+### 3. MatchLivePanel — el problema real del congelamiento
+El bug principal: cuando el panel está abierto y el admin cambia de pestaña, el `visibilitychange` handler en línea 97-110 usa `refetchMatch`, `refetchGoals`, `refetchPenalties`, `refetchRosters` que son funciones de `useQuery`. **Pero estas funciones se capturan en el closure del useEffect sin estar en las dependencias**, así que pueden quedar stale. Además:
 
-### 1. `src/pages/admin/AdminDivisions.tsx`
-- CRUD de divisiones: tabla con nombre, logo_url
-- Formulario inline para crear/editar division
-- Consulta `supabase.from("divisions").select("*")`
-- Mutaciones INSERT/UPDATE/DELETE
+- El `useEffect` de visibility (línea 97) tiene `[open, matchId]` como deps, pero referencia `refetchMatch`, `refetchGoals`, etc. que no están incluidas. Esto significa que las funciones de refetch capturadas pueden apuntar a queries obsoletas.
+- Las mutaciones (`addGoalMutation`, `addPenaltyMutation`) usan `isPending` para deshabilitar botones. Si una mutación falla silenciosamente por timeout de red mientras el tab está en background, `isPending` puede quedar en `true` indefinidamente.
 
-### 2. `src/pages/admin/AdminClubs.tsx`
-- CRUD de clubes: tabla con nombre, logo_url
-- Formulario inline para crear/editar club
-- Consulta `supabase.from("clubs").select("*")`
+### 4. Realtime — recreación excesiva del canal
+`use-realtime.ts` línea 79-83: cada vez que el tab vuelve a ser visible, `createChannel()` destruye y recrea el canal completo. Esto es innecesariamente agresivo. El canal de Supabase tiene reconexión automática integrada. Recrear el canal en cada tab focus causa un pico de suscripción que puede generar latencia.
 
-### 3. `src/pages/admin/AdminTeams.tsx`
-- CRUD de equipos: nombre, club_id (dropdown de clubs), category_id (dropdown de categorias), logo_url
-- Consultas con joins a clubs y categories
-- Formulario con selects para club y categoria
+### 5. Realtime invalida queries del live panel innecesariamente
+`TABLE_QUERY_KEYS` mapea `match_teams` a `"live-match-detail"`, y `goal_events` a `"live-match-detail"`. Esto causa que cada gol registrado invalide el match detail dos veces (una por goal_events y otra por la actualización de match_teams scores). La invalidación del realtime compite con el `refetchGoals()/refetchMatch()` explícito del `onSuccess` de la mutación.
 
-### 4. `src/pages/admin/AdminPlayers.tsx`
-- CRUD de jugadores: first_name, last_name, jersey_number, date_of_birth
-- Gestion de rosters: asignar jugador a equipo con posicion y numero
-- Consulta `supabase.from("players")` y `supabase.from("rosters")`
+### 6. Queries sin staleTime explícito
+Varias queries en FairPlay, Standings, MatchDetail, AdminPlayers, AdminDivisions no tienen `staleTime`, así que usan el global de 2min. Esto está bien pero podría ser más agresivo para datos estáticos.
 
-### 5. `src/pages/admin/AdminAudit.tsx`
-- Vista de solo lectura de `audit_logs`
-- Tabla con columnas: fecha, usuario, tabla, accion, datos anteriores/nuevos
-- Filtros por tabla y accion
+### 7. Stats page — dos queries encadenadas
+`Stats.tsx` hace primera query a `player_stats_view`, luego una segunda query a `players_public` usando los IDs obtenidos. La segunda query tiene `playerIds` como parte del queryKey, pero `playerIds` se recalcula en cada render porque es resultado de `.map().filter()`. Debería ser memoizado.
 
-### 6. `src/pages/admin/MatchLivePanel.tsx`
-- Panel que se abre al hacer click en "Iniciar" un partido (o al abrir un partido `in_progress`)
-- Dos secciones con tabs: **Goles** y **Sanciones**
+### 8. Estadísticas ya están optimizadas en backend
+Los triggers `trg_match_status_change`, `trg_goal_event_changed`, `trg_penalty_changed` ya manejan el recálculo. **No hay recálculos en el frontend**. Esto está bien.
 
-**Seccion Goles:**
-- Dropdown equipo (local/visitante)
-- Dropdown jugador goleador (filtrado por roster del equipo seleccionado)
-- Dropdown jugador asistencia (mismo roster + opcion "N/A")
-- Input tiempo de juego mm:ss
-- Dropdown periodo: 1T / 2T / OT
-- Boton agregar gol → INSERT en `goal_events`
-- Lista de goles registrados con opcion de eliminar
-
-**Seccion Sanciones:**
-- Dropdown equipo
-- Dropdown jugador (roster del equipo)
-- Dropdown tipo sancion (33 codigos exactos):
-  BC: BODY CHECKING, BDG: BOARDING, BE: BUTT ENDING, BP: BENCH PENALTY, BS: BROKEN STICK, CC: CROSS CHECKING, CFB: CC FROM BEHIND, CH: CHARGING, DG: DELAY OF GAME, ELB: ELBOWING, FI: FIGHTING, FOP: FALLING ON PUCK, FOV: FACE OFF VIOL., GE: GAME EJECTION, GM: GAME MISSCONDUCT, HKG: HOOKING, HO: HOLDING, HP: HAND PASS, HS: HIGH STICK, IE: ILLEGAL EQUIPMENT, INT: INTERFERENCE, INTG: INT. OF GOALTENDER, KNE: KNEEING, MP: MATCH PENALTY, MSC: MISSCONDUCT, OA: OFFICIAL ABUSE, PS: PENALTY SHOOT, RO: ROUGHING, SL: SLASHING, SP: SPEARING, TMM: TOO MANY MEN, TR: TRIPPING, USC: UNSPORTSMANLIKE
-- Dropdown tiempo sancion predeterminado: 1:30, 4:00, 10:00 + opcion "Manual" con input
-- Dropdown periodo: 1T / 2T / OT
-- Boton agregar sancion → INSERT en `penalties`
-- Lista de sanciones registradas con opcion de eliminar
+### 9. Índices ya están en su lugar
+14+ índices cubren las columnas críticas. No se necesitan más.
 
 ---
 
-## Archivos a modificar (3)
+## Plan de Correcciones
 
-### 7. `src/App.tsx`
-- Agregar lazy imports para los 6 nuevos componentes
-- Agregar rutas hijas dentro de `<Route path="/admin">`:
-  - `divisions` → AdminDivisions
-  - `clubs` → AdminClubs
-  - `teams` → AdminTeams
-  - `players` → AdminPlayers
-  - `matches` → AdminMatches (ya existe)
-  - `audit` → AdminAudit
+### Corrección 1: Fix del MatchLivePanel — Causa raíz del congelamiento
+**Archivo:** `src/pages/admin/MatchLivePanel.tsx`
 
-### 8. `src/lib/timezone.ts`
-- Corregir `bogotaInputToUTC`: eliminar la logica duplicada. El input datetime-local debe tratarse como hora Bogota (UTC-5), simplemente concatenar `"-05:00"` al string y crear Date.
+- Reemplazar el `useEffect` de visibilitychange (líneas 97-110) usando refs para las funciones de refetch, o usar `useCallback` y incluir las funciones en las dependencias del efecto.
+- Simplificar: usar un solo `useEffect` que llame `queryClient.refetchQueries` con los queryKeys específicos en vez de funciones individuales de refetch. Esto es más robusto porque no depende de closures.
+- Agregar protección de timeout a las mutaciones: si `isPending` lleva más de 15 segundos, resetear el estado de la mutación con `mutation.reset()`.
+- Remover `refetchOnWindowFocus: true` de las queries individuales (ya que el handler manual lo cubre) para evitar doble refetch.
 
-### 9. `src/pages/admin/AdminMatches.tsx`
-- Cambiar el boton "Iniciar" para que ademas de cambiar status, abra/navegue al `MatchLivePanel`
-- Para partidos `in_progress`, mostrar un boton "Gestionar" que abre el panel de eventos en vivo
-- El marcador (score_regular) se actualizara automaticamente al contar goles registrados
+### Corrección 2: Simplificar realtime — no recrear canal en cada tab focus
+**Archivo:** `src/hooks/use-realtime.ts`
+
+- En vez de destruir y recrear el canal al volver al tab, simplemente invalidar las queries pendientes. El canal de Supabase se reconecta automáticamente.
+- Solo recrear el canal si realmente entró en estado de error (`CHANNEL_ERROR` o `TIMED_OUT`), no en cada visibility change.
+- Remover el handler `handleOnline` que también recreaba el canal innecesariamente.
+
+### Corrección 3: Eliminar invalidación duplicada del realtime en live panel
+**Archivo:** `src/hooks/use-realtime.ts`
+
+- Remover `"live-match-detail"` de los mappings de `match_teams` y `goal_events` en `TABLE_QUERY_KEYS`. El live panel ya maneja su propio refetch.
+- Esto evita que el sistema realtime compita con las mutaciones del panel.
+
+### Corrección 4: Memoizar playerIds en Stats
+**Archivo:** `src/pages/Stats.tsx`
+
+- Envolver `playerIds` en `useMemo` para evitar que la segunda query se ejecute innecesariamente en cada render.
+
+### Corrección 5: Optimizar Teams page — lazy load de rosters
+**Archivo:** `src/pages/Teams.tsx`
+
+- Cambiar la query de `"all-rosters"` para que solo se ejecute cuando un equipo está expandido, filtrando por `team_id`.
+- Mover la query de rosters al componente `TeamCard` individual, con `enabled: expanded`.
+
+### Corrección 6: Agregar staleTime a queries de datos estáticos
+**Archivos:** `src/pages/FairPlay.tsx`, `src/pages/Standings.tsx`, `src/pages/Teams.tsx`, `src/pages/MatchDetail.tsx`
+
+- Agregar `staleTime: 5 * 60_000` a queries de divisions y categories que no lo tienen.
+- Agregar `staleTime: 2 * 60_000` a queries de standings, fair-play, y match detail.
+
+### Corrección 7: Consolidar query key de admin-teams
+**Archivo:** `src/pages/admin/AdminPlayers.tsx`
+
+- Cambiar `"admin-teams-list"` a `"admin-teams"` para compartir caché con CreateMatchDialog y EditMatchDialog.
 
 ---
 
-## Migracion de base de datos
+## Archivos a editar
+1. `src/pages/admin/MatchLivePanel.tsx` — Fix principal del congelamiento
+2. `src/hooks/use-realtime.ts` — Simplificar reconexión
+3. `src/pages/Stats.tsx` — Memoizar playerIds
+4. `src/pages/Teams.tsx` — Lazy load rosters por equipo
+5. `src/pages/FairPlay.tsx` — staleTime
+6. `src/pages/Standings.tsx` — staleTime
+7. `src/pages/MatchDetail.tsx` — staleTime
+8. `src/pages/admin/AdminPlayers.tsx` — Consolidar query key
 
-### Migracion: Corregir RLS policies a PERMISSIVE
-Todas las policies `Public read X` y `Admin manage X` estan como RESTRICTIVE. Se necesita recrearlas como PERMISSIVE para que funcionen correctamente. Esto afecta todas las tablas: divisions, categories, clubs, teams, matches, match_teams, goal_events, penalties, standings_aggregate, fair_play_aggregate, brackets, playoff_bracket, playoff_slots, rosters, match_import, audit_logs, user_roles.
-
----
-
-## Detalles tecnicos
-
-### Estructura de datos para el panel en vivo
-- Rosters se consultan via: `supabase.from("rosters").select("id, jersey_number, position, team_id, player:players!rosters_player_id_fkey(id, first_name, last_name)").in("team_id", [homeTeamId, awayTeamId])`
-- Nota: `players` tiene RLS restrictiva para admin/editor, lo cual esta bien ya que el panel solo lo usan admins autenticados
-- Al agregar un gol se hace INSERT en `goal_events` y UPDATE del `score_regular` en `match_teams`
-- Al agregar una sancion se hace INSERT en `penalties` con `penalty_minutes` convertido de string "1:30" → entero minutos (se guardara como el valor en minutos enteros mas cercano o como texto segun la columna, que es integer, asi que 1:30 = 2 min, 4:00 = 4 min, 10:00 = 10 min)
-
-### Correccion timezone
-```typescript
-export function bogotaInputToUTC(localValue: string): string {
-  if (!localValue) return "";
-  return new Date(localValue + ":00-05:00").toISOString();
-}
-```
-
-### Flujo de "Iniciar partido"
-1. Click "Iniciar" → cambia status a `in_progress` → navega a `/admin/matches?live=MATCH_ID` o abre dialog
-2. El MatchLivePanel se muestra como un Dialog grande (Sheet) con toda la interfaz de registro
-3. Al cerrar el panel, se vuelve a la lista de partidos
+## Sin cambios de base de datos necesarios
 
