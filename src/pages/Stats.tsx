@@ -46,6 +46,7 @@ export default function Stats() {
       return data ?? [];
     },
     enabled: playerIds.length > 0,
+    staleTime: 2 * 60_000,
   });
 
   const getPlayer = (id: string) => players.find((p: any) => p.id === id);

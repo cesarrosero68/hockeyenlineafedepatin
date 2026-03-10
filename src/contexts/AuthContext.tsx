@@ -53,8 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Revalidate session when tab becomes visible or network reconnects
+    // Throttled revalidation: max once every 30s
+    let lastRevalidation = 0;
     const revalidateSession = () => {
+      const now = Date.now();
+      if (now - lastRevalidation < 30_000) return;
+      lastRevalidation = now;
       supabase.auth.getSession().then(({ data: { session: freshSession } }) => {
         if (freshSession) {
           setSession(freshSession);

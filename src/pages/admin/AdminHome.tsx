@@ -21,6 +21,7 @@ export default function AdminHome() {
         players: p.count ?? 0,
       };
     },
+    staleTime: 60_000,
   });
 
   const stats = [

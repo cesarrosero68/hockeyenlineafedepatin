@@ -90,6 +90,7 @@ export default function MatchDetail() {
       return data ?? [];
     },
     enabled: !!homeTeam || !!awayTeam,
+    staleTime: 30_000,
   });
 
   if (isLoading) {
