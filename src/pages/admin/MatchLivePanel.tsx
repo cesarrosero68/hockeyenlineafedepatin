@@ -137,6 +137,9 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
       const isOT = goalPeriod === "3";
+      if (goalTime && !isValidMatchTime(goalTime)) {
+        throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 05:32)");
+      }
       const { error } = await supabase.from("goal_events").insert({
         match_id: matchId,
         team_id: goalTeamId,
