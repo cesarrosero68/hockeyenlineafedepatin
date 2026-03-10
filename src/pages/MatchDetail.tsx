@@ -55,6 +55,7 @@ export default function MatchDetail() {
       return data ?? [];
     },
     enabled: !!id,
+    staleTime: 30_000,
   });
 
   const { data: penaltiesList } = useQuery({
