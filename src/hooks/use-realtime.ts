@@ -33,30 +33,44 @@ export function useRealtimeUpdates() {
       }, 250);
     };
 
-    const channel = supabase
-      .channel("tournament_update")
-      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => {
-        queueInvalidation("matches");
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "match_teams" }, () => {
-        queueInvalidation("match_teams");
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "goal_events" }, () => {
-        queueInvalidation("goal_events");
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "penalties" }, () => {
-        queueInvalidation("penalties");
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "standings_aggregate" }, () => {
-        queueInvalidation("standings_aggregate");
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "fair_play_aggregate" }, () => {
-        queueInvalidation("fair_play_aggregate");
-      })
-      .subscribe();
+    const createChannel = () => {
+      return supabase
+        .channel("tournament_update")
+        .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => {
+          queueInvalidation("matches");
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "match_teams" }, () => {
+          queueInvalidation("match_teams");
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "goal_events" }, () => {
+          queueInvalidation("goal_events");
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "penalties" }, () => {
+          queueInvalidation("penalties");
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "standings_aggregate" }, () => {
+          queueInvalidation("standings_aggregate");
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "fair_play_aggregate" }, () => {
+          queueInvalidation("fair_play_aggregate");
+        })
+        .subscribe();
+    };
+
+    let channel = createChannel();
+
+    // Reconnect realtime channel when tab becomes visible again
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        supabase.removeChannel(channel);
+        channel = createChannel();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       if (flushTimer) clearTimeout(flushTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
