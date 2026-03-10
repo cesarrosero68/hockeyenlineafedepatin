@@ -31,6 +31,7 @@ export default function Stats() {
         .limit(50);
       return data ?? [];
     },
+    staleTime: 2 * 60_000,
   });
 
   const playerIds = useMemo(() => stats.map((s: any) => s.player_id).filter(Boolean), [stats]);
@@ -46,12 +47,13 @@ export default function Stats() {
       return data ?? [];
     },
     enabled: playerIds.length > 0,
+    staleTime: 2 * 60_000,
   });
 
   const getPlayer = (id: string) => players.find((p: any) => p.id === id);
 
   const hasRealData = stats.length > 0;
-  const placeholder = generatePlaceholderStats(15);
+  const placeholder = useMemo(() => generatePlaceholderStats(15), []);
 
   if (isLoading) {
     return (

@@ -55,6 +55,7 @@ export default function MatchDetail() {
       return data ?? [];
     },
     enabled: !!id,
+    staleTime: 30_000,
   });
 
   const { data: penaltiesList } = useQuery({
@@ -72,6 +73,7 @@ export default function MatchDetail() {
       return data ?? [];
     },
     enabled: !!id,
+    staleTime: 30_000,
   });
 
   const { data: rosters } = useQuery({
@@ -90,6 +92,7 @@ export default function MatchDetail() {
       return data ?? [];
     },
     enabled: !!homeTeam || !!awayTeam,
+    staleTime: 30_000,
   });
 
   if (isLoading) {

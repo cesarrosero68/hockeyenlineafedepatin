@@ -36,6 +36,7 @@ export default function AdminPlayers() {
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const { data: teams = [] } = useQuery({
@@ -44,6 +45,7 @@ export default function AdminPlayers() {
       const { data } = await supabase.from("teams").select("id, name, categories(name, divisions(name))").order("name");
       return data ?? [];
     },
+    staleTime: 30_000,
   });
 
   const { data: rosters = [] } = useQuery({
@@ -56,6 +58,7 @@ export default function AdminPlayers() {
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const createPlayerMutation = useMutation({
