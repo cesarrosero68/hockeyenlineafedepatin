@@ -2,14 +2,16 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play } from "lucide-react";
+import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play, Plus, Trash2, CalendarDays, List } from "lucide-react";
 import { formatBogota, utcToBogotaInput, bogotaInputToUTC } from "@/lib/timezone";
 import { toast } from "@/hooks/use-toast";
 import MatchLivePanel from "./MatchLivePanel";
+import CreateMatchDialog from "./CreateMatchDialog";
+import EditMatchDialog from "./EditMatchDialog";
+import AdminScheduleCalendar from "./AdminScheduleCalendar";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -30,6 +32,9 @@ export default function AdminMatches() {
   const [filterDivision, setFilterDivision] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [liveMatchId, setLiveMatchId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editMatch, setEditMatch] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const { data: divisions = [] } = useQuery({
     queryKey: ["admin-divisions"],
@@ -46,8 +51,8 @@ export default function AdminMatches() {
       const { data, error } = await supabase
         .from("matches")
         .select(`
-          id, match_date, status, phase, round_number, venue,
-          categories!inner(name, division_id, divisions!inner(id, name)),
+          id, match_date, status, phase, round_number, venue, notes, category_id,
+          categories!inner(id, name, division_id, divisions!inner(id, name)),
           match_teams(side, score_regular, score_extra, team_id, teams!inner(name))
         `)
         .order("match_date", { ascending: true });
@@ -68,10 +73,7 @@ export default function AdminMatches() {
   const updateDateMutation = useMutation({
     mutationFn: async ({ matchId, date }: { matchId: string; date: string }) => {
       const utcDate = date ? bogotaInputToUTC(date) : null;
-      const { error } = await supabase
-        .from("matches")
-        .update({ match_date: utcDate })
-        .eq("id", matchId);
+      const { error } = await supabase.from("matches").update({ match_date: utcDate }).eq("id", matchId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -103,21 +105,14 @@ export default function AdminMatches() {
         const awayGoals = goals?.filter((g) => g.team_id === awayTeam.team_id).length ?? 0;
 
         if (homeGoals !== homeTeam.score_regular) {
-          throw new Error(
-            `Goles registrados del local (${homeGoals}) no coinciden con el marcador (${homeTeam.score_regular})`
-          );
+          throw new Error(`Goles registrados del local (${homeGoals}) no coinciden con el marcador (${homeTeam.score_regular})`);
         }
         if (awayGoals !== awayTeam.score_regular) {
-          throw new Error(
-            `Goles registrados del visitante (${awayGoals}) no coinciden con el marcador (${awayTeam.score_regular})`
-          );
+          throw new Error(`Goles registrados del visitante (${awayGoals}) no coinciden con el marcador (${awayTeam.score_regular})`);
         }
       }
 
-      const { error } = await supabase
-        .from("matches")
-        .update({ status: "closed" as const })
-        .eq("id", matchId);
+      const { error } = await supabase.from("matches").update({ status: "closed" as const }).eq("id", matchId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -131,10 +126,7 @@ export default function AdminMatches() {
 
   const lockMatchMutation = useMutation({
     mutationFn: async (matchId: string) => {
-      const { error } = await supabase
-        .from("matches")
-        .update({ status: "locked" as const })
-        .eq("id", matchId);
+      const { error } = await supabase.from("matches").update({ status: "locked" as const }).eq("id", matchId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -148,15 +140,26 @@ export default function AdminMatches() {
 
   const startMatchMutation = useMutation({
     mutationFn: async (matchId: string) => {
-      const { error } = await supabase
-        .from("matches")
-        .update({ status: "in_progress" as const })
-        .eq("id", matchId);
+      const { error } = await supabase.from("matches").update({ status: "in_progress" as const }).eq("id", matchId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
       toast({ title: "Partido iniciado" });
+    },
+  });
+
+  const deleteMatchMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      const { error } = await supabase.rpc("delete_match_and_recalc", { p_match_id: matchId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
+      toast({ title: "Partido eliminado" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error al eliminar", description: err.message, variant: "destructive" });
     },
   });
 
@@ -175,10 +178,33 @@ export default function AdminMatches() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
-        <Calendar className="h-6 w-6 text-primary" />
-        Gestión de Partidos
-      </h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
+          <Calendar className="h-6 w-6 text-primary" />
+          Gestión de Partidos
+        </h1>
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === "list" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className="gap-1"
+          >
+            <List className="h-4 w-4" /> Lista
+          </Button>
+          <Button
+            variant={viewMode === "calendar" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("calendar")}
+            className="gap-1"
+          >
+            <CalendarDays className="h-4 w-4" /> Calendario
+          </Button>
+          <Button size="sm" className="gap-1" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4" /> Crear Partido
+          </Button>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
@@ -209,161 +235,181 @@ export default function AdminMatches() {
         </span>
       </div>
 
-      <div className="space-y-3">
-        {filteredMatches.map((match: any) => {
-          const home = match.match_teams?.find((mt: any) => mt.side === "home");
-          const away = match.match_teams?.find((mt: any) => mt.side === "away");
-          const isLocked = match.status === "locked";
-          const isClosed = match.status === "closed";
-          const isEditingDate = editingDateId === match.id;
+      {viewMode === "calendar" ? (
+        <AdminScheduleCalendar matches={filteredMatches} />
+      ) : (
+        <div className="space-y-3">
+          {filteredMatches.map((match: any) => {
+            const home = match.match_teams?.find((mt: any) => mt.side === "home");
+            const away = match.match_teams?.find((mt: any) => mt.side === "away");
+            const isLocked = match.status === "locked";
+            const isClosed = match.status === "closed";
+            const isEditingDate = editingDateId === match.id;
 
-          return (
-            <Card key={match.id} className={isLocked ? "opacity-70" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-0.5 rounded">{match.categories?.name}</span>
-                      <span className="text-xs border px-2 py-0.5 rounded">{match.categories?.divisions?.name}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        match.status === "locked" ? "bg-destructive text-destructive-foreground" :
-                        match.status === "closed" ? "border" :
-                        match.status === "in_progress" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                      }`}>
-                        {statusLabels[match.status]}
-                      </span>
-                      {isLocked && <Lock className="h-4 w-4 text-destructive" />}
+            return (
+              <Card key={match.id} className={isLocked ? "opacity-70" : ""}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-0.5 rounded">{match.categories?.name}</span>
+                        <span className="text-xs border px-2 py-0.5 rounded">{match.categories?.divisions?.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          match.status === "locked" ? "bg-destructive text-destructive-foreground" :
+                          match.status === "closed" ? "border" :
+                          match.status === "in_progress" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                        }`}>
+                          {statusLabels[match.status]}
+                        </span>
+                        {isLocked && <Lock className="h-4 w-4 text-destructive" />}
+                      </div>
+                      <p className="font-semibold">
+                        {home?.teams?.name ?? "TBD"} {home?.score_regular ?? 0} - {away?.score_regular ?? 0} {away?.teams?.name ?? "TBD"}
+                      </p>
+
+                      {isEditingDate ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input
+                            type="datetime-local"
+                            value={editDateValue}
+                            onChange={(e) => setEditDateValue(e.target.value)}
+                            className="w-auto text-xs h-8"
+                          />
+                          <Button size="sm" className="h-8 gap-1" onClick={() => updateDateMutation.mutate({ matchId: match.id, date: editDateValue })} disabled={updateDateMutation.isPending}>
+                            <Save className="h-4 w-4" /> OK
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingDateId(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          {match.match_date ? (
+                            <span>{formatBogota(match.match_date, "d MMM yyyy, h:mm a")} (Bogotá)</span>
+                          ) : (
+                            <span className="italic">Sin fecha asignada</span>
+                          )}
+                          {!isLocked && (
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 ml-1" onClick={() => startEditingDate(match.id, match.match_date)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className="font-semibold">
-                      {home?.teams?.name ?? "TBD"} {home?.score_regular ?? 0} - {away?.score_regular ?? 0} {away?.teams?.name ?? "TBD"}
-                    </p>
 
-                    {/* Date display / editor */}
-                    {isEditingDate ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <Input
-                          type="datetime-local"
-                          value={editDateValue}
-                          onChange={(e) => setEditDateValue(e.target.value)}
-                          className="w-auto text-xs h-8"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 gap-1"
-                          onClick={() =>
-                            updateDateMutation.mutate({
-                              matchId: match.id,
-                              date: editDateValue,
-                            })
-                          }
-                          disabled={updateDateMutation.isPending}
-                        >
-                          <Save className="h-4 w-4" /> OK
+                    <div className="flex gap-2 flex-wrap">
+                      {/* Edit button */}
+                      {!isLocked && (
+                        <Button size="sm" variant="outline" className="gap-1" onClick={() => setEditMatch(match)}>
+                          <Pencil className="h-4 w-4" /> Editar
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setEditingDateId(null)}
-                        >
-                          <X className="h-4 w-4" />
+                      )}
+
+                      {/* Delete button */}
+                      {!isLocked && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1 text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                Eliminar Partido
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se eliminarán todos los goles, sanciones y datos asociados. Las estadísticas se recalcularán automáticamente. Esta acción no se puede deshacer.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => deleteMatchMutation.mutate(match.id)}
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+
+                      {match.status === "scheduled" && (
+                        <Button size="sm" className="gap-1" onClick={() => {
+                          startMatchMutation.mutate(match.id);
+                          setLiveMatchId(match.id);
+                        }}>
+                          <Play className="h-4 w-4" /> Iniciar
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        {match.match_date ? (
-                          <span>{formatBogota(match.match_date, "d MMM yyyy, h:mm a")} (Bogotá)</span>
-                        ) : (
-                          <span className="italic">Sin fecha asignada</span>
-                        )}
-                        {!isLocked && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0 ml-1"
-                            onClick={() => startEditingDate(match.id, match.match_date)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                      )}
+
+                      {match.status === "in_progress" && (
+                        <Button size="sm" variant="secondary" className="gap-1" onClick={() => setLiveMatchId(match.id)}>
+                          <Play className="h-4 w-4" /> Gestionar
+                        </Button>
+                      )}
+
+                      {match.status === "in_progress" && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1">
+                              <CheckCircle className="h-4 w-4" /> Cerrar
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                Cerrar Partido
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se validará que los goles registrados coincidan con el marcador.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => closeMatchMutation.mutate(match.id)}>
+                                Confirmar Cierre
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+
+                      {isClosed && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="destructive" className="gap-1">
+                              <Lock className="h-4 w-4" /> Bloquear
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Bloquear Partido</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Un partido bloqueado no podrá ser editado. ¿Confirmar?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => lockMatchMutation.mutate(match.id)}>
+                                Bloquear
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="flex gap-2 flex-wrap">
-                    {match.status === "scheduled" && (
-                      <Button size="sm" className="gap-1" onClick={() => {
-                        startMatchMutation.mutate(match.id);
-                        setLiveMatchId(match.id);
-                      }}>
-                        <Play className="h-4 w-4" /> Iniciar
-                      </Button>
-                    )}
-
-                    {match.status === "in_progress" && (
-                      <Button size="sm" variant="secondary" className="gap-1" onClick={() => setLiveMatchId(match.id)}>
-                        <Play className="h-4 w-4" /> Gestionar
-                      </Button>
-                    )}
-
-                    {match.status === "in_progress" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="gap-1">
-                            <CheckCircle className="h-4 w-4" /> Cerrar
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="flex items-center gap-2">
-                              <AlertTriangle className="h-5 w-5 text-destructive" />
-                              Cerrar Partido
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Se validará que los goles registrados coincidan con el marcador.
-                              Esta acción cambiará el estado a "Finalizado".
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => closeMatchMutation.mutate(match.id)}>
-                              Confirmar Cierre
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-
-                    {isClosed && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="destructive" className="gap-1">
-                            <Lock className="h-4 w-4" /> Bloquear
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Bloquear Partido</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Un partido bloqueado no podrá ser editado. ¿Confirmar?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => lockMatchMutation.mutate(match.id)}>
-                              Bloquear
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       <MatchLivePanel
         matchId={liveMatchId}
@@ -371,6 +417,9 @@ export default function AdminMatches() {
         open={!!liveMatchId}
         onOpenChange={(open) => { if (!open) setLiveMatchId(null); }}
       />
+
+      <CreateMatchDialog open={showCreate} onOpenChange={setShowCreate} />
+      <EditMatchDialog open={!!editMatch} onOpenChange={(open) => { if (!open) setEditMatch(null); }} match={editMatch} />
     </div>
   );
 }
