@@ -23,6 +23,7 @@ export default function AdminDivisions() {
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const createMutation = useMutation({

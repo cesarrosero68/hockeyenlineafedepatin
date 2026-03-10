@@ -58,6 +58,7 @@ export default function AdminPlayers() {
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const createPlayerMutation = useMutation({

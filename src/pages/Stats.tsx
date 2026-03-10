@@ -31,6 +31,7 @@ export default function Stats() {
         .limit(50);
       return data ?? [];
     },
+    staleTime: 2 * 60_000,
   });
 
   const playerIds = useMemo(() => stats.map((s: any) => s.player_id).filter(Boolean), [stats]);

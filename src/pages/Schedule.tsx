@@ -69,6 +69,7 @@ export default function Schedule() {
         } as MatchWithDetails;
       });
     },
+    staleTime: 60_000,
   });
 
   // Group matches by date key (yyyy-MM-dd in Bogota time)
