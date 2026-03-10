@@ -1,0 +1,1 @@
+ALTER TABLE public.penalties ADD COLUMN penalty_time TEXT;
