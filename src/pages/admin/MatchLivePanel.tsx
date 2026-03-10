@@ -399,7 +399,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                     {" — "}
                     {p.player ? `${p.player.first_name} ${p.player.last_name}` : "Equipo"}
                     <span className="text-muted-foreground ml-1">| {p.penalty_code}: {p.penalty_description} | {p.penalty_minutes}min</span>
-                    <span className="text-muted-foreground ml-1">{PERIODS.find(pr => pr.value === String(p.period))?.label}</span>
+                    <span className="text-muted-foreground ml-1">{PERIODS.find(pr => pr.value === String(p.period))?.label} {p.penalty_time ?? ""}</span>
                   </div>
                   <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deletePenaltyMutation.mutate(p.id)}><Trash2 className="h-3 w-3" /></Button>
                 </div>
