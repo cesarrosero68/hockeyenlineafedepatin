@@ -59,6 +59,7 @@ export default function AdminMatches() {
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const filteredMatches = useMemo(() => {
