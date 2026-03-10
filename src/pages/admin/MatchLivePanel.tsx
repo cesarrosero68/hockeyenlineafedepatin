@@ -144,6 +144,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
+    retry: 2,
   });
 
   // Fetch existing penalties
