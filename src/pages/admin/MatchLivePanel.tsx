@@ -88,19 +88,25 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     staleTime: 10_000,
   });
 
-  // Fix: Use queryClient.refetchQueries to avoid stale closure problem
+  // Fix: Delay refetch by 500ms to let AuthContext revalidate token first
   useEffect(() => {
     if (!open || !matchId) return;
+    let timerId: ReturnType<typeof setTimeout>;
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
-        queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] });
-        queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
-        queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
+        timerId = setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
+          queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] });
+          queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
+          queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
+        }, 500);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearTimeout(timerId);
+    };
   }, [open, matchId, queryClient]);
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
