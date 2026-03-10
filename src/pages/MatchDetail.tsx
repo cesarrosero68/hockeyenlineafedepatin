@@ -210,7 +210,7 @@ export default function MatchDetail() {
                   </div>
                   <div className="text-xs text-muted-foreground text-right">
                     <p>Periodo {g.period}{g.is_overtime ? " (OT)" : ""}{g.is_shootout ? " (SO)" : ""}</p>
-                    {g.game_time && <p>{g.game_time}</p>}
+                    <p>{g.game_time ?? "—"}</p>
                   </div>
                 </CardContent>
               </Card>
