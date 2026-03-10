@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -44,16 +44,12 @@ const PERIODS = [
 
 interface MatchLivePanelProps {
   matchId: string | null;
-  matchData: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function MatchLivePanel({ matchId, matchData, open, onOpenChange }: MatchLivePanelProps) {
+export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLivePanelProps) {
   const queryClient = useQueryClient();
-  const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
-  const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
-  const teamIds = [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean);
 
   // Goal form state
   const [goalTeamId, setGoalTeamId] = useState("");
@@ -71,11 +67,34 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
   const [penPeriod, setPenPeriod] = useState("1");
   const [penMatchTime, setPenMatchTime] = useState("");
 
-  const isValidMatchTime = (v: string) => /^\d{2}:\d{2}$/.test(v);
+  const isValidMatchTime = useCallback((v: string) => /^\d{2}:\d{2}$/.test(v), []);
+
+  // Self-contained match data fetch — isolated from parent
+  const { data: matchData } = useQuery({
+    queryKey: ["live-match-detail", matchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("matches")
+        .select(`
+          id, match_date, status, phase, category_id,
+          match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name))
+        `)
+        .eq("id", matchId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!matchId,
+    staleTime: 30_000,
+  });
+
+  const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
+  const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
+  const teamIds = useMemo(() => [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean) as string[], [homeTeam, awayTeam]);
 
   // Fetch rosters for both teams
   const { data: rosters = [] } = useQuery({
-    queryKey: ["match-rosters", teamIds.join(",")],
+    queryKey: ["live-match-rosters", matchId, teamIds.join(",")],
     queryFn: async () => {
       if (teamIds.length === 0) return [];
       const { data, error } = await supabase
@@ -86,6 +105,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       return data;
     },
     enabled: open && teamIds.length > 0,
+    staleTime: 5 * 60_000,
   });
 
   // Fetch existing goals
@@ -102,6 +122,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       return data;
     },
     enabled: open && !!matchId,
+    staleTime: 10_000,
   });
 
   // Fetch existing penalties
@@ -118,19 +139,26 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       return data;
     },
     enabled: open && !!matchId,
+    staleTime: 10_000,
   });
 
-  const playersForTeam = (teamId: string) =>
+  const playersForTeam = useCallback((teamId: string) =>
     rosters.filter((r: any) => r.team_id === teamId).map((r: any) => ({
       id: r.players?.id ?? r.player_id,
       label: `#${r.jersey_number ?? "?"} ${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""}`,
-    }));
+    })), [rosters]);
 
-  const teamName = (teamId: string) => {
+  const teamName = useCallback((teamId: string) => {
     if (teamId === homeTeam?.team_id) return homeTeam?.teams?.name ?? "Local";
     if (teamId === awayTeam?.team_id) return awayTeam?.teams?.name ?? "Visitante";
     return "—";
-  };
+  }, [homeTeam, awayTeam]);
+
+  // Invalidate only the panel's own queries — let realtime handle the admin-matches list
+  const invalidatePanelQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["match-goals", matchId] });
+    queryClient.invalidateQueries({ queryKey: ["live-match-detail", matchId] });
+  }, [queryClient, matchId]);
 
   // Add goal mutation
   const addGoalMutation = useMutation({
@@ -140,6 +168,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       if (goalTime && !isValidMatchTime(goalTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 05:32)");
       }
+      // Insert goal
       const { error } = await supabase.from("goal_events").insert({
         match_id: matchId,
         team_id: goalTeamId,
@@ -152,7 +181,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       });
       if (error) throw error;
 
-      // Update score_regular: count non-shootout goals
+      // Update scores in a single batch — fetch goals first
       const { data: allGoals } = await supabase
         .from("goal_events")
         .select("team_id")
@@ -162,16 +191,14 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       const homeGoals = allGoals?.filter(g => g.team_id === homeTeam?.team_id).length ?? 0;
       const awayGoals = allGoals?.filter(g => g.team_id === awayTeam?.team_id).length ?? 0;
 
-      if (homeTeam) {
-        await supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId).eq("side", "home");
-      }
-      if (awayTeam) {
-        await supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId).eq("side", "away");
-      }
+      // Update both scores in parallel
+      await Promise.all([
+        homeTeam ? supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId).eq("side", "home") : null,
+        awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId).eq("side", "away") : null,
+      ].filter(Boolean));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["match-goals", matchId] });
-      queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
+      invalidatePanelQueries();
       setGoalScorerId(""); setGoalAssistId(""); setGoalTime("");
       toast({ title: "Gol registrado" });
     },
@@ -183,17 +210,17 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
     mutationFn: async (goalId: string) => {
       const { error } = await supabase.from("goal_events").delete().eq("id", goalId);
       if (error) throw error;
-      // Recalc scores
       const { data: allGoals } = await supabase
         .from("goal_events").select("team_id").eq("match_id", matchId!).eq("is_shootout", false);
       const homeGoals = allGoals?.filter(g => g.team_id === homeTeam?.team_id).length ?? 0;
       const awayGoals = allGoals?.filter(g => g.team_id === awayTeam?.team_id).length ?? 0;
-      if (homeTeam) await supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId!).eq("side", "home");
-      if (awayTeam) await supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId!).eq("side", "away");
+      await Promise.all([
+        homeTeam ? supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId!).eq("side", "home") : null,
+        awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId!).eq("side", "away") : null,
+      ].filter(Boolean));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["match-goals", matchId] });
-      queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
+      invalidatePanelQueries();
       toast({ title: "Gol eliminado" });
     },
   });
@@ -320,7 +347,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                     {g.assist && <span className="text-muted-foreground"> (Asist: {g.assist.first_name} {g.assist.last_name})</span>}
                     <span className="text-muted-foreground ml-2">{PERIODS.find(p => p.value === String(g.period))?.label} {g.game_time ?? ""}</span>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteGoalMutation.mutate(g.id)}><Trash2 className="h-3 w-3" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteGoalMutation.mutate(g.id)} disabled={deleteGoalMutation.isPending}><Trash2 className="h-3 w-3" /></Button>
                 </div>
               ))}
             </div>
@@ -375,13 +402,15 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                   <label className="text-xs font-medium">Duración Sanción</label>
                   <Select value={penTimePreset} onValueChange={setPenTimePreset}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{PENALTY_TIMES.map(t => <SelectItem key={t.label} value={t.label}>{t.label}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      {PENALTY_TIMES.map(t => <SelectItem key={t.label} value={t.label}>{t.label}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </div>
                 {penTimePreset === "Manual" && (
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Minutos</label>
-                    <Input value={penTimeManual} onChange={e => setPenTimeManual(e.target.value)} placeholder="Minutos" type="number" />
+                    <Input type="number" value={penTimeManual} onChange={e => setPenTimeManual(e.target.value)} placeholder="2" />
                   </div>
                 )}
               </div>
@@ -397,11 +426,10 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                   <div>
                     <span className="font-medium">{teamName(p.team_id)}</span>
                     {" — "}
-                    {p.player ? `${p.player.first_name} ${p.player.last_name}` : "Equipo"}
-                    <span className="text-muted-foreground ml-1">| {p.penalty_code}: {p.penalty_description} | {p.penalty_minutes}min</span>
-                    <span className="text-muted-foreground ml-1">{PERIODS.find(pr => pr.value === String(p.period))?.label} {p.penalty_time ?? ""}</span>
+                    {p.player?.first_name} {p.player?.last_name}
+                    <span className="text-muted-foreground ml-2">{p.penalty_code} ({p.game_time})</span>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deletePenaltyMutation.mutate(p.id)}><Trash2 className="h-3 w-3" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deletePenaltyMutation.mutate(p.id)} disabled={deletePenaltyMutation.isPending}><Trash2 className="h-3 w-3" /></Button>
                 </div>
               ))}
             </div>

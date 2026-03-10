@@ -3,8 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const TABLE_QUERY_KEYS: Record<string, string[]> = {
-  matches: ["schedule-matches", "match-detail", "match-goals", "match-penalties", "admin-matches", "admin-counts"],
-  match_teams: ["schedule-matches", "match-detail", "standings", "fair-play", "admin-matches", "admin-counts"],
+  matches: ["schedule-matches", "match-detail", "admin-matches", "admin-counts"],
+  match_teams: ["schedule-matches", "match-detail", "standings", "fair-play", "admin-matches", "admin-counts", "live-match-detail"],
   goal_events: ["match-detail", "match-goals", "player-stats"],
   penalties: ["match-detail", "match-penalties", "fair-play"],
   standings_aggregate: ["standings"],
