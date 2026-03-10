@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -85,8 +85,23 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       return data;
     },
     enabled: open && !!matchId,
-    staleTime: 30_000,
+    staleTime: 10_000,
   });
+
+  // Refetch panel data when tab becomes visible again
+  useEffect(() => {
+    if (!open || !matchId) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        queryClient.invalidateQueries({ queryKey: ["live-match-detail", matchId] });
+        queryClient.invalidateQueries({ queryKey: ["live-match-rosters", matchId] });
+        queryClient.invalidateQueries({ queryKey: ["match-goals", matchId] });
+        queryClient.invalidateQueries({ queryKey: ["match-penalties", matchId] });
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [open, matchId, queryClient]);
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
   const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
