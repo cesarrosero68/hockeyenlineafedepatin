@@ -1,117 +1,74 @@
 
+## Diagnóstico
 
-# Plan: Admin Modules Completos + Flujo de Partido en Vivo
+Lo que veo en el código actual es que la corrección previa quedó incompleta para el caso real que describes:
 
-## Diagnostico
+- `MatchLivePanel` solo invalida queries al volver a la pestaña, pero **no garantiza refetch inmediato ni recuperación completa** de datos críticos.
+- `use-realtime.ts` recrea el canal en `visibilitychange`, pero **no controla estados reales del websocket** (`CHANNEL_ERROR`, `TIMED_OUT`, `CLOSED`), así que puede quedar “muerto” después de volver al navegador.
+- Los botones de **Registrar Gol** y **Registrar Sanción** dependen de `isPending` de mutaciones. Si una petición queda colgada al cambiar de pestaña, el botón puede **quedar bloqueado indefinidamente**.
+- No hay una capa de recuperación de sesión/auth al volver a foco. Si el token o el estado auth queda desfasado, el panel puede seguir visible pero no operativo.
 
-### Problema raiz
-1. **Divisiones, Clubes, Equipos, Jugadores, Auditoria**: No existen los archivos de pagina ni las rutas en `App.tsx`. Solo hay `AdminHome.tsx` y `AdminMatches.tsx` en `src/pages/admin/`. El `AdminDashboard.tsx` tiene los links en la nav pero al hacer click se muestra 404.
-2. **Hora de Bogota en partidos**: La funcion `bogotaInputToUTC` en `src/lib/timezone.ts` tiene un bug de doble conversion (lineas 35-41). Calcula el offset dos veces.
-3. **Iniciar partido**: Actualmente el boton "Iniciar" solo cambia el status a `in_progress`. No abre ningun menu para registrar goles ni sanciones.
-4. **RLS restrictivas**: Todas las policies publicas siguen marcadas como `RESTRICTIVE` (no `PERMISSIVE`), lo que puede bloquear lecturas. Se necesita una migracion para corregirlas.
+## Plan de corrección
 
----
+### 1. Endurecer la reconexión realtime
+**Archivo:** `src/hooks/use-realtime.ts`
 
-## Archivos nuevos a crear (6)
+- Mantener el canal actual, pero agregar manejo explícito de estado de suscripción.
+- Reconectar automáticamente cuando el canal entre en error, timeout o cierre.
+- Reintentar también cuando el navegador vuelva a estar visible o recupere conectividad (`online`).
+- Evitar recreaciones duplicadas del canal y limpiar correctamente listeners/canales anteriores.
 
-### 1. `src/pages/admin/AdminDivisions.tsx`
-- CRUD de divisiones: tabla con nombre, logo_url
-- Formulario inline para crear/editar division
-- Consulta `supabase.from("divisions").select("*")`
-- Mutaciones INSERT/UPDATE/DELETE
+### 2. Recuperar sesión al volver a la pestaña
+**Archivo:** `src/contexts/AuthContext.tsx`
 
-### 2. `src/pages/admin/AdminClubs.tsx`
-- CRUD de clubes: tabla con nombre, logo_url
-- Formulario inline para crear/editar club
-- Consulta `supabase.from("clubs").select("*")`
+- Al volver a foco o recuperar red, revalidar la sesión activa con el cliente de auth.
+- Si la sesión sigue viva, refrescar el estado local sin obligar al usuario a recargar.
+- Mantener el rol cargado, pero sin bloquear la interfaz mientras se rehidrata el estado.
 
-### 3. `src/pages/admin/AdminTeams.tsx`
-- CRUD de equipos: nombre, club_id (dropdown de clubs), category_id (dropdown de categorias), logo_url
-- Consultas con joins a clubs y categories
-- Formulario con selects para club y categoria
+### 3. Hacer el panel vivo tolerante a cambio de pestaña
+**Archivo:** `src/pages/admin/MatchLivePanel.tsx`
 
-### 4. `src/pages/admin/AdminPlayers.tsx`
-- CRUD de jugadores: first_name, last_name, jersey_number, date_of_birth
-- Gestion de rosters: asignar jugador a equipo con posicion y numero
-- Consulta `supabase.from("players")` y `supabase.from("rosters")`
+- Cambiar la estrategia de “solo invalidar” por **refetch explícito** de:
+  - `live-match-detail`
+  - `live-match-rosters`
+  - `match-goals`
+  - `match-penalties`
+- Activar `refetchOnReconnect` y `refetchOnWindowFocus` **solo en las queries del panel vivo**.
+- Agregar un fallback liviano de sincronización mientras el panel esté abierto y el partido esté `in_progress`, para que el panel no dependa únicamente del websocket.
+- Desacoplar la habilitación de botones de estados transitorios de reconexión.
+- Proteger las mutaciones con recuperación de error/timeout para que nunca queden “pendientes” para siempre.
 
-### 5. `src/pages/admin/AdminAudit.tsx`
-- Vista de solo lectura de `audit_logs`
-- Tabla con columnas: fecha, usuario, tabla, accion, datos anteriores/nuevos
-- Filtros por tabla y accion
+### 4. Mantener la app rápida
+**Archivo:** `src/App.tsx`
 
-### 6. `src/pages/admin/MatchLivePanel.tsx`
-- Panel que se abre al hacer click en "Iniciar" un partido (o al abrir un partido `in_progress`)
-- Dos secciones con tabs: **Goles** y **Sanciones**
+- No cambiar la arquitectura global.
+- Dejar la configuración general liviana, y concentrar la recuperación solo en el panel admin en vivo, para no degradar el resto del sistema.
 
-**Seccion Goles:**
-- Dropdown equipo (local/visitante)
-- Dropdown jugador goleador (filtrado por roster del equipo seleccionado)
-- Dropdown jugador asistencia (mismo roster + opcion "N/A")
-- Input tiempo de juego mm:ss
-- Dropdown periodo: 1T / 2T / OT
-- Boton agregar gol → INSERT en `goal_events`
-- Lista de goles registrados con opcion de eliminar
+## Resultado esperado
 
-**Seccion Sanciones:**
-- Dropdown equipo
-- Dropdown jugador (roster del equipo)
-- Dropdown tipo sancion (33 codigos exactos):
-  BC: BODY CHECKING, BDG: BOARDING, BE: BUTT ENDING, BP: BENCH PENALTY, BS: BROKEN STICK, CC: CROSS CHECKING, CFB: CC FROM BEHIND, CH: CHARGING, DG: DELAY OF GAME, ELB: ELBOWING, FI: FIGHTING, FOP: FALLING ON PUCK, FOV: FACE OFF VIOL., GE: GAME EJECTION, GM: GAME MISSCONDUCT, HKG: HOOKING, HO: HOLDING, HP: HAND PASS, HS: HIGH STICK, IE: ILLEGAL EQUIPMENT, INT: INTERFERENCE, INTG: INT. OF GOALTENDER, KNE: KNEEING, MP: MATCH PENALTY, MSC: MISSCONDUCT, OA: OFFICIAL ABUSE, PS: PENALTY SHOOT, RO: ROUGHING, SL: SLASHING, SP: SPEARING, TMM: TOO MANY MEN, TR: TRIPPING, USC: UNSPORTSMANLIKE
-- Dropdown tiempo sancion predeterminado: 1:30, 4:00, 10:00 + opcion "Manual" con input
-- Dropdown periodo: 1T / 2T / OT
-- Boton agregar sancion → INSERT en `penalties`
-- Lista de sanciones registradas con opcion de eliminar
+Después de esto, el panel admin debería:
 
----
+- seguir funcionando si el usuario cambia de pestaña o ventana,
+- recuperar websocket y sesión automáticamente,
+- volver con datos frescos del partido,
+- permitir registrar goles y sanciones sin refrescar,
+- evitar que los botones queden bloqueados por estados colgados.
 
-## Archivos a modificar (3)
+## Archivos a intervenir
 
-### 7. `src/App.tsx`
-- Agregar lazy imports para los 6 nuevos componentes
-- Agregar rutas hijas dentro de `<Route path="/admin">`:
-  - `divisions` → AdminDivisions
-  - `clubs` → AdminClubs
-  - `teams` → AdminTeams
-  - `players` → AdminPlayers
-  - `matches` → AdminMatches (ya existe)
-  - `audit` → AdminAudit
+- `src/hooks/use-realtime.ts`
+- `src/contexts/AuthContext.tsx`
+- `src/pages/admin/MatchLivePanel.tsx`
+- `src/App.tsx`
 
-### 8. `src/lib/timezone.ts`
-- Corregir `bogotaInputToUTC`: eliminar la logica duplicada. El input datetime-local debe tratarse como hora Bogota (UTC-5), simplemente concatenar `"-05:00"` al string y crear Date.
+## Validación final
 
-### 9. `src/pages/admin/AdminMatches.tsx`
-- Cambiar el boton "Iniciar" para que ademas de cambiar status, abra/navegue al `MatchLivePanel`
-- Para partidos `in_progress`, mostrar un boton "Gestionar" que abre el panel de eventos en vivo
-- El marcador (score_regular) se actualizara automaticamente al contar goles registrados
+Voy a validar específicamente este flujo:
 
----
-
-## Migracion de base de datos
-
-### Migracion: Corregir RLS policies a PERMISSIVE
-Todas las policies `Public read X` y `Admin manage X` estan como RESTRICTIVE. Se necesita recrearlas como PERMISSIVE para que funcionen correctamente. Esto afecta todas las tablas: divisions, categories, clubs, teams, matches, match_teams, goal_events, penalties, standings_aggregate, fair_play_aggregate, brackets, playoff_bracket, playoff_slots, rosters, match_import, audit_logs, user_roles.
-
----
-
-## Detalles tecnicos
-
-### Estructura de datos para el panel en vivo
-- Rosters se consultan via: `supabase.from("rosters").select("id, jersey_number, position, team_id, player:players!rosters_player_id_fkey(id, first_name, last_name)").in("team_id", [homeTeamId, awayTeamId])`
-- Nota: `players` tiene RLS restrictiva para admin/editor, lo cual esta bien ya que el panel solo lo usan admins autenticados
-- Al agregar un gol se hace INSERT en `goal_events` y UPDATE del `score_regular` en `match_teams`
-- Al agregar una sancion se hace INSERT en `penalties` con `penalty_minutes` convertido de string "1:30" → entero minutos (se guardara como el valor en minutos enteros mas cercano o como texto segun la columna, que es integer, asi que 1:30 = 2 min, 4:00 = 4 min, 10:00 = 10 min)
-
-### Correccion timezone
-```typescript
-export function bogotaInputToUTC(localValue: string): string {
-  if (!localValue) return "";
-  return new Date(localValue + ":00-05:00").toISOString();
-}
-```
-
-### Flujo de "Iniciar partido"
-1. Click "Iniciar" → cambia status a `in_progress` → navega a `/admin/matches?live=MATCH_ID` o abre dialog
-2. El MatchLivePanel se muestra como un Dialog grande (Sheet) con toda la interfaz de registro
-3. Al cerrar el panel, se vuelve a la lista de partidos
-
+1. abrir panel de gestión de un partido activo,
+2. registrar un gol,
+3. cambiar de pestaña 15–30 segundos,
+4. volver al navegador,
+5. registrar otro gol sin refrescar,
+6. repetir el mismo flujo con sanciones,
+7. confirmar que botones, sesión y conexión siguen estables.
