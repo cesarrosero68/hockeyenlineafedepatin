@@ -224,7 +224,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["match-penalties", matchId] });
-      setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual("");
+      setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual(""); setPenMatchTime("");
       toast({ title: "Sanción registrada" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
