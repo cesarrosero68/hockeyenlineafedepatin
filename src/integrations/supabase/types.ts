@@ -834,6 +834,10 @@ export type Database = {
       }
     }
     Functions: {
+      delete_match_and_recalc: {
+        Args: { p_match_id: string }
+        Returns: undefined
+      }
       generate_playoffs: {
         Args: {
           p_category_name: string

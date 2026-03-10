@@ -1,81 +1,117 @@
 
 
-# Plan: Admin Match Management — Create, Edit, Delete + Calendar Drag & Drop
+# Plan: Admin Modules Completos + Flujo de Partido en Vivo
 
-## Overview
+## Diagnostico
 
-Extend `AdminMatches.tsx` with full CRUD capabilities and a calendar-based drag-and-drop scheduling view. No database schema changes needed — all tables already support the required operations via existing RLS policies.
+### Problema raiz
+1. **Divisiones, Clubes, Equipos, Jugadores, Auditoria**: No existen los archivos de pagina ni las rutas en `App.tsx`. Solo hay `AdminHome.tsx` y `AdminMatches.tsx` en `src/pages/admin/`. El `AdminDashboard.tsx` tiene los links en la nav pero al hacer click se muestra 404.
+2. **Hora de Bogota en partidos**: La funcion `bogotaInputToUTC` en `src/lib/timezone.ts` tiene un bug de doble conversion (lineas 35-41). Calcula el offset dos veces.
+3. **Iniciar partido**: Actualmente el boton "Iniciar" solo cambia el status a `in_progress`. No abre ningun menu para registrar goles ni sanciones.
+4. **RLS restrictivas**: Todas las policies publicas siguen marcadas como `RESTRICTIVE` (no `PERMISSIVE`), lo que puede bloquear lecturas. Se necesita una migracion para corregirlas.
 
-## Changes
+---
 
-### 1. Database: Add CASCADE delete rule for match-related tables
+## Archivos nuevos a crear (6)
 
-**Migration** to add `ON DELETE CASCADE` to `goal_events`, `penalties`, and `match_teams` foreign keys referencing `matches.id`. This ensures deleting a match automatically cleans up all related records (no orphans). Also create a DB function `delete_match_and_recalc(p_match_id UUID)` that:
-- Reads the match's `category_id` before deletion
-- Deletes the match (cascades clean up events)
-- Calls `recalc_standings_for_category`, `recalc_fair_play_for_category`, and `REFRESH MATERIALIZED VIEW player_stats_aggregate`
+### 1. `src/pages/admin/AdminDivisions.tsx`
+- CRUD de divisiones: tabla con nombre, logo_url
+- Formulario inline para crear/editar division
+- Consulta `supabase.from("divisions").select("*")`
+- Mutaciones INSERT/UPDATE/DELETE
 
-### 2. New Component: `CreateMatchDialog.tsx`
+### 2. `src/pages/admin/AdminClubs.tsx`
+- CRUD de clubes: tabla con nombre, logo_url
+- Formulario inline para crear/editar club
+- Consulta `supabase.from("clubs").select("*")`
 
-A dialog form with fields:
-- Division (select) → filters categories
-- Category (select, filtered by division)
-- Phase (select: regular/playoff/final/third_place/ranking)
-- Home team + Away team (selects, filtered by category)
-- Date + Time (datetime-local input, Bogota timezone)
-- Venue (text)
-- Round number (number, optional)
-- Status (select: scheduled/in_progress/closed)
-- Notes (textarea, optional)
+### 3. `src/pages/admin/AdminTeams.tsx`
+- CRUD de equipos: nombre, club_id (dropdown de clubs), category_id (dropdown de categorias), logo_url
+- Consultas con joins a clubs y categories
+- Formulario con selects para club y categoria
 
-On submit:
-1. Insert into `matches` table
-2. Insert two rows into `match_teams` (home/away with score_regular=0)
-3. Invalidate queries
+### 4. `src/pages/admin/AdminPlayers.tsx`
+- CRUD de jugadores: first_name, last_name, jersey_number, date_of_birth
+- Gestion de rosters: asignar jugador a equipo con posicion y numero
+- Consulta `supabase.from("players")` y `supabase.from("rosters")`
 
-### 3. New Component: `EditMatchDialog.tsx`
+### 5. `src/pages/admin/AdminAudit.tsx`
+- Vista de solo lectura de `audit_logs`
+- Tabla con columnas: fecha, usuario, tabla, accion, datos anteriores/nuevos
+- Filtros por tabla y accion
 
-Same form as create, pre-populated with existing match data. On submit:
-- Update `matches` row
-- If teams changed: delete old `match_teams`, insert new ones (only if match has no goals/penalties)
-- Invalidate queries
+### 6. `src/pages/admin/MatchLivePanel.tsx`
+- Panel que se abre al hacer click en "Iniciar" un partido (o al abrir un partido `in_progress`)
+- Dos secciones con tabs: **Goles** y **Sanciones**
 
-### 4. Delete Match
+**Seccion Goles:**
+- Dropdown equipo (local/visitante)
+- Dropdown jugador goleador (filtrado por roster del equipo seleccionado)
+- Dropdown jugador asistencia (mismo roster + opcion "N/A")
+- Input tiempo de juego mm:ss
+- Dropdown periodo: 1T / 2T / OT
+- Boton agregar gol → INSERT en `goal_events`
+- Lista de goles registrados con opcion de eliminar
 
-Add delete button on each match card (with confirmation AlertDialog). Calls the `delete_match_and_recalc` DB function via `supabase.rpc()`. Only available for non-locked matches.
+**Seccion Sanciones:**
+- Dropdown equipo
+- Dropdown jugador (roster del equipo)
+- Dropdown tipo sancion (33 codigos exactos):
+  BC: BODY CHECKING, BDG: BOARDING, BE: BUTT ENDING, BP: BENCH PENALTY, BS: BROKEN STICK, CC: CROSS CHECKING, CFB: CC FROM BEHIND, CH: CHARGING, DG: DELAY OF GAME, ELB: ELBOWING, FI: FIGHTING, FOP: FALLING ON PUCK, FOV: FACE OFF VIOL., GE: GAME EJECTION, GM: GAME MISSCONDUCT, HKG: HOOKING, HO: HOLDING, HP: HAND PASS, HS: HIGH STICK, IE: ILLEGAL EQUIPMENT, INT: INTERFERENCE, INTG: INT. OF GOALTENDER, KNE: KNEEING, MP: MATCH PENALTY, MSC: MISSCONDUCT, OA: OFFICIAL ABUSE, PS: PENALTY SHOOT, RO: ROUGHING, SL: SLASHING, SP: SPEARING, TMM: TOO MANY MEN, TR: TRIPPING, USC: UNSPORTSMANLIKE
+- Dropdown tiempo sancion predeterminado: 1:30, 4:00, 10:00 + opcion "Manual" con input
+- Dropdown periodo: 1T / 2T / OT
+- Boton agregar sancion → INSERT en `penalties`
+- Lista de sanciones registradas con opcion de eliminar
 
-### 5. Refactor `AdminMatches.tsx`
+---
 
-- Add "Crear Partido" button at the top
-- Add Edit and Delete buttons per match card
-- Integrate CreateMatchDialog and EditMatchDialog
-- Add a toggle between "Lista" (current list view) and "Calendario" (new calendar view)
+## Archivos a modificar (3)
 
-### 6. New Component: `AdminScheduleCalendar.tsx`
+### 7. `src/App.tsx`
+- Agregar lazy imports para los 6 nuevos componentes
+- Agregar rutas hijas dentro de `<Route path="/admin">`:
+  - `divisions` → AdminDivisions
+  - `clubs` → AdminClubs
+  - `teams` → AdminTeams
+  - `players` → AdminPlayers
+  - `matches` → AdminMatches (ya existe)
+  - `audit` → AdminAudit
 
-Calendar view for drag-and-drop scheduling:
-- Monthly grid showing matches grouped by day
-- Each match displayed as a draggable card (using native HTML drag-and-drop API — no external library needed)
-- Drop targets on each calendar day cell
-- On drop: update `match_date` preserving the original time, call `updateDateMutation`
-- Division/status filters shared with list view
-- Uses `toBogotaDate` for correct timezone display
+### 8. `src/lib/timezone.ts`
+- Corregir `bogotaInputToUTC`: eliminar la logica duplicada. El input datetime-local debe tratarse como hora Bogota (UTC-5), simplemente concatenar `"-05:00"` al string y crear Date.
 
-Implementation uses `onDragStart`/`onDragOver`/`onDrop` native events (no complex DnD library), keeping it simple and reliable.
+### 9. `src/pages/admin/AdminMatches.tsx`
+- Cambiar el boton "Iniciar" para que ademas de cambiar status, abra/navegue al `MatchLivePanel`
+- Para partidos `in_progress`, mostrar un boton "Gestionar" que abre el panel de eventos en vivo
+- El marcador (score_regular) se actualizara automaticamente al contar goles registrados
 
-### 7. Statistics Recalculation
+---
 
-The existing trigger system (`on_match_status_change`) already handles recalculation when matches are closed. For delete, the new `delete_match_and_recalc` function handles it. For create/edit of match metadata (date, venue, teams), no recalculation is needed since stats only derive from closed/locked matches.
+## Migracion de base de datos
 
-### Files to Create
-- `src/pages/admin/CreateMatchDialog.tsx`
-- `src/pages/admin/EditMatchDialog.tsx`
-- `src/pages/admin/AdminScheduleCalendar.tsx`
+### Migracion: Corregir RLS policies a PERMISSIVE
+Todas las policies `Public read X` y `Admin manage X` estan como RESTRICTIVE. Se necesita recrearlas como PERMISSIVE para que funcionen correctamente. Esto afecta todas las tablas: divisions, categories, clubs, teams, matches, match_teams, goal_events, penalties, standings_aggregate, fair_play_aggregate, brackets, playoff_bracket, playoff_slots, rosters, match_import, audit_logs, user_roles.
 
-### Files to Edit
-- `src/pages/admin/AdminMatches.tsx` — add create/edit/delete buttons, calendar toggle
+---
 
-### Migration
-- Add CASCADE deletes on FK constraints
-- Create `delete_match_and_recalc` function
+## Detalles tecnicos
+
+### Estructura de datos para el panel en vivo
+- Rosters se consultan via: `supabase.from("rosters").select("id, jersey_number, position, team_id, player:players!rosters_player_id_fkey(id, first_name, last_name)").in("team_id", [homeTeamId, awayTeamId])`
+- Nota: `players` tiene RLS restrictiva para admin/editor, lo cual esta bien ya que el panel solo lo usan admins autenticados
+- Al agregar un gol se hace INSERT en `goal_events` y UPDATE del `score_regular` en `match_teams`
+- Al agregar una sancion se hace INSERT en `penalties` con `penalty_minutes` convertido de string "1:30" → entero minutos (se guardara como el valor en minutos enteros mas cercano o como texto segun la columna, que es integer, asi que 1:30 = 2 min, 4:00 = 4 min, 10:00 = 10 min)
+
+### Correccion timezone
+```typescript
+export function bogotaInputToUTC(localValue: string): string {
+  if (!localValue) return "";
+  return new Date(localValue + ":00-05:00").toISOString();
+}
+```
+
+### Flujo de "Iniciar partido"
+1. Click "Iniciar" → cambia status a `in_progress` → navega a `/admin/matches?live=MATCH_ID` o abre dialog
+2. El MatchLivePanel se muestra como un Dialog grande (Sheet) con toda la interfaz de registro
+3. Al cerrar el panel, se vuelve a la lista de partidos
 
