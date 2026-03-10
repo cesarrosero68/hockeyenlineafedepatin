@@ -467,6 +467,7 @@ export type Database = {
           penalty_code: string
           penalty_description: string
           penalty_minutes: number
+          penalty_time: string | null
           period: number
           player_id: string | null
           team_id: string
@@ -479,6 +480,7 @@ export type Database = {
           penalty_code: string
           penalty_description: string
           penalty_minutes?: number
+          penalty_time?: string | null
           period: number
           player_id?: string | null
           team_id: string
@@ -491,6 +493,7 @@ export type Database = {
           penalty_code?: string
           penalty_description?: string
           penalty_minutes?: number
+          penalty_time?: string | null
           period?: number
           player_id?: string | null
           team_id?: string

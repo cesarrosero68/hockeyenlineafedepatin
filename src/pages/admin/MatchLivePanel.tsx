@@ -69,6 +69,9 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
   const [penTimePreset, setPenTimePreset] = useState("1:30");
   const [penTimeManual, setPenTimeManual] = useState("");
   const [penPeriod, setPenPeriod] = useState("1");
+  const [penMatchTime, setPenMatchTime] = useState("");
+
+  const isValidMatchTime = (v: string) => /^\d{2}:\d{2}$/.test(v);
 
   // Fetch rosters for both teams
   const { data: rosters = [] } = useQuery({
@@ -134,6 +137,9 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
       const isOT = goalPeriod === "3";
+      if (goalTime && !isValidMatchTime(goalTime)) {
+        throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 05:32)");
+      }
       const { error } = await supabase.from("goal_events").insert({
         match_id: matchId,
         team_id: goalTeamId,
@@ -200,6 +206,9 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
       const preset = PENALTY_TIMES.find(t => t.label === penTimePreset);
       const minutes = penTimePreset === "Manual" ? (parseInt(penTimeManual) || 2) : (preset?.minutes ?? 2);
 
+      if (penMatchTime && !isValidMatchTime(penMatchTime)) {
+        throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 10:15)");
+      }
       const { error } = await supabase.from("penalties").insert({
         match_id: matchId,
         team_id: penTeamId,
@@ -209,12 +218,13 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
         penalty_minutes: minutes,
         period: parseInt(penPeriod),
         game_time: penTimePreset === "Manual" ? penTimeManual : penTimePreset,
-      });
+        penalty_time: penMatchTime || null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["match-penalties", matchId] });
-      setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual("");
+      setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual(""); setPenMatchTime("");
       toast({ title: "Sanción registrada" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -356,9 +366,13 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
+                <Input value={penMatchTime} onChange={e => setPenMatchTime(e.target.value)} placeholder="00:00" className="w-[100px]" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Tiempo Sanción</label>
+                  <label className="text-xs font-medium">Duración Sanción</label>
                   <Select value={penTimePreset} onValueChange={setPenTimePreset}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{PENALTY_TIMES.map(t => <SelectItem key={t.label} value={t.label}>{t.label}</SelectItem>)}</SelectContent>
@@ -385,7 +399,7 @@ export default function MatchLivePanel({ matchId, matchData, open, onOpenChange 
                     {" — "}
                     {p.player ? `${p.player.first_name} ${p.player.last_name}` : "Equipo"}
                     <span className="text-muted-foreground ml-1">| {p.penalty_code}: {p.penalty_description} | {p.penalty_minutes}min</span>
-                    <span className="text-muted-foreground ml-1">{PERIODS.find(pr => pr.value === String(p.period))?.label}</span>
+                    <span className="text-muted-foreground ml-1">{PERIODS.find(pr => pr.value === String(p.period))?.label} {p.penalty_time ?? ""}</span>
                   </div>
                   <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deletePenaltyMutation.mutate(p.id)}><Trash2 className="h-3 w-3" /></Button>
                 </div>

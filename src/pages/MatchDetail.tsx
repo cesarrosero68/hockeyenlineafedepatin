@@ -210,7 +210,7 @@ export default function MatchDetail() {
                   </div>
                   <div className="text-xs text-muted-foreground text-right">
                     <p>Periodo {g.period}{g.is_overtime ? " (OT)" : ""}{g.is_shootout ? " (SO)" : ""}</p>
-                    {g.game_time && <p>{g.game_time}</p>}
+                    <p>{g.game_time ?? "—"}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -240,7 +240,7 @@ export default function MatchDetail() {
                   <div className="text-xs text-muted-foreground text-right">
                     <p>{p.penalty_minutes} min</p>
                     <p>Periodo {p.period}</p>
-                    {p.game_time && <p>{p.game_time}</p>}
+                    <p>{(p as any).penalty_time ?? "—"}</p>
                   </div>
                 </CardContent>
               </Card>
