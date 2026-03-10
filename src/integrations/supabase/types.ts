@@ -847,7 +847,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalc_fair_play_for_category: {
+        Args: { p_category_id: string }
+        Returns: undefined
+      }
       recalc_player_stats: { Args: never; Returns: undefined }
+      recalc_standings_for_category: {
+        Args: { p_category_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "editor"

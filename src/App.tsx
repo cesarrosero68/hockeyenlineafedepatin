@@ -29,7 +29,14 @@ const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
 const AdminUpload = lazy(() => import("./pages/admin/AdminUpload"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 min default staleTime to avoid unnecessary refetches
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function PageLoader() {
   return (
