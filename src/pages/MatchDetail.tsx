@@ -33,6 +33,7 @@ export default function MatchDetail() {
       return data;
     },
     enabled: !!id,
+    staleTime: 30_000,
   });
 
   const homeTeam = (match as any)?.match_teams?.find((mt: any) => mt.side === "home");

@@ -67,13 +67,10 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const [penPeriod, setPenPeriod] = useState("1");
   const [penMatchTime, setPenMatchTime] = useState("");
 
-  // Track if a mutation is actually in-flight (with timeout protection)
-  const mutationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const isValidMatchTime = useCallback((v: string) => /^\d{2}:\d{2}$/.test(v), []);
 
   // Self-contained match data fetch — isolated from parent
-  const { data: matchData, refetch: refetchMatch } = useQuery({
+  const { data: matchData } = useQuery({
     queryKey: ["live-match-detail", matchId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -89,32 +86,29 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
   });
 
-  // Explicit refetch on visibility change — don't just invalidate, force refetch
+  // Fix: Use queryClient.refetchQueries to avoid stale closure problem
   useEffect(() => {
     if (!open || !matchId) return;
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        // Force immediate refetch of all panel queries
-        refetchMatch();
-        refetchGoals();
-        refetchPenalties();
-        refetchRosters();
+        queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
+        queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] });
+        queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
+        queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [open, matchId]);
+  }, [open, matchId, queryClient]);
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
   const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
   const teamIds = useMemo(() => [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean) as string[], [homeTeam, awayTeam]);
 
   // Fetch rosters for both teams
-  const { data: rosters = [], refetch: refetchRosters } = useQuery({
+  const { data: rosters = [] } = useQuery({
     queryKey: ["live-match-rosters", matchId, teamIds.join(",")],
     queryFn: async () => {
       if (teamIds.length === 0) return [];
@@ -127,12 +121,10 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && teamIds.length > 0,
     staleTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
   });
 
   // Fetch existing goals
-  const { data: goals = [], refetch: refetchGoals } = useQuery({
+  const { data: goals = [] } = useQuery({
     queryKey: ["match-goals", matchId],
     queryFn: async () => {
       if (!matchId) return [];
@@ -146,12 +138,10 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
   });
 
   // Fetch existing penalties
-  const { data: penalties = [], refetch: refetchPenalties } = useQuery({
+  const { data: penalties = [] } = useQuery({
     queryKey: ["match-penalties", matchId],
     queryFn: async () => {
       if (!matchId) return [];
@@ -165,8 +155,6 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
   });
 
   const playersForTeam = useCallback((teamId: string) =>
@@ -180,6 +168,21 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     if (teamId === awayTeam?.team_id) return awayTeam?.teams?.name ?? "Visitante";
     return "—";
   }, [homeTeam, awayTeam]);
+
+  // Mutation helper: auto-reset after 15s to prevent stuck buttons
+  const mutationTimeoutRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const startMutationTimeout = useCallback((key: string, resetFn: () => void) => {
+    const existing = mutationTimeoutRef.current.get(key);
+    if (existing) clearTimeout(existing);
+    mutationTimeoutRef.current.set(key, setTimeout(() => {
+      resetFn();
+      mutationTimeoutRef.current.delete(key);
+    }, 15_000));
+  }, []);
+  const clearMutationTimeout = useCallback((key: string) => {
+    const existing = mutationTimeoutRef.current.get(key);
+    if (existing) { clearTimeout(existing); mutationTimeoutRef.current.delete(key); }
+  }, []);
 
   // Add goal mutation with timeout protection
   const addGoalMutation = useMutation({
@@ -215,13 +218,18 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId).eq("side", "away") : null,
       ].filter(Boolean));
     },
+    onMutate: () => startMutationTimeout("addGoal", () => addGoalMutation.reset()),
     onSuccess: () => {
-      refetchGoals();
-      refetchMatch();
+      clearMutationTimeout("addGoal");
+      queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
+      queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
       setGoalScorerId(""); setGoalAssistId(""); setGoalTime("");
       toast({ title: "Gol registrado" });
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      clearMutationTimeout("addGoal");
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   // Delete goal mutation
@@ -238,11 +246,14 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId!).eq("side", "away") : null,
       ].filter(Boolean));
     },
+    onMutate: () => startMutationTimeout("deleteGoal", () => deleteGoalMutation.reset()),
     onSuccess: () => {
-      refetchGoals();
-      refetchMatch();
+      clearMutationTimeout("deleteGoal");
+      queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
+      queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
       toast({ title: "Gol eliminado" });
     },
+    onError: () => clearMutationTimeout("deleteGoal"),
   });
 
   // Add penalty mutation
@@ -269,12 +280,17 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       } as any);
       if (error) throw error;
     },
+    onMutate: () => startMutationTimeout("addPenalty", () => addPenaltyMutation.reset()),
     onSuccess: () => {
-      refetchPenalties();
+      clearMutationTimeout("addPenalty");
+      queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
       setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual(""); setPenMatchTime("");
       toast({ title: "Sanción registrada" });
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      clearMutationTimeout("addPenalty");
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   const deletePenaltyMutation = useMutation({
@@ -282,10 +298,13 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { error } = await supabase.from("penalties").delete().eq("id", penId);
       if (error) throw error;
     },
+    onMutate: () => startMutationTimeout("deletePenalty", () => deletePenaltyMutation.reset()),
     onSuccess: () => {
-      refetchPenalties();
+      clearMutationTimeout("deletePenalty");
+      queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
       toast({ title: "Sanción eliminada" });
     },
+    onError: () => clearMutationTimeout("deletePenalty"),
   });
 
   return (

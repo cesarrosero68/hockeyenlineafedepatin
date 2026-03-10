@@ -28,6 +28,7 @@ export default function TeamsPage() {
       if (error) throw error;
       return data ?? [];
     },
+    staleTime: 5 * 60_000,
   });
 
   const { data: categories = [], isLoading: loadingCategories, isError: errorCategories } = useQuery({
@@ -37,6 +38,7 @@ export default function TeamsPage() {
       if (error) throw error;
       return data ?? [];
     },
+    staleTime: 5 * 60_000,
   });
 
   const { data: teams = [], isLoading: loadingTeams, isError: errorTeams } = useQuery({
@@ -49,45 +51,8 @@ export default function TeamsPage() {
       if (error) throw error;
       return data ?? [];
     },
+    staleTime: 5 * 60_000,
   });
-
-  const { data: rosterRows = [], isLoading: loadingRosters } = useQuery({
-    queryKey: ["all-rosters"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("rosters")
-        .select("id, jersey_number, position, team_id, player_id")
-        .order("jersey_number");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: players = [] } = useQuery({
-    queryKey: ["players-public"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("players_public").select("id, first_name, last_name, jersey_number");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const playersById = useMemo(() => {
-    const map = new Map<string, any>();
-    players.forEach((p: any) => {
-      if (p.id) map.set(p.id, p);
-    });
-    return map;
-  }, [players]);
-
-  const rosters = useMemo(
-    () =>
-      rosterRows.map((r: any) => ({
-        ...r,
-        player: r.player_id ? playersById.get(r.player_id) : null,
-      })),
-    [rosterRows, playersById]
-  );
 
   const isLoading = loadingDivisions || loadingCategories || loadingTeams;
   const hasError = errorDivisions || errorCategories || errorTeams;
@@ -144,8 +109,6 @@ export default function TeamsPage() {
                             key={team.id}
                             team={team}
                             categoryName={cat.name}
-                            rosters={rosters.filter((r: any) => r.team_id === team.id)}
-                            rostersLoading={loadingRosters}
                           />
                         ))}
                       </div>
@@ -164,30 +127,47 @@ export default function TeamsPage() {
 function TeamCard({
   team,
   categoryName,
-  rosters,
-  rostersLoading,
 }: {
   team: any;
   categoryName: string;
-  rosters: any[];
-  rostersLoading: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const hasRealRoster = rosters.length > 0;
-  const displayRoster = hasRealRoster
-    ? rosters.map((r: any, i: number) => ({
-        jersey: r.jersey_number ?? r.player?.jersey_number ?? getRandomJersey(i),
-        name: `${r.player?.first_name ?? "Name"} ${r.player?.last_name ?? "Last Name"}`,
+  // Lazy-load rosters only when expanded
+  const { data: rosterRows = [], isLoading: rostersLoading } = useQuery({
+    queryKey: ["team-rosters", team.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rosters")
+        .select("id, jersey_number, position, team_id, player_id, players!rosters_player_id_fkey(id, first_name, last_name)")
+        .eq("team_id", team.id)
+        .order("jersey_number");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: expanded,
+    staleTime: 5 * 60_000,
+  });
+
+  const displayRoster = useMemo(() => {
+    if (rosterRows.length > 0) {
+      return rosterRows.map((r: any, i: number) => ({
+        jersey: r.jersey_number ?? r.players?.jersey_number ?? getRandomJersey(i),
+        name: `${r.players?.first_name ?? "Name"} ${r.players?.last_name ?? "Last Name"}`,
         position: r.position ?? getRandomPosition(i),
         category: categoryName,
-      }))
-    : Array.from({ length: 10 }, (_, i) => ({
+      }));
+    }
+    if (expanded && !rostersLoading) {
+      return Array.from({ length: 10 }, (_, i) => ({
         jersey: getRandomJersey(i + team.id.charCodeAt(0)),
         name: "Name Last Name",
         position: getRandomPosition(i),
         category: categoryName,
       }));
+    }
+    return [];
+  }, [rosterRows, expanded, rostersLoading, categoryName, team.id]);
 
   return (
     <Card className="overflow-hidden">
@@ -211,7 +191,7 @@ function TeamCard({
 
       {expanded && (
         <div className="border-t px-4 py-3">
-          {rostersLoading && hasRealRoster ? (
+          {rostersLoading ? (
             <div className="py-4 flex justify-center">
               <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>

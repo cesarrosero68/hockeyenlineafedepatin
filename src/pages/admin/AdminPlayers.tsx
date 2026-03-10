@@ -39,7 +39,7 @@ export default function AdminPlayers() {
   });
 
   const { data: teams = [] } = useQuery({
-    queryKey: ["admin-teams-list"],
+    queryKey: ["admin-teams"],
     queryFn: async () => {
       const { data } = await supabase.from("teams").select("id, name, categories(name, divisions(name))").order("name");
       return data ?? [];

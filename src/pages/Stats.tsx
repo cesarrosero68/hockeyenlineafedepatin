@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +33,7 @@ export default function Stats() {
     },
   });
 
-  const playerIds = stats.map((s: any) => s.player_id).filter(Boolean);
+  const playerIds = useMemo(() => stats.map((s: any) => s.player_id).filter(Boolean), [stats]);
 
   const { data: players = [] } = useQuery({
     queryKey: ["stat-players", playerIds],
