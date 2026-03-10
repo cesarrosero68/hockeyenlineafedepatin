@@ -59,6 +59,7 @@ export default function AdminMatches() {
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const filteredMatches = useMemo(() => {
@@ -413,9 +414,8 @@ export default function AdminMatches() {
 
       <MatchLivePanel
         matchId={liveMatchId}
-        matchData={matches?.find((m: any) => m.id === liveMatchId)}
         open={!!liveMatchId}
-        onOpenChange={(open) => { if (!open) setLiveMatchId(null); }}
+        onOpenChange={(open) => { if (!open) { setLiveMatchId(null); queryClient.invalidateQueries({ queryKey: ["admin-matches"] }); } }}
       />
 
       <CreateMatchDialog open={showCreate} onOpenChange={setShowCreate} />
