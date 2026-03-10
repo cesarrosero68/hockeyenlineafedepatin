@@ -86,6 +86,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
+    retry: 2,
   });
 
   // Fix: Delay refetch by 500ms to let AuthContext revalidate token first
