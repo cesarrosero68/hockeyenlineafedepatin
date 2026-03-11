@@ -325,6 +325,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   // Delete goal mutation
   const deleteGoalMutation = useMutation({
     mutationFn: async (goalId: string) => {
+      await restoreSession({ forceRefresh: true });
       const { error } = await supabase.from("goal_events").delete().eq("id", goalId);
       if (error) throw error;
       const { data: allGoals } = await supabase
