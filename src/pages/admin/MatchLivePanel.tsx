@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ interface MatchLivePanelProps {
 
 export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLivePanelProps) {
   const queryClient = useQueryClient();
+  const { restoreSession } = useAuth();
 
   // Goal form state
   const [goalTeamId, setGoalTeamId] = useState("");
@@ -107,26 +109,49 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     retry: 2,
   });
 
-  // Fix: Delay refetch by 500ms to let AuthContext revalidate token first
   useEffect(() => {
     if (!open || !matchId) return;
-    let timerId: ReturnType<typeof setTimeout>;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    const refetchAfterRestore = () => {
+      timerId = setTimeout(() => {
+        void (async () => {
+          await restoreSession({ forceRefresh: true });
+          await Promise.all([
+            queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["match-goals", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] }),
+          ]);
+        })();
+      }, 500);
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        timerId = setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
-          queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] });
-          queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
-          queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
-        }, 500);
+        refetchAfterRestore();
       }
     };
+
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        refetchAfterRestore();
+      }
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", refetchAfterRestore);
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      clearTimeout(timerId);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", refetchAfterRestore);
+      if (timerId) {
+        clearTimeout(timerId);
+      }
     };
-  }, [open, matchId, queryClient]);
+  }, [open, matchId, queryClient, restoreSession]);
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
   const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");

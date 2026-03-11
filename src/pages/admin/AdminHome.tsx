@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Users, Calendar, Shield } from "lucide-react";
+import { Trophy, Users, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AdminHome() {
-  const { data: counts = { divisions: 0, teams: 0, matches: 0, players: 0 } } = useQuery({
+  const {
+    data: counts = { divisions: 0, teams: 0, matches: 0, players: 0 },
+    isError,
+  } = useQuery({
     queryKey: ["admin-counts"],
     queryFn: async () => {
       const [d, t, m, p] = await Promise.all([
@@ -14,6 +17,10 @@ export default function AdminHome() {
         supabase.from("matches").select("id", { count: "exact", head: true }),
         supabase.from("rosters").select("id", { count: "exact", head: true }),
       ]);
+
+      const firstError = d.error ?? t.error ?? m.error ?? p.error;
+      if (firstError) throw firstError;
+
       return {
         divisions: d.count ?? 0,
         teams: t.count ?? 0,
@@ -23,6 +30,17 @@ export default function AdminHome() {
     },
     staleTime: 60_000,
   });
+
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-destructive" />
+          No se pudieron cargar los indicadores del panel.
+        </CardContent>
+      </Card>
+    );
+  }
 
   const stats = [
     { label: "Divisiones", value: counts.divisions, icon: Trophy, color: "text-primary" },
