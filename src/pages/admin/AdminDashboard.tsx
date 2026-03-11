@@ -1,10 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard, Users, Trophy, Calendar, FileText,
-  Shield, LogOut, ChevronRight, Upload
-} from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 import PublicLayout from "@/components/PublicLayout";
@@ -25,23 +22,23 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
 
- const wasAuthenticatedRef = useRef(false);
-if (user && role) wasAuthenticatedRef.current = true;
+  const wasAuthenticatedRef = useRef(false);
+  if (user && role) wasAuthenticatedRef.current = true;
 
-useEffect(() => {
-  if (!loading && !user && !wasAuthenticatedRef.current) {
-    navigate("/login");
+  useEffect(() => {
+    if (!loading && !user && !wasAuthenticatedRef.current) {
+      navigate("/login");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading && !wasAuthenticatedRef.current) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
-}, [user, loading, navigate]);
-
-if (loading && !wasAuthenticatedRef.current) {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-    </div>
-  );
-}
-if (!user && !wasAuthenticatedRef.current) return null;f (!user || !role) return null;
+  if (!user && !wasAuthenticatedRef.current) return null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -60,7 +57,7 @@ if (!user && !wasAuthenticatedRef.current) return null;f (!user || !role) return
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <item.icon className="h-4 w-4" />
