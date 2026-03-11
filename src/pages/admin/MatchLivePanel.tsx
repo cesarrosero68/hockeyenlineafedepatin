@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ interface MatchLivePanelProps {
 
 export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLivePanelProps) {
   const queryClient = useQueryClient();
+  const { restoreSession } = useAuth();
 
   // Goal form state
   const [goalTeamId, setGoalTeamId] = useState("");
@@ -107,26 +109,49 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     retry: 2,
   });
 
-  // Fix: Delay refetch by 500ms to let AuthContext revalidate token first
   useEffect(() => {
     if (!open || !matchId) return;
-    let timerId: ReturnType<typeof setTimeout>;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    const refetchAfterRestore = () => {
+      timerId = setTimeout(() => {
+        void (async () => {
+          await restoreSession({ forceRefresh: true });
+          await Promise.all([
+            queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["match-goals", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] }),
+          ]);
+        })();
+      }, 500);
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        timerId = setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
-          queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] });
-          queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
-          queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
-        }, 500);
+        refetchAfterRestore();
       }
     };
+
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        refetchAfterRestore();
+      }
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", refetchAfterRestore);
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      clearTimeout(timerId);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", refetchAfterRestore);
+      if (timerId) {
+        clearTimeout(timerId);
+      }
     };
-  }, [open, matchId, queryClient]);
+  }, [open, matchId, queryClient, restoreSession]);
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
   const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
@@ -236,6 +261,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const addGoalMutation = useMutation({
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
+      await restoreSession({ forceRefresh: true });
       const isOT = goalPeriod === "3";
       if (goalTime && !isValidMatchTime(goalTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 05:32)");
@@ -299,6 +325,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   // Delete goal mutation
   const deleteGoalMutation = useMutation({
     mutationFn: async (goalId: string) => {
+      await restoreSession({ forceRefresh: true });
       const { error } = await supabase.from("goal_events").delete().eq("id", goalId);
       if (error) throw error;
       const { data: allGoals } = await supabase
@@ -341,6 +368,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const addPenaltyMutation = useMutation({
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
+      await restoreSession({ forceRefresh: true });
       const selectedPenalty = PENALTY_CODES.find((p) => p.code === penCode);
       const preset = PENALTY_TIMES.find((t) => t.label === penTimePreset);
       const minutes = penTimePreset === "Manual" ? parseInt(penTimeManual) || 2 : (preset?.minutes ?? 2);
@@ -380,6 +408,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
   const deletePenaltyMutation = useMutation({
     mutationFn: async (penId: string) => {
+      await restoreSession({ forceRefresh: true });
       const { error } = await supabase.from("penalties").delete().eq("id", penId);
       if (error) throw error;
     },
