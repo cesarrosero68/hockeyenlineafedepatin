@@ -6,7 +6,7 @@ import {
   Shield, LogOut, ChevronRight, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import PublicLayout from "@/components/PublicLayout";
 
 const adminNavItems = [
@@ -25,21 +25,23 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    if (!loading && (!user || !role)) {
-      navigate("/login");
-    }
-  }, [user, role, loading, navigate]);
+ const wasAuthenticatedRef = useRef(false);
+if (user && role) wasAuthenticatedRef.current = true;
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
+useEffect(() => {
+  if (!loading && !user && !wasAuthenticatedRef.current) {
+    navigate("/login");
   }
+}, [user, loading, navigate]);
 
-  if (!user || !role) return null;
+if (loading && !wasAuthenticatedRef.current) {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+    </div>
+  );
+}
+if (!user && !wasAuthenticatedRef.current) return null;f (!user || !role) return null;
 
   return (
     <div className="min-h-screen flex flex-col">
