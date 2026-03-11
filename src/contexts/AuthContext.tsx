@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,73 +20,115 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<AppRole>(null);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
+  const restoreInFlightRef = useRef<Promise<void> | null>(null);
 
-  const fetchRole = async (userId: string) => {
+  const fetchRole = useCallback(async (userId: string): Promise<AppRole> => {
     try {
       const { data } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .maybeSingle();
-      setRole((data?.role as AppRole) ?? null);
+
+      return (data?.role as AppRole) ?? null;
     } catch (err) {
       console.warn("fetchRole failed", err);
-      setRole(null);
+      return null;
     }
-  };
+  }, []);
+
+  const applyAuthState = useCallback(async (nextSession: Session | null) => {
+    if (!mountedRef.current) return;
+
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    if (!nextSession?.user) {
+      setRole(null);
+      return;
+    }
+
+    const nextRole = await fetchRole(nextSession.user.id);
+    if (mountedRef.current) {
+      setRole(nextRole);
+    }
+  }, [fetchRole]);
+
+  const restoreAuthState = useCallback(async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+    if (restoreInFlightRef.current) {
+      return restoreInFlightRef.current;
+    }
+
+    setLoading(true);
+
+    const restorePromise = (async () => {
+      try {
+        const { data: { session: storedSession } } = await supabase.auth.getSession();
+        let nextSession = storedSession ?? null;
+
+        if (forceRefresh && storedSession) {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (error) {
+            console.warn("refreshSession failed", error);
+          } else {
+            nextSession = data.session ?? nextSession;
+          }
+        }
+
+        await applyAuthState(nextSession);
+      } catch (err) {
+        console.warn("restoreAuthState failed", err);
+        await applyAuthState(null);
+      } finally {
+        restoreInFlightRef.current = null;
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    restoreInFlightRef.current = restorePromise;
+    return restorePromise;
+  }, [applyAuthState]);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchRole(session.user.id);
-        } else {
-          setRole(null);
+      async (_event, nextSession) => {
+        setLoading(true);
+        await applyAuthState(nextSession);
+        if (mountedRef.current && !restoreInFlightRef.current) {
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchRole(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    // Throttled revalidation: max once every 30s
-    let lastRevalidation = 0;
-    const revalidateSession = () => {
-      const now = Date.now();
-      if (now - lastRevalidation < 30_000) return;
-      lastRevalidation = now;
-      supabase.auth.getSession().then(({ data: { session: freshSession } }) => {
-        if (freshSession) {
-          setSession(freshSession);
-          setUser(freshSession.user);
-        }
-      });
-    };
+    void restoreAuthState();
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        revalidateSession();
+        void restoreAuthState({ forceRefresh: true });
       }
     };
 
+    const handleFocus = () => {
+      void restoreAuthState({ forceRefresh: true });
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("online", revalidateSession);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleFocus);
 
     return () => {
+      mountedRef.current = false;
       subscription.unsubscribe();
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("online", revalidateSession);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleFocus);
     };
-  }, []);
+  }, [applyAuthState, restoreAuthState]);
 
   // Safety timeout: force loading=false after 5s to prevent infinite spinner
   useEffect(() => {
@@ -99,11 +141,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loading]);
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
   };
 
   const signOut = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
   };
 
