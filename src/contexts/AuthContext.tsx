@@ -9,6 +9,17 @@ interface AuthContextType {
   user: User | null;
   role: AppRole;
   loading: boolean;
+
+// Safety timeout: force loading=false after 5s to prevent infinite spinner
+  useEffect(() => {
+    if (!loading) return;
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
