@@ -60,8 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return restoreInFlightRef.current;
       }
 
-      if (!session) setLoading(true);
-
       const restorePromise = (async () => {
         try {
           const {
@@ -133,16 +131,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("online", handleFocus);
     };
   }, [applyAuthState, restoreAuthState]);
-
-  // Safety timeout: force loading=false after 5s to prevent infinite spinner
-  useEffect(() => {
-    if (!loading) return;
-    const timeout = setTimeout(() => {
-      console.warn("Auth initialization timed out, forcing loading to false");
-      setLoading(false);
-    }, 3000);
-    return () => clearTimeout(timeout);
-  }, [loading]);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
