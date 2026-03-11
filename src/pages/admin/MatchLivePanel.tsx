@@ -368,6 +368,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const addPenaltyMutation = useMutation({
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
+      await restoreSession({ forceRefresh: true });
       const selectedPenalty = PENALTY_CODES.find((p) => p.code === penCode);
       const preset = PENALTY_TIMES.find((t) => t.label === penTimePreset);
       const minutes = penTimePreset === "Manual" ? parseInt(penTimeManual) || 2 : (preset?.minutes ?? 2);
