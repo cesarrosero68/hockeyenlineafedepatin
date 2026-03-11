@@ -9,17 +9,6 @@ interface AuthContextType {
   user: User | null;
   role: AppRole;
   loading: boolean;
-
-// Safety timeout: force loading=false after 5s to prevent infinite spinner
-  useEffect(() => {
-    if (!loading) return;
-    const timeout = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
-    return () => clearTimeout(timeout);
-  }, [loading]);
-
-  
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -37,7 +26,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchRole = useCallback(async (userId: string): Promise<AppRole> => {
     try {
       const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
-
       return (data?.role as AppRole) ?? null;
     } catch (err) {
       console.warn("fetchRole failed", err);
@@ -48,15 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyAuthState = useCallback(
     async (nextSession: Session | null) => {
       if (!mountedRef.current) return;
-
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
-
       if (!nextSession?.user) {
         setRole(null);
         return;
       }
-
       const nextRole = await fetchRole(nextSession.user.id);
       if (mountedRef.current) {
         setRole(nextRole);
@@ -70,14 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (restoreInFlightRef.current) {
         return restoreInFlightRef.current;
       }
-
       const restorePromise = (async () => {
         try {
           const {
             data: { session: storedSession },
           } = await supabase.auth.getSession();
           let nextSession = storedSession ?? null;
-
           if (forceRefresh && storedSession) {
             const { data, error } = await supabase.auth.refreshSession();
             if (error) {
@@ -86,7 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               nextSession = data.session ?? nextSession;
             }
           }
-
           await applyAuthState(nextSession);
         } catch (err) {
           console.warn("restoreAuthState failed", err);
@@ -98,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       })();
-
       restoreInFlightRef.current = restorePromise;
       return restorePromise;
     },
@@ -107,7 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
@@ -117,31 +97,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     });
-
     void restoreAuthState();
-
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         void restoreAuthState({ forceRefresh: false });
       }
     };
-
-    const handleFocus = () => {
-      void restoreAuthState({ forceRefresh: false });
-    };
-
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("online", handleFocus);
-
+    window.addEventListener("focus", handleVisibility);
+    window.addEventListener("online", handleVisibility);
     return () => {
       mountedRef.current = false;
       subscription.unsubscribe();
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("online", handleFocus);
+      window.removeEventListener("focus", handleVisibility);
+      window.removeEventListener("online", handleVisibility);
     };
   }, [applyAuthState, restoreAuthState]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 8000);
+    return () => clearTimeout(timeout);
+  }, [loading]);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
