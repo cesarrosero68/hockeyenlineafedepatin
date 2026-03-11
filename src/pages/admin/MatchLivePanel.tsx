@@ -10,22 +10,38 @@ import { Trash2, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const PENALTY_CODES = [
-  { code: "BC", desc: "BODY CHECKING" }, { code: "BDG", desc: "BOARDING" },
-  { code: "BE", desc: "BUTT ENDING" }, { code: "BP", desc: "BENCH PENALTY" },
-  { code: "BS", desc: "BROKEN STICK" }, { code: "CC", desc: "CROSS CHECKING" },
-  { code: "CFB", desc: "CC FROM BEHIND" }, { code: "CH", desc: "CHARGING" },
-  { code: "DG", desc: "DELAY OF GAME" }, { code: "ELB", desc: "ELBOWING" },
-  { code: "FI", desc: "FIGHTING" }, { code: "FOP", desc: "FALLING ON PUCK" },
-  { code: "FOV", desc: "FACE OFF VIOL." }, { code: "GE", desc: "GAME EJECTION" },
-  { code: "GM", desc: "GAME MISSCONDUCT" }, { code: "HKG", desc: "HOOKING" },
-  { code: "HO", desc: "HOLDING" }, { code: "HP", desc: "HAND PASS" },
-  { code: "HS", desc: "HIGH STICK" }, { code: "IE", desc: "ILLEGAL EQUIPMENT" },
-  { code: "INT", desc: "INTERFERENCE" }, { code: "INTG", desc: "INT. OF GOALTENDER" },
-  { code: "KNE", desc: "KNEEING" }, { code: "MP", desc: "MATCH PENALTY" },
-  { code: "MSC", desc: "MISSCONDUCT" }, { code: "OA", desc: "OFFICIAL ABUSE" },
-  { code: "PS", desc: "PENALTY SHOOT" }, { code: "RO", desc: "ROUGHING" },
-  { code: "SL", desc: "SLASHING" }, { code: "SP", desc: "SPEARING" },
-  { code: "TMM", desc: "TOO MANY MEN" }, { code: "TR", desc: "TRIPPING" },
+  { code: "BC", desc: "BODY CHECKING" },
+  { code: "BDG", desc: "BOARDING" },
+  { code: "BE", desc: "BUTT ENDING" },
+  { code: "BP", desc: "BENCH PENALTY" },
+  { code: "BS", desc: "BROKEN STICK" },
+  { code: "CC", desc: "CROSS CHECKING" },
+  { code: "CFB", desc: "CC FROM BEHIND" },
+  { code: "CH", desc: "CHARGING" },
+  { code: "DG", desc: "DELAY OF GAME" },
+  { code: "ELB", desc: "ELBOWING" },
+  { code: "FI", desc: "FIGHTING" },
+  { code: "FOP", desc: "FALLING ON PUCK" },
+  { code: "FOV", desc: "FACE OFF VIOL." },
+  { code: "GE", desc: "GAME EJECTION" },
+  { code: "GM", desc: "GAME MISSCONDUCT" },
+  { code: "HKG", desc: "HOOKING" },
+  { code: "HO", desc: "HOLDING" },
+  { code: "HP", desc: "HAND PASS" },
+  { code: "HS", desc: "HIGH STICK" },
+  { code: "IE", desc: "ILLEGAL EQUIPMENT" },
+  { code: "INT", desc: "INTERFERENCE" },
+  { code: "INTG", desc: "INT. OF GOALTENDER" },
+  { code: "KNE", desc: "KNEEING" },
+  { code: "MP", desc: "MATCH PENALTY" },
+  { code: "MSC", desc: "MISSCONDUCT" },
+  { code: "OA", desc: "OFFICIAL ABUSE" },
+  { code: "PS", desc: "PENALTY SHOOT" },
+  { code: "RO", desc: "ROUGHING" },
+  { code: "SL", desc: "SLASHING" },
+  { code: "SP", desc: "SPEARING" },
+  { code: "TMM", desc: "TOO MANY MEN" },
+  { code: "TR", desc: "TRIPPING" },
   { code: "USC", desc: "UNSPORTSMANLIKE" },
 ];
 
@@ -75,10 +91,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     queryFn: async () => {
       const { data, error } = await supabase
         .from("matches")
-        .select(`
+        .select(
+          `
           id, match_date, status, phase, category_id,
           match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name))
-        `)
+        `,
+        )
         .eq("id", matchId!)
         .single();
       if (error) throw error;
@@ -112,7 +130,10 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
   const homeTeam = matchData?.match_teams?.find((mt: any) => mt.side === "home");
   const awayTeam = matchData?.match_teams?.find((mt: any) => mt.side === "away");
-  const teamIds = useMemo(() => [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean) as string[], [homeTeam, awayTeam]);
+  const teamIds = useMemo(
+    () => [homeTeam?.team_id, awayTeam?.team_id].filter(Boolean) as string[],
+    [homeTeam, awayTeam],
+  );
 
   // Fetch rosters for both teams
   const { data: rosters = [] } = useQuery({
@@ -121,7 +142,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (teamIds.length === 0) return [];
       const { data, error } = await supabase
         .from("rosters")
-        .select("id, jersey_number, position, team_id, player_id, players!rosters_player_id_fkey(id, first_name, last_name)")
+        .select(
+          "id, jersey_number, position, team_id, player_id, players!rosters_player_id_fkey(id, first_name, last_name)",
+        )
         .in("team_id", teamIds);
       if (error) throw error;
       return data;
@@ -137,7 +160,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (!matchId) return [];
       const { data, error } = await supabase
         .from("goal_events")
-        .select("*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name), assist:players!goal_events_assist_player_id_fkey(first_name, last_name)")
+        .select(
+          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name), assist:players!goal_events_assist_player_id_fkey(first_name, last_name)",
+        )
         .eq("match_id", matchId)
         .order("created_at");
       if (error) throw error;
@@ -166,31 +191,45 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     retry: 2,
   });
 
-  const playersForTeam = useCallback((teamId: string) =>
-    rosters.filter((r: any) => r.team_id === teamId).map((r: any) => ({
-      id: r.players?.id ?? r.player_id,
-      label: `#${r.jersey_number ?? "?"} ${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""}`,
-    })), [rosters]);
+  const playersForTeam = useCallback(
+    (teamId: string) =>
+      rosters
+        .filter((r: any) => r.team_id === teamId)
+        .map((r: any) => ({
+          id: r.players?.id ?? r.player_id,
+          label: `#${r.jersey_number ?? "?"} ${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""}`,
+        })),
+    [rosters],
+  );
 
-  const teamName = useCallback((teamId: string) => {
-    if (teamId === homeTeam?.team_id) return homeTeam?.teams?.name ?? "Local";
-    if (teamId === awayTeam?.team_id) return awayTeam?.teams?.name ?? "Visitante";
-    return "—";
-  }, [homeTeam, awayTeam]);
+  const teamName = useCallback(
+    (teamId: string) => {
+      if (teamId === homeTeam?.team_id) return homeTeam?.teams?.name ?? "Local";
+      if (teamId === awayTeam?.team_id) return awayTeam?.teams?.name ?? "Visitante";
+      return "—";
+    },
+    [homeTeam, awayTeam],
+  );
 
   // Mutation helper: auto-reset after 15s to prevent stuck buttons
   const mutationTimeoutRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const startMutationTimeout = useCallback((key: string, resetFn: () => void) => {
     const existing = mutationTimeoutRef.current.get(key);
     if (existing) clearTimeout(existing);
-    mutationTimeoutRef.current.set(key, setTimeout(() => {
-      resetFn();
-      mutationTimeoutRef.current.delete(key);
-    }, 15_000));
+    mutationTimeoutRef.current.set(
+      key,
+      setTimeout(() => {
+        resetFn();
+        mutationTimeoutRef.current.delete(key);
+      }, 15_000),
+    );
   }, []);
   const clearMutationTimeout = useCallback((key: string) => {
     const existing = mutationTimeoutRef.current.get(key);
-    if (existing) { clearTimeout(existing); mutationTimeoutRef.current.delete(key); }
+    if (existing) {
+      clearTimeout(existing);
+      mutationTimeoutRef.current.delete(key);
+    }
   }, []);
 
   // Add goal mutation with timeout protection
@@ -219,20 +258,36 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .eq("match_id", matchId)
         .eq("is_shootout", false);
 
-      const homeGoals = allGoals?.filter(g => g.team_id === homeTeam?.team_id).length ?? 0;
-      const awayGoals = allGoals?.filter(g => g.team_id === awayTeam?.team_id).length ?? 0;
+      const homeGoals = allGoals?.filter((g) => g.team_id === homeTeam?.team_id).length ?? 0;
+      const awayGoals = allGoals?.filter((g) => g.team_id === awayTeam?.team_id).length ?? 0;
 
-      await Promise.all([
-        homeTeam ? supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId).eq("side", "home") : null,
-        awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId).eq("side", "away") : null,
-      ].filter(Boolean));
+      await Promise.all(
+        [
+          homeTeam
+            ? supabase
+                .from("match_teams")
+                .update({ score_regular: homeGoals })
+                .eq("match_id", matchId)
+                .eq("side", "home")
+            : null,
+          awayTeam
+            ? supabase
+                .from("match_teams")
+                .update({ score_regular: awayGoals })
+                .eq("match_id", matchId)
+                .eq("side", "away")
+            : null,
+        ].filter(Boolean),
+      );
     },
     onMutate: () => startMutationTimeout("addGoal", () => addGoalMutation.reset()),
     onSuccess: () => {
       clearMutationTimeout("addGoal");
       queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
       queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
-      setGoalScorerId(""); setGoalAssistId(""); setGoalTime("");
+      setGoalScorerId("");
+      setGoalAssistId("");
+      setGoalTime("");
       toast({ title: "Gol registrado" });
     },
     onError: (e: Error) => {
@@ -247,13 +302,30 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { error } = await supabase.from("goal_events").delete().eq("id", goalId);
       if (error) throw error;
       const { data: allGoals } = await supabase
-        .from("goal_events").select("team_id").eq("match_id", matchId!).eq("is_shootout", false);
-      const homeGoals = allGoals?.filter(g => g.team_id === homeTeam?.team_id).length ?? 0;
-      const awayGoals = allGoals?.filter(g => g.team_id === awayTeam?.team_id).length ?? 0;
-      await Promise.all([
-        homeTeam ? supabase.from("match_teams").update({ score_regular: homeGoals }).eq("match_id", matchId!).eq("side", "home") : null,
-        awayTeam ? supabase.from("match_teams").update({ score_regular: awayGoals }).eq("match_id", matchId!).eq("side", "away") : null,
-      ].filter(Boolean));
+        .from("goal_events")
+        .select("team_id")
+        .eq("match_id", matchId!)
+        .eq("is_shootout", false);
+      const homeGoals = allGoals?.filter((g) => g.team_id === homeTeam?.team_id).length ?? 0;
+      const awayGoals = allGoals?.filter((g) => g.team_id === awayTeam?.team_id).length ?? 0;
+      await Promise.all(
+        [
+          homeTeam
+            ? supabase
+                .from("match_teams")
+                .update({ score_regular: homeGoals })
+                .eq("match_id", matchId!)
+                .eq("side", "home")
+            : null,
+          awayTeam
+            ? supabase
+                .from("match_teams")
+                .update({ score_regular: awayGoals })
+                .eq("match_id", matchId!)
+                .eq("side", "away")
+            : null,
+        ].filter(Boolean),
+      );
     },
     onMutate: () => startMutationTimeout("deleteGoal", () => deleteGoalMutation.reset()),
     onSuccess: () => {
@@ -269,9 +341,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const addPenaltyMutation = useMutation({
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
-      const selectedPenalty = PENALTY_CODES.find(p => p.code === penCode);
-      const preset = PENALTY_TIMES.find(t => t.label === penTimePreset);
-      const minutes = penTimePreset === "Manual" ? (parseInt(penTimeManual) || 2) : (preset?.minutes ?? 2);
+      const selectedPenalty = PENALTY_CODES.find((p) => p.code === penCode);
+      const preset = PENALTY_TIMES.find((t) => t.label === penTimePreset);
+      const minutes = penTimePreset === "Manual" ? parseInt(penTimeManual) || 2 : (preset?.minutes ?? 2);
 
       if (penMatchTime && !isValidMatchTime(penMatchTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 10:15)");
@@ -293,7 +365,11 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     onSuccess: () => {
       clearMutationTimeout("addPenalty");
       queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
-      setPenPlayerId(""); setPenCode(""); setPenTimePreset("1:30"); setPenTimeManual(""); setPenMatchTime("");
+      setPenPlayerId("");
+      setPenCode("");
+      setPenTimePreset("1:30");
+      setPenTimeManual("");
+      setPenMatchTime("");
       toast({ title: "Sanción registrada" });
     },
     onError: (e: Error) => {
@@ -330,8 +406,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
         <Tabs defaultValue="goals" className="mt-4">
           <TabsList className="w-full">
-            <TabsTrigger value="goals" className="flex-1">Goles ({goals.length})</TabsTrigger>
-            <TabsTrigger value="penalties" className="flex-1">Sanciones ({penalties.length})</TabsTrigger>
+            <TabsTrigger value="goals" className="flex-1">
+              Goles ({goals.length})
+            </TabsTrigger>
+            <TabsTrigger value="penalties" className="flex-1">
+              Sanciones ({penalties.length})
+            </TabsTrigger>
           </TabsList>
 
           {/* GOALS TAB */}
@@ -341,7 +421,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Equipo</label>
                   <Select value={goalTeamId} onValueChange={setGoalTeamId}>
-                    <SelectTrigger><SelectValue placeholder="Equipo" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Equipo" />
+                    </SelectTrigger>
                     <SelectContent>
                       {homeTeam && <SelectItem value={homeTeam.team_id}>{homeTeam.teams?.name} (Local)</SelectItem>}
                       {awayTeam && <SelectItem value={awayTeam.team_id}>{awayTeam.teams?.name} (Visitante)</SelectItem>}
@@ -351,35 +433,69 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Periodo</label>
                   <Select value={goalPeriod} onValueChange={setGoalPeriod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{PERIODS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERIODS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Goleador</label>
                 <Select value={goalScorerId} onValueChange={setGoalScorerId}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar jugador" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar jugador" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {goalTeamId && playersForTeam(goalTeamId).map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                    {goalTeamId &&
+                      playersForTeam(goalTeamId).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Asistencia</label>
                 <Select value={goalAssistId} onValueChange={setGoalAssistId}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar jugador" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar jugador" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="na">N/A</SelectItem>
-                    {goalTeamId && playersForTeam(goalTeamId).map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                    {goalTeamId &&
+                      playersForTeam(goalTeamId).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Tiempo (mm:ss)</label>
-                <Input value={goalTime} onChange={e => setGoalTime(e.target.value)} placeholder="00:00" className="w-[100px]" />
+                <Input
+                  value={goalTime}
+                  onChange={(e) => setGoalTime(e.target.value)}
+                  placeholder="00:00"
+                  className="w-[100px]"
+                />
               </div>
-              <Button onClick={() => addGoalMutation.mutate()} disabled={!goalTeamId || !goalScorerId || addGoalMutation.isPending} className="w-full gap-1">
+              <Button
+                onClick={() => {
+                  addGoalMutation.reset();
+                  addGoalMutation.mutate();
+                }}
+                disabled={!goalTeamId || !goalScorerId || addGoalMutation.isPending}
+                className="w-full gap-1"
+              >
                 <Plus className="h-4 w-4" /> Registrar Gol
               </Button>
             </div>
@@ -392,10 +508,25 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                     <span className="font-medium">{teamName(g.team_id)}</span>
                     {" — "}
                     {g.scorer?.first_name} {g.scorer?.last_name}
-                    {g.assist && <span className="text-muted-foreground"> (Asist: {g.assist.first_name} {g.assist.last_name})</span>}
-                    <span className="text-muted-foreground ml-2">{PERIODS.find(p => p.value === String(g.period))?.label} {g.game_time ?? ""}</span>
+                    {g.assist && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        (Asist: {g.assist.first_name} {g.assist.last_name})
+                      </span>
+                    )}
+                    <span className="text-muted-foreground ml-2">
+                      {PERIODS.find((p) => p.value === String(g.period))?.label} {g.game_time ?? ""}
+                    </span>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteGoalMutation.mutate(g.id)} disabled={deleteGoalMutation.isPending}><Trash2 className="h-3 w-3" /></Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-destructive"
+                    onClick={() => deleteGoalMutation.mutate(g.id)}
+                    disabled={deleteGoalMutation.isPending}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>
@@ -408,7 +539,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Equipo</label>
                   <Select value={penTeamId} onValueChange={setPenTeamId}>
-                    <SelectTrigger><SelectValue placeholder="Equipo" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Equipo" />
+                    </SelectTrigger>
                     <SelectContent>
                       {homeTeam && <SelectItem value={homeTeam.team_id}>{homeTeam.teams?.name} (Local)</SelectItem>}
                       {awayTeam && <SelectItem value={awayTeam.team_id}>{awayTeam.teams?.name} (Visitante)</SelectItem>}
@@ -418,51 +551,92 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Periodo</label>
                   <Select value={penPeriod} onValueChange={setPenPeriod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{PERIODS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERIODS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Jugador</label>
                 <Select value={penPlayerId} onValueChange={setPenPlayerId}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar jugador" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar jugador" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {penTeamId && playersForTeam(penTeamId).map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                    {penTeamId &&
+                      playersForTeam(penTeamId).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Tipo de Sanción</label>
                 <Select value={penCode} onValueChange={setPenCode}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar sanción" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar sanción" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {PENALTY_CODES.map(p => <SelectItem key={p.code} value={p.code}>{p.code}: {p.desc}</SelectItem>)}
+                    {PENALTY_CODES.map((p) => (
+                      <SelectItem key={p.code} value={p.code}>
+                        {p.code}: {p.desc}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
-                <Input value={penMatchTime} onChange={e => setPenMatchTime(e.target.value)} placeholder="00:00" className="w-[100px]" />
+                <Input
+                  value={penMatchTime}
+                  onChange={(e) => setPenMatchTime(e.target.value)}
+                  placeholder="00:00"
+                  className="w-[100px]"
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Duración Sanción</label>
                   <Select value={penTimePreset} onValueChange={setPenTimePreset}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {PENALTY_TIMES.map(t => <SelectItem key={t.label} value={t.label}>{t.label}</SelectItem>)}
+                      {PENALTY_TIMES.map((t) => (
+                        <SelectItem key={t.label} value={t.label}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 {penTimePreset === "Manual" && (
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Minutos</label>
-                    <Input type="number" value={penTimeManual} onChange={e => setPenTimeManual(e.target.value)} placeholder="2" />
+                    <Input
+                      type="number"
+                      value={penTimeManual}
+                      onChange={(e) => setPenTimeManual(e.target.value)}
+                      placeholder="2"
+                    />
                   </div>
                 )}
               </div>
-              <Button onClick={() => addPenaltyMutation.mutate()} disabled={!penTeamId || !penCode || addPenaltyMutation.isPending} className="w-full gap-1">
+              <Button
+                onClick={() => addPenaltyMutation.mutate()}
+                disabled={!penTeamId || !penCode || addPenaltyMutation.isPending}
+                className="w-full gap-1"
+              >
                 <Plus className="h-4 w-4" /> Registrar Sanción
               </Button>
             </div>
@@ -475,9 +649,19 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                     <span className="font-medium">{teamName(p.team_id)}</span>
                     {" — "}
                     {p.player?.first_name} {p.player?.last_name}
-                    <span className="text-muted-foreground ml-2">{p.penalty_code} ({p.game_time})</span>
+                    <span className="text-muted-foreground ml-2">
+                      {p.penalty_code} ({p.game_time})
+                    </span>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deletePenaltyMutation.mutate(p.id)} disabled={deletePenaltyMutation.isPending}><Trash2 className="h-3 w-3" /></Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-destructive"
+                    onClick={() => deletePenaltyMutation.mutate(p.id)}
+                    disabled={deletePenaltyMutation.isPending}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>
