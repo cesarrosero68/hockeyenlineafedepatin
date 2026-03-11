@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return restoreInFlightRef.current;
       }
 
-      setLoading(true);
+      if (!session) setLoading(true);
 
       const restorePromise = (async () => {
         try {
