@@ -493,7 +493,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   addGoalMutation.reset();
                   addGoalMutation.mutate();
                 }}
-                disabled={!goalTeamId || !goalScorerId || addGoalMutation.isPending}
+                disabled={!goalTeamId || !goalScorerId}
                 className="w-full gap-1"
               >
                 <Plus className="h-4 w-4" /> Registrar Gol
