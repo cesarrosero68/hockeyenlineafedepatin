@@ -13,6 +13,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
     storageKey: "hockey-fedepatin-auth",
-    lock: async (_name, _acquireTimeout, fn) => fn(),
   },
 });
