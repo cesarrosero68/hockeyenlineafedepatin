@@ -25,11 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchRole = useCallback(async (userId: string): Promise<AppRole> => {
     try {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
 
       return (data?.role as AppRole) ?? null;
     } catch (err) {
@@ -38,83 +34,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const applyAuthState = useCallback(async (nextSession: Session | null) => {
-    if (!mountedRef.current) return;
+  const applyAuthState = useCallback(
+    async (nextSession: Session | null) => {
+      if (!mountedRef.current) return;
 
-    setSession(nextSession);
-    setUser(nextSession?.user ?? null);
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
 
-    if (!nextSession?.user) {
-      setRole(null);
-      return;
-    }
+      if (!nextSession?.user) {
+        setRole(null);
+        return;
+      }
 
-    const nextRole = await fetchRole(nextSession.user.id);
-    if (mountedRef.current) {
-      setRole(nextRole);
-    }
-  }, [fetchRole]);
+      const nextRole = await fetchRole(nextSession.user.id);
+      if (mountedRef.current) {
+        setRole(nextRole);
+      }
+    },
+    [fetchRole],
+  );
 
-  const restoreAuthState = useCallback(async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
-    if (restoreInFlightRef.current) {
-      return restoreInFlightRef.current;
-    }
+  const restoreAuthState = useCallback(
+    async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+      if (restoreInFlightRef.current) {
+        return restoreInFlightRef.current;
+      }
 
-    setLoading(true);
+      setLoading(true);
 
-    const restorePromise = (async () => {
-      try {
-        const { data: { session: storedSession } } = await supabase.auth.getSession();
-        let nextSession = storedSession ?? null;
+      const restorePromise = (async () => {
+        try {
+          const {
+            data: { session: storedSession },
+          } = await supabase.auth.getSession();
+          let nextSession = storedSession ?? null;
 
-        if (forceRefresh && storedSession) {
-          const { data, error } = await supabase.auth.refreshSession();
-          if (error) {
-            console.warn("refreshSession failed", error);
-          } else {
-            nextSession = data.session ?? nextSession;
+          if (forceRefresh && storedSession) {
+            const { data, error } = await supabase.auth.refreshSession();
+            if (error) {
+              console.warn("refreshSession failed", error);
+            } else {
+              nextSession = data.session ?? nextSession;
+            }
+          }
+
+          await applyAuthState(nextSession);
+        } catch (err) {
+          console.warn("restoreAuthState failed", err);
+          await applyAuthState(null);
+        } finally {
+          restoreInFlightRef.current = null;
+          if (mountedRef.current) {
+            setLoading(false);
           }
         }
+      })();
 
-        await applyAuthState(nextSession);
-      } catch (err) {
-        console.warn("restoreAuthState failed", err);
-        await applyAuthState(null);
-      } finally {
-        restoreInFlightRef.current = null;
-        if (mountedRef.current) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    restoreInFlightRef.current = restorePromise;
-    return restorePromise;
-  }, [applyAuthState]);
+      restoreInFlightRef.current = restorePromise;
+      return restorePromise;
+    },
+    [applyAuthState],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, nextSession) => {
-        setLoading(true);
-        await applyAuthState(nextSession);
-        if (mountedRef.current && !restoreInFlightRef.current) {
-          setLoading(false);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      setLoading(true);
+      await applyAuthState(nextSession);
+      if (mountedRef.current && !restoreInFlightRef.current) {
+        setLoading(false);
       }
-    );
+    });
 
     void restoreAuthState();
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        void restoreAuthState({ forceRefresh: true });
+        void restoreAuthState({ forceRefresh: false });
       }
     };
 
     const handleFocus = () => {
-      void restoreAuthState({ forceRefresh: true });
+      void restoreAuthState({ forceRefresh: false });
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
@@ -136,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timeout = setTimeout(() => {
       console.warn("Auth initialization timed out, forcing loading to false");
       setLoading(false);
-    }, 5000);
+    }, 3000);
     return () => clearTimeout(timeout);
   }, [loading]);
 
@@ -152,9 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ session, user, role, loading, signIn, signOut }}>{children}</AuthContext.Provider>
   );
 }
 
