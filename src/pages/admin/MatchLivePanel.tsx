@@ -261,6 +261,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const addGoalMutation = useMutation({
     mutationFn: async () => {
       if (!matchId) throw new Error("No match");
+      await restoreSession({ forceRefresh: true });
       const isOT = goalPeriod === "3";
       if (goalTime && !isValidMatchTime(goalTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 05:32)");
