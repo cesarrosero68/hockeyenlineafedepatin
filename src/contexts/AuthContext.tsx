@@ -43,11 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchRole = useCallback(async (userId: string): Promise<AppRole> => {
     try {
-      const { data, error } = await withTimeout(
-        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-        AUTH_TIMEOUT_MS,
-        "fetchRole",
-      );
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
       if (error) {
         console.warn("fetchRole failed", error);
         return null;
