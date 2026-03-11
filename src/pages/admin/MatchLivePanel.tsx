@@ -408,6 +408,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
   const deletePenaltyMutation = useMutation({
     mutationFn: async (penId: string) => {
+      await restoreSession({ forceRefresh: true });
       const { error } = await supabase.from("penalties").delete().eq("id", penId);
       if (error) throw error;
     },
