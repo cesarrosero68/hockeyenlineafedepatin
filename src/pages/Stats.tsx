@@ -1,41 +1,77 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Star, Target, Crosshair } from "lucide-react";
 
-// Placeholder data generator
-function generatePlaceholderStats(count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    rank: i + 1,
-    jersey: ((i * 7 + 13) % 99) + 1,
-    name: "Name Last Name",
-    goals: Math.max(0, 10 - i + Math.floor(((i * 3 + 7) % 5))),
-    assists: Math.max(0, 8 - i + Math.floor(((i * 5 + 3) % 4))),
-    points: 0,
-  })).map(s => ({ ...s, points: s.goals + s.assists }))
-    .sort((a, b) => b.points - a.points)
-    .map((s, i) => ({ ...s, rank: i + 1 }));
-}
-
 export default function Stats() {
-  const { data: stats = [], isLoading } = useQuery({
-    queryKey: ["player-stats"],
+  const [selectedDivision, setSelectedDivision] = useState<string>("");
+
+  // Fetch divisions
+  const { data: divisions = [] } = useQuery({
+    queryKey: ["divisions"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("player_stats_view")
-        .select("player_id, goles, asistencias, puntos")
-        .order("puntos", { ascending: false })
-        .limit(50);
+      const { data } = await supabase.from("divisions").select("id, name").order("name");
       return data ?? [];
     },
+    staleTime: 5 * 60_000,
+  });
+
+  // Auto-select first division
+  const activeDivisionId = selectedDivision || divisions[0]?.id || "";
+
+  // Fetch categories for selected division
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories", activeDivisionId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name, sort_order")
+        .eq("division_id", activeDivisionId)
+        .order("sort_order");
+      return data ?? [];
+    },
+    enabled: !!activeDivisionId,
+    staleTime: 5 * 60_000,
+  });
+
+  // Fetch all goal_events with match category info for the active division
+  const { data: goalEvents = [], isLoading } = useQuery({
+    queryKey: ["goal-events-stats", activeDivisionId],
+    queryFn: async () => {
+      const categoryIds = categories.map((c) => c.id);
+      if (categoryIds.length === 0) return [];
+
+      const { data } = await supabase
+        .from("goal_events")
+        .select("scorer_player_id, assist_player_id, match_id, matches!inner(category_id)")
+        .in("matches.category_id", categoryIds);
+      return data ?? [];
+    },
+    enabled: categories.length > 0,
     staleTime: 2 * 60_000,
   });
 
-  const playerIds = useMemo(() => stats.map((s: any) => s.player_id).filter(Boolean), [stats]);
+  // Collect unique player IDs
+  const playerIds = useMemo(() => {
+    const ids = new Set<string>();
+    goalEvents.forEach((e: any) => {
+      if (e.scorer_player_id) ids.add(e.scorer_player_id);
+      if (e.assist_player_id) ids.add(e.assist_player_id);
+    });
+    return Array.from(ids);
+  }, [goalEvents]);
 
+  // Fetch player names from players_public
   const { data: players = [] } = useQuery({
     queryKey: ["stat-players", playerIds],
     queryFn: async () => {
@@ -47,13 +83,62 @@ export default function Stats() {
       return data ?? [];
     },
     enabled: playerIds.length > 0,
-    staleTime: 2 * 60_000,
+    staleTime: 5 * 60_000,
   });
 
-  const getPlayer = (id: string) => players.find((p: any) => p.id === id);
+  const playersMap = useMemo(() => {
+    const map: Record<string, { first_name: string; last_name: string; jersey_number: number | null }> = {};
+    players.forEach((p: any) => {
+      if (p.id) map[p.id] = p;
+    });
+    return map;
+  }, [players]);
 
-  const hasRealData = stats.length > 0;
-  const placeholder = useMemo(() => generatePlaceholderStats(15), []);
+  // Compute stats per category
+  const statsByCategory = useMemo(() => {
+    const result: Record<string, { goals: Record<string, number>; assists: Record<string, number> }> = {};
+
+    categories.forEach((c) => {
+      result[c.id] = { goals: {}, assists: {} };
+    });
+
+    goalEvents.forEach((e: any) => {
+      const catId = e.matches?.category_id;
+      if (!catId || !result[catId]) return;
+
+      if (e.scorer_player_id) {
+        result[catId].goals[e.scorer_player_id] = (result[catId].goals[e.scorer_player_id] || 0) + 1;
+      }
+      if (e.assist_player_id) {
+        result[catId].assists[e.assist_player_id] = (result[catId].assists[e.assist_player_id] || 0) + 1;
+      }
+    });
+
+    return result;
+  }, [goalEvents, categories]);
+
+  // Build leaderboard for a category
+  const buildLeaderboard = (categoryId: string) => {
+    const catStats = statsByCategory[categoryId];
+    if (!catStats) return [];
+
+    const allPlayers = new Set([...Object.keys(catStats.goals), ...Object.keys(catStats.assists)]);
+    const rows = Array.from(allPlayers).map((pid) => {
+      const p = playersMap[pid];
+      const goals = catStats.goals[pid] || 0;
+      const assists = catStats.assists[pid] || 0;
+      return {
+        playerId: pid,
+        jersey: p?.jersey_number ?? 0,
+        name: p ? `${p.first_name} ${p.last_name}` : "Jugador",
+        goals,
+        assists,
+        points: goals + assists,
+      };
+    });
+
+    return rows.sort((a, b) => b.points - a.points || b.goals - a.goals);
+  };
 
   if (isLoading) {
     return (
@@ -70,79 +155,83 @@ export default function Stats() {
         Estadísticas
       </h1>
 
-      {!hasRealData && (
-        <Badge variant="outline" className="text-xs">
-          Vista previa — Los datos se actualizarán con estadísticas reales
-        </Badge>
-      )}
+      {/* Division selector */}
+      <div className="max-w-xs">
+        <Select value={activeDivisionId} onValueChange={setSelectedDivision}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccionar División" />
+          </SelectTrigger>
+          <SelectContent>
+            {divisions.map((d: any) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Tabs defaultValue="points" key={hasRealData ? "real" : "placeholder"}>
-        <TabsList>
-          <TabsTrigger value="points" className="flex items-center gap-1">
-            <Star className="h-4 w-4" /> Puntos
-          </TabsTrigger>
-          <TabsTrigger value="goals" className="flex items-center gap-1">
-            <Target className="h-4 w-4" /> Goles
-          </TabsTrigger>
-          <TabsTrigger value="assists" className="flex items-center gap-1">
-            <Crosshair className="h-4 w-4" /> Asistencias
-          </TabsTrigger>
-        </TabsList>
+      {/* Category sections */}
+      {categories.map((cat: any) => {
+        const leaderboard = buildLeaderboard(cat.id);
+        const hasData = leaderboard.length > 0;
 
-        <TabsContent value="points">
-          <StatsTable
-            title="Líderes de Puntos"
-            data={hasRealData ? stats.map((s: any, i: number) => {
-              const p = getPlayer(s.player_id);
-              return {
-                rank: i + 1,
-                jersey: p?.jersey_number ?? 0,
-                name: `${p?.first_name ?? "Name"} ${p?.last_name ?? "Last Name"}`,
-                goals: s.goles ?? 0,
-                assists: s.asistencias ?? 0,
-                points: s.puntos ?? 0,
-              };
-            }) : placeholder}
-            sortBy="points"
-          />
-        </TabsContent>
+        return (
+          <div key={cat.id} className="space-y-3">
+            <h2 className="text-xl font-display font-bold uppercase">{cat.name}</h2>
 
-        <TabsContent value="goals">
-          <StatsTable
-            title="Líderes de Goles"
-            data={hasRealData ? stats.map((s: any, i: number) => {
-              const p = getPlayer(s.player_id);
-              return {
-                rank: i + 1,
-                jersey: p?.jersey_number ?? 0,
-                name: `${p?.first_name ?? "Name"} ${p?.last_name ?? "Last Name"}`,
-                goals: s.goles ?? 0,
-                assists: s.asistencias ?? 0,
-                points: s.puntos ?? 0,
-              };
-            }).sort((a: any, b: any) => b.goals - a.goals).map((s: any, i: number) => ({ ...s, rank: i + 1 })) : [...placeholder].sort((a, b) => b.goals - a.goals).map((s, i) => ({ ...s, rank: i + 1 }))}
-            sortBy="goals"
-          />
-        </TabsContent>
+            {!hasData ? (
+              <Card>
+                <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                  Sin estadísticas registradas aún
+                </CardContent>
+              </Card>
+            ) : (
+              <Tabs defaultValue="points">
+                <TabsList>
+                  <TabsTrigger value="points" className="flex items-center gap-1">
+                    <Star className="h-4 w-4" /> Puntos
+                  </TabsTrigger>
+                  <TabsTrigger value="goals" className="flex items-center gap-1">
+                    <Target className="h-4 w-4" /> Goles
+                  </TabsTrigger>
+                  <TabsTrigger value="assists" className="flex items-center gap-1">
+                    <Crosshair className="h-4 w-4" /> Asistencias
+                  </TabsTrigger>
+                </TabsList>
 
-        <TabsContent value="assists">
-          <StatsTable
-            title="Líderes de Asistencias"
-            data={hasRealData ? stats.map((s: any, i: number) => {
-              const p = getPlayer(s.player_id);
-              return {
-                rank: i + 1,
-                jersey: p?.jersey_number ?? 0,
-                name: `${p?.first_name ?? "Name"} ${p?.last_name ?? "Last Name"}`,
-                goals: s.goles ?? 0,
-                assists: s.asistencias ?? 0,
-                points: s.puntos ?? 0,
-              };
-            }).sort((a: any, b: any) => b.assists - a.assists).map((s: any, i: number) => ({ ...s, rank: i + 1 })) : [...placeholder].sort((a, b) => b.assists - a.assists).map((s, i) => ({ ...s, rank: i + 1 }))}
-            sortBy="assists"
-          />
-        </TabsContent>
-      </Tabs>
+                <TabsContent value="points">
+                  <StatsTable
+                    title="Líderes de Puntos"
+                    data={leaderboard.map((s, i) => ({ ...s, rank: i + 1 }))}
+                    sortBy="points"
+                  />
+                </TabsContent>
+
+                <TabsContent value="goals">
+                  <StatsTable
+                    title="Líderes de Goles"
+                    data={[...leaderboard]
+                      .sort((a, b) => b.goals - a.goals || b.points - a.points)
+                      .map((s, i) => ({ ...s, rank: i + 1 }))}
+                    sortBy="goals"
+                  />
+                </TabsContent>
+
+                <TabsContent value="assists">
+                  <StatsTable
+                    title="Líderes de Asistencias"
+                    data={[...leaderboard]
+                      .sort((a, b) => b.assists - a.assists || b.points - a.points)
+                      .map((s, i) => ({ ...s, rank: i + 1 }))}
+                    sortBy="assists"
+                  />
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -165,7 +254,7 @@ function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortB
             </tr>
           </thead>
           <tbody>
-            {data.map((s: any, i: number) => (
+            {data.slice(0, 20).map((s: any, i: number) => (
               <tr key={i} className="border-b last:border-0">
                 <td className="py-2 px-1 text-muted-foreground">{s.rank}</td>
                 <td className="py-2 px-1 font-medium">
