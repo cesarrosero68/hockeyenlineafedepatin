@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, CheckCircle, AlertTriangle, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Upload, FileText, CheckCircle, AlertTriangle, Download, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 // ---- CSV parser (simple, handles quoted fields) ----
 function parseCSV(text: string): string[][] {
-  // Strip BOM (Byte Order Mark) that Excel/Google Sheets may add
   const clean = text.replace(/^\uFEFF/, "");
   const lines = clean.split(/\r?\n/).filter((l) => l.trim() !== "");
   return lines.map((line) => {
@@ -35,6 +36,80 @@ function parseCSV(text: string): string[][] {
   });
 }
 
+// ---- helpers ----
+function normalize(s: string): string {
+  return s.trim()
+    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeStripped(s: string): string {
+  return normalize(s).replace(/[-\s]/g, '');
+}
+
+/**
+ * Parse a date string flexibly and return an ISO string in UTC
+ * representing the correct Bogotá time.
+ *
+ * Supported formats:
+ *   YYYY-MM-DD           → midnight Bogotá
+ *   YYYY-MM-DDTHH:mm     → that hour in Bogotá
+ *   YYYY-MM-DDTHH:mm:ss  → that time in Bogotá
+ *   M/D/YYYY             → midnight Bogotá
+ *   MM/DD/YYYY           → midnight Bogotá
+ *   DD/MM/YYYY           → midnight Bogotá (if day > 12)
+ */
+function parseDateBogota(raw: string): string | null {
+  if (!raw || !raw.trim()) return null;
+  const s = raw.trim();
+
+  // ISO-like: YYYY-MM-DD or YYYY-MM-DDTHH:mm(:ss)
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (isoMatch) {
+    const [, y, mo, d, hh, mm, ss] = isoMatch;
+    const dateStr = `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T${(hh ?? '00').padStart(2, '0')}:${mm ?? '00'}:${ss ?? '00'}-05:00`;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  // Slash format: could be M/D/YYYY or D/M/YYYY
+  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    let [, a, b, y] = slashMatch;
+    let month: string, day: string;
+    // If first number > 12, it must be the day (DD/MM/YYYY)
+    if (parseInt(a) > 12) {
+      day = a; month = b;
+    } else {
+      // Default: M/D/YYYY (US format, common in spreadsheets)
+      month = a; day = b;
+    }
+    const dateStr = `${y}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00-05:00`;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  return null;
+}
+
+function parseFlexDate(raw: string): string | null {
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parts = raw.split("/");
+  if (parts.length === 3) {
+    const [m, d, y] = parts;
+    const mm = m.padStart(2, "0");
+    const dd = d.padStart(2, "0");
+    if (y.length === 4) return `${y}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+const isPlaceholder = (name: string) => /^(seed|winner|loser|win\s|winnersub)/i.test(name.trim());
+
 // ---- Schedule upload ----
 const SCHEDULE_HEADERS = ["division", "categoria", "equipo_local", "equipo_visitante", "fecha", "fase", "ronda"];
 
@@ -42,8 +117,9 @@ function ScheduleUpload() {
   const [rows, setRows] = useState<string[][]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
+  const [purgeFirst, setPurgeFirst] = useState(false);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
 
-  // Lookup data
   const { data: divisions } = useQuery({
     queryKey: ["upload-divisions"],
     queryFn: async () => {
@@ -93,8 +169,6 @@ function ScheduleUpload() {
     e.target.value = "";
   }, []);
 
-  const isPlaceholder = (name: string) => /^(seed|winner|loser|win\s|winnersub)/i.test(name.trim());
-
   const confirmMutation = useMutation({
     mutationFn: async () => {
       if (rows.length < 2) throw new Error("Sin datos");
@@ -102,6 +176,9 @@ function ScheduleUpload() {
       const dataRows = rows.slice(1);
       const errs: string[] = [];
       const inserts: { category_id: string; match_date: string | null; phase: string; round_number: number | null; home_team_id: string | null; away_team_id: string | null; notes: string | null }[] = [];
+
+      // Collect category IDs that appear in the CSV (for purge)
+      const categoryIdsInCsv = new Set<string>();
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -118,6 +195,8 @@ function ScheduleUpload() {
         if (!div) { errs.push(`Fila ${i + 2}: división "${divName}" no encontrada`); continue; }
         const cat = categories?.find((c) => normalize(c.name) === normalize(catName) && c.division_id === div.id);
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada en división "${divName}"`); continue; }
+
+        categoryIdsInCsv.add(cat.id);
 
         const homePlaceholder = isPlaceholder(homeName);
         const awayPlaceholder = isPlaceholder(awayName);
@@ -136,14 +215,13 @@ function ScheduleUpload() {
           awayTeamId = away.id;
         }
 
-        let matchDate: string | null = null;
-        if (fecha) {
-          const d = new Date(fecha + (fecha.includes("T") ? "" : "T00:00:00") + "-05:00");
-          if (isNaN(d.getTime())) { errs.push(`Fila ${i + 2}: fecha inválida "${fecha}"`); continue; }
-          matchDate = d.toISOString();
+        // Use robust date parser
+        const matchDate = parseDateBogota(fecha);
+        if (fecha && !matchDate) {
+          errs.push(`Fila ${i + 2}: fecha inválida "${fecha}" — use YYYY-MM-DD, YYYY-MM-DDTHH:mm, o M/D/YYYY`);
+          continue;
         }
 
-        // Build notes for placeholder matches
         const noteParts: string[] = [];
         if (homePlaceholder) noteParts.push(`Local: ${homeName.trim()}`);
         if (awayPlaceholder) noteParts.push(`Visitante: ${awayName.trim()}`);
@@ -163,8 +241,61 @@ function ScheduleUpload() {
 
       if (errs.length > 0) throw new Error(errs.join("\n"));
 
+      // --- PURGE: delete existing 'scheduled' matches in affected categories ---
+      if (purgeFirst && categoryIdsInCsv.size > 0) {
+        for (const catId of categoryIdsInCsv) {
+          // Only delete matches with status='scheduled' to avoid removing played matches
+          const { data: scheduledMatches } = await supabase
+            .from("matches")
+            .select("id")
+            .eq("category_id", catId)
+            .eq("status", "scheduled");
+
+          if (scheduledMatches && scheduledMatches.length > 0) {
+            const matchIds = scheduledMatches.map((m) => m.id);
+            // Delete match_teams first
+            await supabase.from("match_teams").delete().in("match_id", matchIds);
+            // Delete matches
+            await supabase.from("matches").delete().in("id", matchIds);
+          }
+        }
+      }
+
+      // --- DUPLICATE CHECK ---
+      let skippedCount = 0;
+
       // Insert matches + match_teams
       for (const ins of inserts) {
+        // If skipDuplicates is on, check if a match with same category+teams+date+phase already exists
+        if (skipDuplicates && !purgeFirst) {
+          let query = supabase
+            .from("matches")
+            .select("id, match_teams(team_id, side)")
+            .eq("category_id", ins.category_id)
+            .eq("phase", ins.phase as any);
+
+          if (ins.match_date) {
+            query = query.eq("match_date", ins.match_date);
+          } else {
+            query = query.is("match_date", null);
+          }
+
+          const { data: existing } = await query;
+
+          if (existing && existing.length > 0) {
+            // Check if any existing match has the same teams
+            const isDuplicate = existing.some((m: any) => {
+              const existingHome = m.match_teams?.find((mt: any) => mt.side === "home")?.team_id ?? null;
+              const existingAway = m.match_teams?.find((mt: any) => mt.side === "away")?.team_id ?? null;
+              return existingHome === ins.home_team_id && existingAway === ins.away_team_id;
+            });
+            if (isDuplicate) {
+              skippedCount++;
+              continue;
+            }
+          }
+        }
+
         const { data: match, error: mErr } = await supabase
           .from("matches")
           .insert({
@@ -188,10 +319,12 @@ function ScheduleUpload() {
         }
       }
 
-      return inserts.length;
+      return { inserted: inserts.length - skippedCount, skipped: skippedCount };
     },
-    onSuccess: (count) => {
-      toast({ title: `${count} partidos cargados exitosamente` });
+    onSuccess: (result) => {
+      let msg = `${result?.inserted ?? 0} partidos cargados exitosamente`;
+      if (result?.skipped) msg += ` (${result.skipped} duplicados omitidos)`;
+      toast({ title: msg });
       setRows([]);
       setFileName("");
     },
@@ -258,6 +391,45 @@ function ScheduleUpload() {
             </CardContent>
           </Card>
 
+          {/* Duplicate / purge options */}
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <p className="text-sm font-medium">Opciones de re-cargue</p>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="purge-first"
+                  checked={purgeFirst}
+                  onCheckedChange={(v) => setPurgeFirst(!!v)}
+                />
+                <Label htmlFor="purge-first" className="text-sm leading-tight cursor-pointer">
+                  <span className="font-medium flex items-center gap-1">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    Borrar partidos "Programados" existentes
+                  </span>
+                  <span className="text-muted-foreground block text-xs mt-0.5">
+                    Elimina todos los partidos con estado "Programado" en las categorías del CSV antes de insertar. 
+                    Los partidos iniciados, cerrados o bloqueados NO se eliminan.
+                  </span>
+                </Label>
+              </div>
+              {!purgeFirst && (
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="skip-duplicates"
+                    checked={skipDuplicates}
+                    onCheckedChange={(v) => setSkipDuplicates(!!v)}
+                  />
+                  <Label htmlFor="skip-duplicates" className="text-sm leading-tight cursor-pointer">
+                    <span className="font-medium">Omitir duplicados</span>
+                    <span className="text-muted-foreground block text-xs mt-0.5">
+                      Si ya existe un partido con los mismos equipos, fecha, fase y categoría, no lo vuelve a crear.
+                    </span>
+                  </Label>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Button
             className="gap-2"
             onClick={() => confirmMutation.mutate()}
@@ -272,39 +444,9 @@ function ScheduleUpload() {
   );
 }
 
-// ---- helpers ----
-function normalize(s: string): string {
-  return s.trim()
-    .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function normalizeStripped(s: string): string {
-  return normalize(s).replace(/[-\s]/g, '');
-}
-
-function parseFlexDate(raw: string): string | null {
-  if (!raw) return null;
-  // Try YYYY-MM-DD first
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  // Try M/D/YYYY or MM/DD/YYYY
-  const parts = raw.split("/");
-  if (parts.length === 3) {
-    const [m, d, y] = parts;
-    const mm = m.padStart(2, "0");
-    const dd = d.padStart(2, "0");
-    if (y.length === 4) return `${y}-${mm}-${dd}`;
-  }
-  return null;
-}
-
 // ---- Players/Roster upload ----
 const ROSTER_HEADERS = ["nombre", "apellido", "dorsal", "equipo", "categoria", "division"];
 
-// Map alternate header names to expected names
 const HEADER_ALIASES: Record<string, string> = {
   fecha_de_nacimiento: "fecha_nacimiento",
   observacion: "observacion",
@@ -350,7 +492,6 @@ function RosterUpload() {
         setRows([]);
         return;
       }
-      // Normalize headers and apply aliases
       const header = parsed[0].map((h) => {
         let key = h.toLowerCase().replace(/\s+/g, "_").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (HEADER_ALIASES[key]) key = HEADER_ALIASES[key];
@@ -403,7 +544,6 @@ function RosterUpload() {
         const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
         if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}"`); continue; }
 
-        // --- Anti-duplicate check: look for existing player already in this team's roster ---
         const { data: existingRosters } = await supabase
           .from("rosters")
           .select("id, player_id, players_public!inner(first_name, last_name)")
@@ -566,8 +706,7 @@ export default function AdminUpload() {
               <CardTitle className="text-lg">Cargar Programación de Partidos</CardTitle>
               <CardDescription>
                 Suba un archivo .csv con las columnas: <code className="text-xs bg-muted px-1 rounded">division, categoria, equipo_local, equipo_visitante, fecha, fase, ronda</code>.
-                Las divisiones, categorías y equipos deben existir previamente en el sistema.
-                La fecha debe estar en formato <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DD</code> o <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DDTHH:mm</code> (hora Bogotá).
+                Formatos de fecha aceptados: <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DD</code>, <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DDTHH:mm</code>, o <code className="text-xs bg-muted px-1 rounded">M/D/YYYY</code> (hora Bogotá).
               </CardDescription>
             </CardHeader>
             <CardContent>
