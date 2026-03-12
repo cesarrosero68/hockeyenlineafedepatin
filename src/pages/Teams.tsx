@@ -134,40 +134,57 @@ function TeamCard({
   const [expanded, setExpanded] = useState(false);
 
   // Lazy-load rosters only when expanded
-  const { data: rosterRows = [], isLoading: rostersLoading } = useQuery({
+  const { data: rosterData, isLoading: rostersLoading } = useQuery({
     queryKey: ["team-rosters", team.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: rosters, error } = await supabase
         .from("rosters")
-        .select("id, jersey_number, position, team_id, player_id, players!rosters_player_id_fkey(id, first_name, last_name)")
+        .select("id, jersey_number, position, team_id, player_id")
         .eq("team_id", team.id)
         .order("jersey_number");
       if (error) throw error;
-      return data ?? [];
+      const playerIds = (rosters ?? []).map((r) => r.player_id).filter(Boolean);
+      let playersMap: Record<string, { first_name: string | null; last_name: string | null; jersey_number: number | null }> = {};
+      if (playerIds.length > 0) {
+        const { data: players } = await supabase
+          .from("players_public")
+          .select("id, first_name, last_name, jersey_number")
+          .in("id", playerIds);
+        for (const p of players ?? []) {
+          if (p.id) playersMap[p.id] = p;
+        }
+      }
+      return { rosters: rosters ?? [], playersMap };
     },
     enabled: expanded,
     staleTime: 5 * 60_000,
   });
 
+  const rosterRows = rosterData?.rosters ?? [];
+  const playersMap = rosterData?.playersMap ?? {};
+
   const displayRoster = useMemo(() => {
     if (rosterRows.length > 0) {
-      return rosterRows.map((r: any, i: number) => ({
-        jersey: r.jersey_number ?? r.players?.jersey_number ?? getRandomJersey(i),
-        name: `${r.players?.first_name ?? "Name"} ${r.players?.last_name ?? "Last Name"}`,
-        position: r.position ?? getRandomPosition(i),
-        category: categoryName,
-      }));
+      return rosterRows.map((r: any, i: number) => {
+        const player = playersMap[r.player_id];
+        return {
+          jersey: r.jersey_number ?? player?.jersey_number ?? getRandomJersey(i),
+          name: player ? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim() || "Sin nombre" : "Sin nombre",
+          position: r.position ?? getRandomPosition(i),
+          category: categoryName,
+        };
+      });
     }
     if (expanded && !rostersLoading) {
       return Array.from({ length: 10 }, (_, i) => ({
         jersey: getRandomJersey(i + team.id.charCodeAt(0)),
-        name: "Name Last Name",
+        name: "Sin registro",
         position: getRandomPosition(i),
         category: categoryName,
       }));
     }
     return [];
-  }, [rosterRows, expanded, rostersLoading, categoryName, team.id]);
+  }, [rosterRows, playersMap, expanded, rostersLoading, categoryName, team.id]);
 
   return (
     <Card className="overflow-hidden">
