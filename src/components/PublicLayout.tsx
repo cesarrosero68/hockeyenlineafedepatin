@@ -106,7 +106,7 @@ export default function PublicLayout() {
       {/* Footer */}
       <footer className="border-t bg-card py-6">
         <div className="container text-center text-sm text-muted-foreground">
-          © 2025 Fedepatin - Hockey en Línea. Todos los derechos reservados.
+          © 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados.
         </div>
       </footer>
     </div>
