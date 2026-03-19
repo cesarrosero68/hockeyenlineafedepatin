@@ -37,6 +37,52 @@ const statusColors: Record<string, string> = {
 export default function Schedule() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [filterDivision, setFilterDivision] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterTeam, setFilterTeam] = useState<string>("all");
+
+  // Fetch divisions, categories, teams for filters
+  const { data: divisions = [] } = useQuery({
+    queryKey: ["filter-divisions"],
+    queryFn: async () => {
+      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      return data ?? [];
+    },
+    staleTime: 300_000,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["filter-categories"],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      return data ?? [];
+    },
+    staleTime: 300_000,
+  });
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ["filter-teams"],
+    queryFn: async () => {
+      const { data } = await supabase.from("teams").select("id, name, category_id").order("name");
+      return data ?? [];
+    },
+    staleTime: 300_000,
+  });
+
+  // Cascading filter options
+  const filteredCategories = useMemo(() => {
+    if (filterDivision === "all") return categories;
+    return categories.filter((c) => c.division_id === filterDivision);
+  }, [categories, filterDivision]);
+
+  const filteredTeams = useMemo(() => {
+    if (filterCategory !== "all") return teams.filter((t) => t.category_id === filterCategory);
+    if (filterDivision !== "all") {
+      const catIds = new Set(filteredCategories.map((c) => c.id));
+      return teams.filter((t) => catIds.has(t.category_id));
+    }
+    return teams;
+  }, [teams, filterDivision, filterCategory, filteredCategories]);
 
   const { data: matches = [], isLoading } = useQuery({
     queryKey: ["schedule-matches"],
@@ -46,7 +92,7 @@ export default function Schedule() {
         .select(`
           id, match_date, status, phase, round_number, venue,
           categories!inner(name, division_id, divisions!inner(id, name)),
-          match_teams(side, score_regular, teams!inner(name))
+          match_teams(side, score_regular, teams!inner(id, name))
         `)
         .order("match_date", { ascending: true });
 
@@ -63,8 +109,11 @@ export default function Schedule() {
           category_name: m.categories?.name ?? "",
           division_name: m.categories?.divisions?.name ?? "",
           division_id: m.categories?.divisions?.id ?? "",
+          category_id: m.categories?.division_id ? m.categories?.division_id : "",
           home_team: home?.teams?.name ?? null,
           away_team: away?.teams?.name ?? null,
+          home_team_id: home?.teams?.id ?? null,
+          away_team_id: away?.teams?.id ?? null,
           home_score: home?.score_regular ?? null,
           away_score: away?.score_regular ?? null,
         } as MatchWithDetails;
@@ -73,10 +122,25 @@ export default function Schedule() {
     staleTime: 60_000,
   });
 
+  // Apply filters to matches
+  const filteredMatches = useMemo(() => {
+    let result = matches;
+    if (filterDivision !== "all") {
+      result = result.filter((m) => m.division_id === filterDivision);
+    }
+    if (filterCategory !== "all") {
+      result = result.filter((m) => m.category_name === categories.find((c) => c.id === filterCategory)?.name);
+    }
+    if (filterTeam !== "all") {
+      result = result.filter((m) => m.home_team_id === filterTeam || m.away_team_id === filterTeam);
+    }
+    return result;
+  }, [matches, filterDivision, filterCategory, filterTeam, categories]);
+
   // Group matches by date key (yyyy-MM-dd in Bogota time)
   const matchesByDate = useMemo(() => {
     const groups: Record<string, MatchWithDetails[]> = {};
-    matches.forEach((m) => {
+    filteredMatches.forEach((m) => {
       const bogota = toBogotaDate(m.match_date);
       const key = bogota ? format(bogota, "yyyy-MM-dd") : null;
       if (!key) return;
@@ -84,7 +148,7 @@ export default function Schedule() {
       groups[key].push(m);
     });
     return groups;
-  }, [matches]);
+  }, [filteredMatches]);
 
   // Dates that have matches (for highlighting in calendar)
   const datesWithMatches = useMemo(() => new Set(Object.keys(matchesByDate)), [matchesByDate]);
