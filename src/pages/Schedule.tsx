@@ -19,10 +19,13 @@ interface MatchWithDetails {
   round_number: number | null;
   venue: string | null;
   category_name: string;
+  category_id: string;
   division_name: string;
   division_id: string;
   home_team: string | null;
   away_team: string | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_score: number | null;
   away_score: number | null;
 }
