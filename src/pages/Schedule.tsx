@@ -112,7 +112,7 @@ export default function Schedule() {
           category_name: m.categories?.name ?? "",
           division_name: m.categories?.divisions?.name ?? "",
           division_id: m.categories?.divisions?.id ?? "",
-          category_id: m.categories?.division_id ? m.categories?.division_id : "",
+          category_id: m.category_id ?? "",
           home_team: home?.teams?.name ?? null,
           away_team: away?.teams?.name ?? null,
           home_team_id: home?.teams?.id ?? null,
