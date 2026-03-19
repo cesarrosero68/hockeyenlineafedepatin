@@ -132,7 +132,7 @@ export default function Schedule() {
       result = result.filter((m) => m.division_id === filterDivision);
     }
     if (filterCategory !== "all") {
-      result = result.filter((m) => m.category_name === categories.find((c) => c.id === filterCategory)?.name);
+      result = result.filter((m) => m.category_id === filterCategory);
     }
     if (filterTeam !== "all") {
       result = result.filter((m) => m.home_team_id === filterTeam || m.away_team_id === filterTeam);
