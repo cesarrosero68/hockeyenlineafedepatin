@@ -93,7 +93,7 @@ export default function Schedule() {
       const { data } = await supabase
         .from("matches")
         .select(`
-          id, match_date, status, phase, round_number, venue,
+          id, match_date, status, phase, round_number, venue, category_id,
           categories!inner(name, division_id, divisions!inner(id, name)),
           match_teams(side, score_regular, teams!inner(id, name))
         `)
