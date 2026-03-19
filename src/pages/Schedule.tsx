@@ -194,7 +194,43 @@ export default function Schedule() {
         Programación y Resultados
       </h1>
 
-      {matches.length === 0 ? (
+      {/* Cascading Filters */}
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="w-full sm:w-auto min-w-[180px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block flex items-center gap-1">
+            <Filter className="h-3 w-3" /> División
+          </label>
+          <Select value={filterDivision} onValueChange={(v) => { setFilterDivision(v); setFilterCategory("all"); setFilterTeam("all"); setSelectedDate(null); }}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las divisiones</SelectItem>
+              {divisions.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full sm:w-auto min-w-[180px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Categoría</label>
+          <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setFilterTeam("all"); setSelectedDate(null); }}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las categorías</SelectItem>
+              {filteredCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-full sm:w-auto min-w-[180px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipo</label>
+          <Select value={filterTeam} onValueChange={(v) => { setFilterTeam(v); setSelectedDate(null); }}>
+            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los equipos</SelectItem>
+              {filteredTeams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {filteredMatches.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-30" />
