@@ -294,9 +294,14 @@ function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortB
             {data.slice(0, 20).map((s: any, i: number) => (
               <tr key={i} className="border-b last:border-0">
                 <td className="py-2 px-1 text-muted-foreground">{s.rank}</td>
-                <td className="py-2 px-1 font-medium">
-                  {s.jersey ? `#${s.jersey} ` : ""}
-                  {s.name}
+                <td className="py-2 px-1">
+                  <div className="font-medium">
+                    {s.jersey ? `#${s.jersey} ` : ""}
+                    {s.name}
+                  </div>
+                  {s.clubName && (
+                    <div className="text-xs text-muted-foreground">{s.clubName}</div>
+                  )}
                 </td>
                 <td className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>{s.goals}</td>
                 <td className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>{s.assists}</td>
