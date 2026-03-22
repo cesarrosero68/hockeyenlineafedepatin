@@ -194,7 +194,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { data, error } = await supabase
         .from("goal_events")
         .select(
-          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name), assist:players!goal_events_assist_player_id_fkey(first_name, last_name)",
+          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name, jersey_number), assist:players!goal_events_assist_player_id_fkey(first_name, last_name, jersey_number)",
         )
         .eq("match_id", matchId)
         .order("created_at");
@@ -213,7 +213,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (!matchId) return [];
       const { data, error } = await supabase
         .from("penalties")
-        .select("*, player:players!penalties_player_id_fkey(first_name, last_name)")
+        .select("*, player:players!penalties_player_id_fkey(first_name, last_name, jersey_number)")
         .eq("match_id", matchId)
         .order("created_at");
       if (error) throw error;
@@ -544,11 +544,11 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   <div>
                     <span className="font-medium">{teamName(g.team_id)}</span>
                     {" — "}
-                    {g.scorer?.first_name} {g.scorer?.last_name}
+                    {g.scorer?.jersey_number ? `#${g.scorer.jersey_number} ` : ""}{g.scorer?.first_name} {g.scorer?.last_name}
                     {g.assist && (
                       <span className="text-muted-foreground">
                         {" "}
-                        (Asist: {g.assist.first_name} {g.assist.last_name})
+                        (Asist: {g.assist.jersey_number ? `#${g.assist.jersey_number} ` : ""}{g.assist.first_name} {g.assist.last_name})
                       </span>
                     )}
                     <span className="text-muted-foreground ml-2">
@@ -685,7 +685,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   <div>
                     <span className="font-medium">{teamName(p.team_id)}</span>
                     {" — "}
-                    {p.player?.first_name} {p.player?.last_name}
+                    {p.player?.jersey_number ? `#${p.player.jersey_number} ` : ""}{p.player?.first_name} {p.player?.last_name}
                     <span className="text-muted-foreground ml-2">
                       {p.penalty_code} ({p.game_time})
                     </span>
