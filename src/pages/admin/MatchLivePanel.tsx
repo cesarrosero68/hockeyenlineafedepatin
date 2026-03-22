@@ -47,11 +47,19 @@ const PENALTY_CODES = [
 ];
 
 const PENALTY_TIMES = [
-  { label: "1:30", minutes: 2 },
+  { label: "1:30", minutes: 1.5 },
   { label: "4:00", minutes: 4 },
   { label: "10:00", minutes: 10 },
   { label: "Manual", minutes: 0 },
 ];
+
+/** Convert numeric minutes (e.g. 1.5) to mm:ss string (e.g. "1:30") */
+export function minutesToMmSs(mins: number): string {
+  const totalSeconds = Math.round(mins * 60);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 const PERIODS = [
   { value: "1", label: "1T" },
@@ -371,7 +379,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       await restoreSession({ forceRefresh: true });
       const selectedPenalty = PENALTY_CODES.find((p) => p.code === penCode);
       const preset = PENALTY_TIMES.find((t) => t.label === penTimePreset);
-      const minutes = penTimePreset === "Manual" ? parseInt(penTimeManual) || 2 : (preset?.minutes ?? 2);
+      const minutes = penTimePreset === "Manual" ? parseFloat(penTimeManual) || 2 : (preset?.minutes ?? 2);
 
       if (penMatchTime && !isValidMatchTime(penMatchTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 10:15)");

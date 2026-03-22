@@ -7,6 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin, Target, ShieldAlert, Users } from "lucide-react";
 import { formatBogota } from "@/lib/timezone";
 
+function penaltyMinutesToDisplay(mins: number): string {
+  const totalSeconds = Math.round(mins * 60);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 const statusLabels: Record<string, string> = {
   scheduled: "Programado",
   in_progress: "En juego",
@@ -242,7 +249,7 @@ export default function MatchDetail() {
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground text-right">
-                    <p>{p.penalty_minutes} min</p>
+                    <p>{penaltyMinutesToDisplay(p.penalty_minutes)} min</p>
                     <p>Periodo {p.period}</p>
                     <p>{(p as any).penalty_time ?? "—"}</p>
                   </div>
