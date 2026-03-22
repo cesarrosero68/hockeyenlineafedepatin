@@ -94,12 +94,44 @@ export default function Stats() {
     return map;
   }, [players]);
 
-  // Compute stats per category
+  // Collect unique team IDs from goal events
+  const teamIds = useMemo(() => {
+    const ids = new Set<string>();
+    goalEvents.forEach((e: any) => {
+      if (e.team_id) ids.add(e.team_id);
+    });
+    return Array.from(ids);
+  }, [goalEvents]);
+
+  // Fetch team names with club info
+  const { data: teams = [] } = useQuery({
+    queryKey: ["stat-teams", teamIds],
+    queryFn: async () => {
+      if (teamIds.length === 0) return [];
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, club_id, clubs(name)")
+        .in("id", teamIds);
+      return data ?? [];
+    },
+    enabled: teamIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const teamsMap = useMemo(() => {
+    const map: Record<string, { teamName: string; clubName: string }> = {};
+    teams.forEach((t: any) => {
+      map[t.id] = { teamName: t.name, clubName: t.clubs?.name ?? "" };
+    });
+    return map;
+  }, [teams]);
+
+  // Compute stats per category + track player→team mapping
   const statsByCategory = useMemo(() => {
-    const result: Record<string, { goals: Record<string, number>; assists: Record<string, number> }> = {};
+    const result: Record<string, { goals: Record<string, number>; assists: Record<string, number>; playerTeam: Record<string, string> }> = {};
 
     categories.forEach((c) => {
-      result[c.id] = { goals: {}, assists: {} };
+      result[c.id] = { goals: {}, assists: {}, playerTeam: {} };
     });
 
     goalEvents.forEach((e: any) => {
@@ -108,9 +140,11 @@ export default function Stats() {
 
       if (e.scorer_player_id) {
         result[catId].goals[e.scorer_player_id] = (result[catId].goals[e.scorer_player_id] || 0) + 1;
+        if (e.team_id) result[catId].playerTeam[e.scorer_player_id] = e.team_id;
       }
       if (e.assist_player_id) {
         result[catId].assists[e.assist_player_id] = (result[catId].assists[e.assist_player_id] || 0) + 1;
+        if (e.team_id) result[catId].playerTeam[e.assist_player_id] = e.team_id;
       }
     });
 
