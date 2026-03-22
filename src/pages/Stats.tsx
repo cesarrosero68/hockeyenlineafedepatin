@@ -53,7 +53,7 @@ export default function Stats() {
 
       const { data } = await supabase
         .from("goal_events")
-        .select("scorer_player_id, assist_player_id, match_id, matches!inner(category_id)")
+        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id)")
         .in("matches.category_id", categoryIds);
       return data ?? [];
     },
