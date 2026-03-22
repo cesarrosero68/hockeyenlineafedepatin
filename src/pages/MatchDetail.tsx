@@ -263,7 +263,13 @@ export default function MatchDetail() {
           {[{ label: "Local", teamId: homeTeam?.team_id, teamName: homeTeam?.teams?.name },
             { label: "Visitante", teamId: awayTeam?.team_id, teamName: awayTeam?.teams?.name }]
             .map(({ label, teamId, teamName }) => {
-              const teamRoster = rosters?.filter((r: any) => r.team_id === teamId) ?? [];
+              const teamRoster = (rosters?.filter((r: any) => r.team_id === teamId) ?? [])
+                .sort((a: any, b: any) => {
+                  const aGk = (a.position ?? "") === "ARQUERO" ? 0 : 1;
+                  const bGk = (b.position ?? "") === "ARQUERO" ? 0 : 1;
+                  if (aGk !== bGk) return aGk - bGk;
+                  return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+                });
               return (
                 <Card key={label}>
                   <CardHeader className="pb-2">
