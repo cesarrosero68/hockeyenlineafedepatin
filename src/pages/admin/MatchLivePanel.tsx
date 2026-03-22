@@ -379,7 +379,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       await restoreSession({ forceRefresh: true });
       const selectedPenalty = PENALTY_CODES.find((p) => p.code === penCode);
       const preset = PENALTY_TIMES.find((t) => t.label === penTimePreset);
-      const minutes = penTimePreset === "Manual" ? parseInt(penTimeManual) || 2 : (preset?.minutes ?? 2);
+      const minutes = penTimePreset === "Manual" ? parseFloat(penTimeManual) || 2 : (preset?.minutes ?? 2);
 
       if (penMatchTime && !isValidMatchTime(penMatchTime)) {
         throw new Error("Formato de tiempo inválido. Use mm:ss (ej: 10:15)");
