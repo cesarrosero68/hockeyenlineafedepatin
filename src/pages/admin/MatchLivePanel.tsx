@@ -544,11 +544,11 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   <div>
                     <span className="font-medium">{teamName(g.team_id)}</span>
                     {" — "}
-                    {g.scorer?.first_name} {g.scorer?.last_name}
+                    {g.scorer?.jersey_number ? `#${g.scorer.jersey_number} ` : ""}{g.scorer?.first_name} {g.scorer?.last_name}
                     {g.assist && (
                       <span className="text-muted-foreground">
                         {" "}
-                        (Asist: {g.assist.first_name} {g.assist.last_name})
+                        (Asist: {g.assist.jersey_number ? `#${g.assist.jersey_number} ` : ""}{g.assist.first_name} {g.assist.last_name})
                       </span>
                     )}
                     <span className="text-muted-foreground ml-2">
