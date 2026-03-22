@@ -213,7 +213,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (!matchId) return [];
       const { data, error } = await supabase
         .from("penalties")
-        .select("*, player:players!penalties_player_id_fkey(first_name, last_name)")
+        .select("*, player:players!penalties_player_id_fkey(first_name, last_name, jersey_number)")
         .eq("match_id", matchId)
         .order("created_at");
       if (error) throw error;
