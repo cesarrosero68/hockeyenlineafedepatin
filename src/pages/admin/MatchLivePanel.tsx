@@ -685,7 +685,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   <div>
                     <span className="font-medium">{teamName(p.team_id)}</span>
                     {" — "}
-                    {p.player?.first_name} {p.player?.last_name}
+                    {p.player?.jersey_number ? `#${p.player.jersey_number} ` : ""}{p.player?.first_name} {p.player?.last_name}
                     <span className="text-muted-foreground ml-2">
                       {p.penalty_code} ({p.game_time})
                     </span>
