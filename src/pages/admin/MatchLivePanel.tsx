@@ -194,7 +194,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { data, error } = await supabase
         .from("goal_events")
         .select(
-          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name), assist:players!goal_events_assist_player_id_fkey(first_name, last_name)",
+          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name, jersey_number), assist:players!goal_events_assist_player_id_fkey(first_name, last_name, jersey_number)",
         )
         .eq("match_id", matchId)
         .order("created_at");
