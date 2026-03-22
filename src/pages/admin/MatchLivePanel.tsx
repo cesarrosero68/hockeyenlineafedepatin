@@ -47,11 +47,19 @@ const PENALTY_CODES = [
 ];
 
 const PENALTY_TIMES = [
-  { label: "1:30", minutes: 2 },
+  { label: "1:30", minutes: 1.5 },
   { label: "4:00", minutes: 4 },
   { label: "10:00", minutes: 10 },
   { label: "Manual", minutes: 0 },
 ];
+
+/** Convert numeric minutes (e.g. 1.5) to mm:ss string (e.g. "1:30") */
+export function minutesToMmSs(mins: number): string {
+  const totalSeconds = Math.round(mins * 60);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 const PERIODS = [
   { value: "1", label: "1T" },
