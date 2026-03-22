@@ -165,15 +165,24 @@ function TeamCard({
 
   const displayRoster = useMemo(() => {
     if (rosterRows.length > 0) {
-      return rosterRows.map((r: any, i: number) => {
-        const player = playersMap[r.player_id];
-        return {
-          jersey: r.jersey_number ?? player?.jersey_number ?? getRandomJersey(i),
-          name: player ? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim() || "Sin nombre" : "Sin nombre",
-          position: r.position ?? getRandomPosition(i),
-          category: categoryName,
-        };
-      });
+      return [...rosterRows]
+        .sort((a: any, b: any) => {
+          const aGk = (a.position ?? "") === "ARQUERO" ? 0 : 1;
+          const bGk = (b.position ?? "") === "ARQUERO" ? 0 : 1;
+          if (aGk !== bGk) return aGk - bGk;
+          const aJersey = a.jersey_number ?? playersMap[a.player_id]?.jersey_number ?? 999;
+          const bJersey = b.jersey_number ?? playersMap[b.player_id]?.jersey_number ?? 999;
+          return aJersey - bJersey;
+        })
+        .map((r: any, i: number) => {
+          const player = playersMap[r.player_id];
+          return {
+            jersey: r.jersey_number ?? player?.jersey_number ?? getRandomJersey(i),
+            name: player ? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim() || "Sin nombre" : "Sin nombre",
+            position: r.position ?? getRandomPosition(i),
+            category: categoryName,
+          };
+        });
     }
     if (expanded && !rostersLoading) {
       return Array.from({ length: 10 }, (_, i) => ({

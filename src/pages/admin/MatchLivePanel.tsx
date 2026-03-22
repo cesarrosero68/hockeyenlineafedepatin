@@ -228,6 +228,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     (teamId: string) =>
       rosters
         .filter((r: any) => r.team_id === teamId)
+        .sort((a: any, b: any) => {
+          const aGk = a.position === "ARQUERO" ? 0 : 1;
+          const bGk = b.position === "ARQUERO" ? 0 : 1;
+          if (aGk !== bGk) return aGk - bGk;
+          return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+        })
         .map((r: any) => ({
           id: r.players?.id ?? r.player_id,
           label: `#${r.jersey_number ?? "?"} ${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""}`,
