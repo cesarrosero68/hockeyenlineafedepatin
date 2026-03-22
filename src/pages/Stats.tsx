@@ -161,10 +161,13 @@ export default function Stats() {
       const p = playersMap[pid];
       const goals = catStats.goals[pid] || 0;
       const assists = catStats.assists[pid] || 0;
+      const teamId = catStats.playerTeam[pid];
+      const team = teamId ? teamsMap[teamId] : undefined;
       return {
         playerId: pid,
         jersey: p?.jersey_number ?? 0,
         name: p ? `${p.first_name} ${p.last_name}` : "Jugador",
+        clubName: team?.clubName || team?.teamName || "",
         goals,
         assists,
         points: goals + assists,
