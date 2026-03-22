@@ -53,7 +53,7 @@ export default function Stats() {
 
       const { data } = await supabase
         .from("goal_events")
-        .select("scorer_player_id, assist_player_id, match_id, matches!inner(category_id)")
+        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id)")
         .in("matches.category_id", categoryIds);
       return data ?? [];
     },
@@ -94,12 +94,44 @@ export default function Stats() {
     return map;
   }, [players]);
 
-  // Compute stats per category
+  // Collect unique team IDs from goal events
+  const teamIds = useMemo(() => {
+    const ids = new Set<string>();
+    goalEvents.forEach((e: any) => {
+      if (e.team_id) ids.add(e.team_id);
+    });
+    return Array.from(ids);
+  }, [goalEvents]);
+
+  // Fetch team names with club info
+  const { data: teams = [] } = useQuery({
+    queryKey: ["stat-teams", teamIds],
+    queryFn: async () => {
+      if (teamIds.length === 0) return [];
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, club_id, clubs(name)")
+        .in("id", teamIds);
+      return data ?? [];
+    },
+    enabled: teamIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const teamsMap = useMemo(() => {
+    const map: Record<string, { teamName: string; clubName: string }> = {};
+    teams.forEach((t: any) => {
+      map[t.id] = { teamName: t.name, clubName: t.clubs?.name ?? "" };
+    });
+    return map;
+  }, [teams]);
+
+  // Compute stats per category + track player→team mapping
   const statsByCategory = useMemo(() => {
-    const result: Record<string, { goals: Record<string, number>; assists: Record<string, number> }> = {};
+    const result: Record<string, { goals: Record<string, number>; assists: Record<string, number>; playerTeam: Record<string, string> }> = {};
 
     categories.forEach((c) => {
-      result[c.id] = { goals: {}, assists: {} };
+      result[c.id] = { goals: {}, assists: {}, playerTeam: {} };
     });
 
     goalEvents.forEach((e: any) => {
@@ -108,9 +140,11 @@ export default function Stats() {
 
       if (e.scorer_player_id) {
         result[catId].goals[e.scorer_player_id] = (result[catId].goals[e.scorer_player_id] || 0) + 1;
+        if (e.team_id) result[catId].playerTeam[e.scorer_player_id] = e.team_id;
       }
       if (e.assist_player_id) {
         result[catId].assists[e.assist_player_id] = (result[catId].assists[e.assist_player_id] || 0) + 1;
+        if (e.team_id) result[catId].playerTeam[e.assist_player_id] = e.team_id;
       }
     });
 
@@ -127,10 +161,13 @@ export default function Stats() {
       const p = playersMap[pid];
       const goals = catStats.goals[pid] || 0;
       const assists = catStats.assists[pid] || 0;
+      const teamId = catStats.playerTeam[pid];
+      const team = teamId ? teamsMap[teamId] : undefined;
       return {
         playerId: pid,
         jersey: p?.jersey_number ?? 0,
         name: p ? `${p.first_name} ${p.last_name}` : "Jugador",
+        clubName: team?.clubName || team?.teamName || "",
         goals,
         assists,
         points: goals + assists,
@@ -257,9 +294,14 @@ function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortB
             {data.slice(0, 20).map((s: any, i: number) => (
               <tr key={i} className="border-b last:border-0">
                 <td className="py-2 px-1 text-muted-foreground">{s.rank}</td>
-                <td className="py-2 px-1 font-medium">
-                  {s.jersey ? `#${s.jersey} ` : ""}
-                  {s.name}
+                <td className="py-2 px-1">
+                  <div className="font-medium">
+                    {s.jersey ? `#${s.jersey} ` : ""}
+                    {s.name}
+                  </div>
+                  {s.clubName && (
+                    <div className="text-xs text-muted-foreground">{s.clubName}</div>
+                  )}
                 </td>
                 <td className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>{s.goals}</td>
                 <td className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>{s.assists}</td>
