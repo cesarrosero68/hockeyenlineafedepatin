@@ -1,10 +1,10 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, MapPin, Target, ShieldAlert, Users } from "lucide-react";
+import { Calendar, Clock, MapPin, Target, ShieldAlert, Users, ChevronLeft } from "lucide-react";
 import { formatBogota } from "@/lib/timezone";
 
 function penaltyMinutesToDisplay(mins: number): string {
@@ -23,6 +23,7 @@ const statusLabels: Record<string, string> = {
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { data: match, isLoading } = useQuery({
     queryKey: ["match-detail", id],
@@ -128,6 +129,17 @@ export default function MatchDetail() {
 
   return (
     <div className="container py-8 space-y-6">
+      
+      <button
+  onClick={() => navigate(-1)}
+  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+>
+  <ChevronLeft className="h-4 w-4" /> Volver
+</button>
+
+      
+      
+      
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
