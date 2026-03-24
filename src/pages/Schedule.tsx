@@ -166,7 +166,7 @@ export default function Schedule() {
   const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
   // Auto-select first date with matches if none selected
-  const effectiveSelected = useMemo(() => {
+const effectiveSelected = useMemo(() => {
     if (selectedDate && matchesByDate[selectedDate]) return selectedDate;
     // Find first date with matches in current month
     const sorted = Object.keys(matchesByDate).sort();
