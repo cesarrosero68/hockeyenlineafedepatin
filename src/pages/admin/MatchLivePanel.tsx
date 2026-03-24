@@ -693,7 +693,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                     {" — "}
                     {p.player?.jersey_number ? `#${p.player.jersey_number} ` : ""}{p.player?.first_name} {p.player?.last_name}
                     <span className="text-muted-foreground ml-2">
-                      {p.penalty_code} ({p.game_time})
+                      {p.penalty_code} · P{p.period}{p.penalty_time ? ` · ${p.penalty_time}` : ""}
                     </span>
                   </div>
                   <Button
