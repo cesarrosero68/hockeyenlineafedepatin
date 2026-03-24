@@ -165,17 +165,25 @@ export default function Schedule() {
 
   const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-  // Auto-select first date with matches if none selected
-const effectiveSelected = useMemo(() => {
+  const effectiveSelected = useMemo(() => {
     if (selectedDate && matchesByDate[selectedDate]) return selectedDate;
-    // Find first date with matches in current month
     const sorted = Object.keys(matchesByDate).sort();
-    const inMonth = sorted.find((d) => {
-      const date = new Date(d + "T12:00:00");
-      return isSameMonth(date, currentMonth);
+    const lastPlayed = [...sorted].reverse().find((d) => {
+      return matchesByDate[d].some(
+        (m) => m.status === "locked" || m.status === "closed"
+      );
     });
-    return inMonth ?? sorted[0] ?? null;
+    if (lastPlayed) return lastPlayed;
+    return sorted[0] ?? null;
   }, [selectedDate, matchesByDate, currentMonth]);
+
+
+  useMemo(() => {
+    if (effectiveSelected && !selectedDate) {
+      const date = new Date(effectiveSelected + "T12:00:00");
+      setCurrentMonth(date);
+    }
+  }, [effectiveSelected]);
 
   const selectedMatches = effectiveSelected ? (matchesByDate[effectiveSelected] ?? []) : [];
 
