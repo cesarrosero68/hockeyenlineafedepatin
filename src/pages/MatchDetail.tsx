@@ -71,7 +71,7 @@ export default function MatchDetail() {
       const { data } = await supabase
         .from("penalties")
         .select(`
-          id, period, game_time, penalty_code, penalty_description, penalty_minutes, team_id,
+          id, period, game_time, penalty_code, penalty_description, penalty_minutes, penalty_time, team_id,
           player:players_public!penalties_player_id_fkey(first_name, last_name, jersey_number)
         `)
         .eq("match_id", id!)
