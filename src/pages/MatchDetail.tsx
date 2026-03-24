@@ -250,8 +250,7 @@ export default function MatchDetail() {
                   </div>
                   <div className="text-xs text-muted-foreground text-right">
                     <p>{penaltyMinutesToDisplay(p.penalty_minutes)} min</p>
-                    <p>Periodo {p.period}</p>
-                    <p>{(p as any).penalty_time ?? "—"}</p>
+                    <p>Periodo {p.period} · {(p as any).penalty_time ?? "—"}</p>
                   </div>
                 </CardContent>
               </Card>
