@@ -65,20 +65,30 @@ export default function AdminMatches() {
     },
     staleTime: 30_000,
   });
+const availableDates = useMemo(() => {
+    if (!matches) return [];
+    const dates = new Set<string>();
+    matches.forEach((m: any) => {
+      if (m.match_date) {
+        dates.add(m.match_date.slice(0, 10));
+      }
+    });
+    return Array.from(dates).sort();
+  }, [matches]);
 
+  
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
     return matches.filter((m: any) => {
       if (filterDivision !== "all" && m.categories?.divisions?.id !== filterDivision) return false;
       if (filterStatus !== "all" && m.status !== filterStatus) return false;
-      if (filterDate === "today") {
-        const today = new Date().toISOString().slice(0, 10);
-        const matchDay = m.match_date ? m.match_date.slice(0, 10) : null;
-        if (matchDay !== today) return false;
-      } else if (filterDate === "accumulated") {
+     if (filterDate === "accumulated") {
         const today = new Date().toISOString().slice(0, 10);
         const matchDay = m.match_date ? m.match_date.slice(0, 10) : null;
         if (!matchDay || matchDay > today) return false;
+      } else if (filterDate !== "all") {
+        const matchDay = m.match_date ? m.match_date.slice(0, 10) : null;
+        if (matchDay !== filterDate) return false;
       }
       return true;
     });
@@ -333,16 +343,19 @@ const downloadExcel = async () => {
             ))}
           </SelectContent>
         </Select>
-        <Select value={filterDate} onValueChange={setFilterDate}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los partidos</SelectItem>
-            <SelectItem value="today">Solo hoy</SelectItem>
-            <SelectItem value="accumulated">Acumulado hasta hoy</SelectItem>
-          </SelectContent>
-        </Select>
+       <Select value={filterDate} onValueChange={setFilterDate}>
+  <SelectTrigger className="w-[200px]">
+    <SelectValue placeholder="Fecha" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">Todas las fechas</SelectItem>
+    <SelectItem value="accumulated">Acumulado hasta hoy</SelectItem>
+    {availableDates.map((d) => {
+      const label = formatBogota(d + "T12:00:00", "d MMM yyyy");
+      return <SelectItem key={d} value={d}>{label}</SelectItem>;
+    })}
+  </SelectContent>
+</Select>
         <span className="text-sm text-muted-foreground self-center">
           {filteredMatches.length} partidos
         </span>
