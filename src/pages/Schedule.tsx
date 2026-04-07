@@ -168,22 +168,16 @@ export default function Schedule() {
   const effectiveSelected = useMemo(() => {
     if (selectedDate && matchesByDate[selectedDate]) return selectedDate;
     const sorted = Object.keys(matchesByDate).sort();
-    const lastPlayed = [...sorted].reverse().find((d) => {
-      return matchesByDate[d].some(
-        (m) => m.status === "locked" || m.status === "closed"
-      );
-    });
-    if (lastPlayed) return lastPlayed;
-    return sorted[0] ?? null;
-  }, [selectedDate, matchesByDate, currentMonth]);
+    const today = format(new Date(), "yyyy-MM-dd");
+    // Find the closest date with matches from today onwards
+    const upcoming = sorted.find((d) => d >= today);
+    if (upcoming) return upcoming;
+    // Fallback: last date with matches
+    return sorted[sorted.length - 1] ?? null;
+  }, [selectedDate, matchesByDate]);
 
 
-  useMemo(() => {
-    if (effectiveSelected && !selectedDate) {
-      const date = new Date(effectiveSelected + "T12:00:00");
-      setCurrentMonth(date);
-    }
-  }, [effectiveSelected]);
+  
 
   const selectedMatches = effectiveSelected ? (matchesByDate[effectiveSelected] ?? []) : [];
 
