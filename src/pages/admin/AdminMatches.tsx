@@ -248,29 +248,40 @@ const downloadExcel = async () => {
     };
 
     // Sheet 2: Goles
-    const goalRows = (goalsData ?? []).map((g: any) => ({
-      Partido: getMatchLabel(g.match_id),
-      Equipo: getTeamName(g.match_id, g.team_id),
-      "# Goleador": g.scorer?.jersey_number ?? "",
-      Goleador: `${g.scorer?.first_name ?? ""} ${g.scorer?.last_name ?? ""}`.trim(),
-      "# Asistente": g.assist?.jersey_number ?? "",
-      Asistente: g.assist ? `${g.assist.first_name ?? ""} ${g.assist.last_name ?? ""}`.trim() : "",
-      Periodo: g.period,
-      Tiempo: g.game_time ?? "",
-    }));
+    const goalRows = (goalsData ?? []).map((g: any) => {
+      const matchInfo = filteredMatches.find((x: any) => x.id === g.match_id);
+      return {
+        Partido: getMatchLabel(g.match_id),
+        División: matchInfo?.categories?.divisions?.name ?? "",
+        Categoría: matchInfo?.categories?.name ?? "",
+        Equipo: getTeamName(g.match_id, g.team_id),
+        "# Goleador": g.scorer?.jersey_number ?? "",
+        Goleador: `${g.scorer?.first_name ?? ""} ${g.scorer?.last_name ?? ""}`.trim(),
+        "# Asistente": g.assist?.jersey_number ?? "",
+        Asistente: g.assist ? `${g.assist.first_name ?? ""} ${g.assist.last_name ?? ""}`.trim() : "",
+        Periodo: g.period,
+        Tiempo: g.game_time ?? "",
+      };
+    });
 
+  
     // Sheet 3: Sanciones
-    const penaltyRows = (penaltiesData ?? []).map((p: any) => ({
-      Partido: getMatchLabel(p.match_id),
-      Equipo: getTeamName(p.match_id, p.team_id),
-      "# Jugador": p.player?.jersey_number ?? "",
-      Jugador: `${p.player?.first_name ?? ""} ${p.player?.last_name ?? ""}`.trim(),
-      Código: p.penalty_code,
-      Descripción: p.penalty_description ?? "",
-      Minutos: p.penalty_minutes,
-      Periodo: p.period,
-      Tiempo: p.penalty_time ?? "",
-    }));
+    const penaltyRows = (penaltiesData ?? []).map((p: any) => {
+      const matchInfo = filteredMatches.find((x: any) => x.id === p.match_id);
+      return {
+        Partido: getMatchLabel(p.match_id),
+        División: matchInfo?.categories?.divisions?.name ?? "",
+        Categoría: matchInfo?.categories?.name ?? "",
+        Equipo: getTeamName(p.match_id, p.team_id),
+        "# Jugador": p.player?.jersey_number ?? "",
+        Jugador: `${p.player?.first_name ?? ""} ${p.player?.last_name ?? ""}`.trim(),
+        Código: p.penalty_code,
+        Descripción: p.penalty_description ?? "",
+        Minutos: p.penalty_minutes,
+        Periodo: p.period,
+        Tiempo: p.penalty_time ?? "",
+      };
+    });
 
     const wb = utils.book_new();
     utils.book_append_sheet(wb, utils.json_to_sheet(matchRows), "Partidos");
