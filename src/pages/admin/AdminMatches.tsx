@@ -1,3 +1,6 @@
+import { utils, writeFile } from "xlsx";
+import { Download } from "lucide-react";
+
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play, Plus, Trash2, CalendarDays, List } from "lucide-react";
+import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play, Plus, Trash2, CalendarDays, List, Download } from "lucide-react";
 import { formatBogota, utcToBogotaInput, bogotaInputToUTC } from "@/lib/timezone";
 import { toast } from "@/hooks/use-toast";
 import MatchLivePanel from "./MatchLivePanel";
@@ -35,6 +38,7 @@ export default function AdminMatches() {
   const [showCreate, setShowCreate] = useState(false);
   const [editMatch, setEditMatch] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [filterDate, setFilterDate] = useState<string>("all");
 
   const { data: divisions = [] } = useQuery({
     queryKey: ["admin-divisions"],
@@ -67,9 +71,19 @@ export default function AdminMatches() {
     return matches.filter((m: any) => {
       if (filterDivision !== "all" && m.categories?.divisions?.id !== filterDivision) return false;
       if (filterStatus !== "all" && m.status !== filterStatus) return false;
+      if (filterDate === "today") {
+        const today = new Date().toISOString().slice(0, 10);
+        const matchDay = m.match_date ? m.match_date.slice(0, 10) : null;
+        if (matchDay !== today) return false;
+      } else if (filterDate === "accumulated") {
+        const today = new Date().toISOString().slice(0, 10);
+        const matchDay = m.match_date ? m.match_date.slice(0, 10) : null;
+        if (!matchDay || matchDay > today) return false;
+      }
       return true;
     });
-  }, [matches, filterDivision, filterStatus]);
+  }, [matches, filterDivision, filterStatus, filterDate]);
+  
 
   const updateDateMutation = useMutation({
     mutationFn: async ({ matchId, date }: { matchId: string; date: string }) => {
@@ -168,7 +182,95 @@ export default function AdminMatches() {
     setEditingDateId(matchId);
     setEditDateValue(utcToBogotaInput(currentDate));
   };
+const downloadExcel = async () => {
+    // Sheet 1: Partidos
+    const matchRows = filteredMatches.map((m: any) => {
+      const home = m.match_teams?.find((mt: any) => mt.side === "home");
+      const away = m.match_teams?.find((mt: any) => mt.side === "away");
+      return {
+        Fecha: m.match_date ? formatBogota(m.match_date, "d MMM yyyy, h:mm a") : "Sin fecha",
+        División: m.categories?.divisions?.name ?? "",
+        Categoría: m.categories?.name ?? "",
+        Local: home?.teams?.name ?? "TBD",
+        "Goles Local": home?.score_regular ?? 0,
+        "Goles Visitante": away?.score_regular ?? 0,
+        Visitante: away?.teams?.name ?? "TBD",
+        Estado: statusLabels[m.status] ?? m.status,
+      };
+    });
 
+    // Fetch goals and penalties for filtered matches
+    const matchIds = filteredMatches.map((m: any) => m.id);
+    if (matchIds.length === 0) return;
+
+    const { data: goalsData } = await supabase
+      .from("goal_events")
+      .select(`id, period, game_time, match_id, team_id,
+        scorer:players_public!goal_events_scorer_player_id_fkey(first_name, last_name, jersey_number),
+        assist:players_public!goal_events_assist_player_id_fkey(first_name, last_name, jersey_number)`)
+      .in("match_id", matchIds)
+      .order("match_id").order("period").order("game_time");
+
+    const { data: penaltiesData } = await supabase
+      .from("penalties")
+      .select(`id, period, game_time, penalty_code, penalty_description, penalty_minutes, penalty_time, match_id, team_id,
+        player:players_public!penalties_player_id_fkey(first_name, last_name, jersey_number)`)
+      .in("match_id", matchIds)
+      .order("match_id").order("period").order("game_time");
+
+    const getMatchLabel = (matchId: string) => {
+      const m = filteredMatches.find((x: any) => x.id === matchId);
+      if (!m) return matchId;
+      const home = m.match_teams?.find((mt: any) => mt.side === "home");
+      const away = m.match_teams?.find((mt: any) => mt.side === "away");
+      const fecha = m.match_date ? formatBogota(m.match_date, "d MMM") : "";
+      return `${fecha} ${home?.teams?.name ?? "?"} vs ${away?.teams?.name ?? "?"}`;
+    };
+
+    const getTeamName = (matchId: string, teamId: string) => {
+      const m = filteredMatches.find((x: any) => x.id === matchId);
+      if (!m) return "";
+      const home = m.match_teams?.find((mt: any) => mt.side === "home");
+      const away = m.match_teams?.find((mt: any) => mt.side === "away");
+      if (home?.team_id === teamId) return home?.teams?.name ?? "";
+      if (away?.team_id === teamId) return away?.teams?.name ?? "";
+      return "";
+    };
+
+    // Sheet 2: Goles
+    const goalRows = (goalsData ?? []).map((g: any) => ({
+      Partido: getMatchLabel(g.match_id),
+      Equipo: getTeamName(g.match_id, g.team_id),
+      "# Goleador": g.scorer?.jersey_number ?? "",
+      Goleador: `${g.scorer?.first_name ?? ""} ${g.scorer?.last_name ?? ""}`.trim(),
+      "# Asistente": g.assist?.jersey_number ?? "",
+      Asistente: g.assist ? `${g.assist.first_name ?? ""} ${g.assist.last_name ?? ""}`.trim() : "",
+      Periodo: g.period,
+      Tiempo: g.game_time ?? "",
+    }));
+
+    // Sheet 3: Sanciones
+    const penaltyRows = (penaltiesData ?? []).map((p: any) => ({
+      Partido: getMatchLabel(p.match_id),
+      Equipo: getTeamName(p.match_id, p.team_id),
+      "# Jugador": p.player?.jersey_number ?? "",
+      Jugador: `${p.player?.first_name ?? ""} ${p.player?.last_name ?? ""}`.trim(),
+      Código: p.penalty_code,
+      Descripción: p.penalty_description ?? "",
+      Minutos: p.penalty_minutes,
+      Periodo: p.period,
+      Tiempo: p.penalty_time ?? "",
+    }));
+
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, utils.json_to_sheet(matchRows), "Partidos");
+    utils.book_append_sheet(wb, utils.json_to_sheet(goalRows), "Goles");
+    utils.book_append_sheet(wb, utils.json_to_sheet(penaltyRows), "Sanciones");
+
+    const today = new Date().toISOString().slice(0, 10);
+    writeFile(wb, `resultados_${today}.xlsx`);
+  };
+  
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -208,7 +310,7 @@ export default function AdminMatches() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
         <Select value={filterDivision} onValueChange={setFilterDivision}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="División" />
@@ -231,9 +333,22 @@ export default function AdminMatches() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={filterDate} onValueChange={setFilterDate}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Período" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los partidos</SelectItem>
+            <SelectItem value="today">Solo hoy</SelectItem>
+            <SelectItem value="accumulated">Acumulado hasta hoy</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-sm text-muted-foreground self-center">
           {filteredMatches.length} partidos
         </span>
+        <Button size="sm" variant="outline" className="gap-1 ml-auto" onClick={downloadExcel}>
+          <Download className="h-4 w-4" /> Descargar Excel
+        </Button>
       </div>
 
       {viewMode === "calendar" ? (
