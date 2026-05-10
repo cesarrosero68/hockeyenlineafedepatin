@@ -69,7 +69,7 @@ export default function Stats() {
       if (categoryIds.length === 0) return [];
       const { data } = await supabase
         .from("match_teams")
-        .select("match_id, team_id, side, matches!inner(category_id, status)")
+        .select("match_id, team_id, matches!inner(category_id, status)")
         .in("matches.category_id", categoryIds)
         .in("matches.status", ["closed", "locked"]);
       return data ?? [];
@@ -94,15 +94,15 @@ export default function Stats() {
     staleTime: 5 * 60_000,
   });
 
-  // Fetch rosters with ARQUERO position joined to players for these teams
+  // Fetch ARQUERO rosters for these teams (no embed — players FK isn't declared)
   const divisionTeamIds = useMemo(() => divisionTeams.map((t: any) => t.id), [divisionTeams]);
-  const { data: goalkeepers = [] } = useQuery({
-    queryKey: ["valla-goalkeepers", divisionTeamIds],
+  const { data: gkRosters = [] } = useQuery({
+    queryKey: ["valla-gk-rosters", divisionTeamIds],
     queryFn: async () => {
       if (divisionTeamIds.length === 0) return [];
       const { data } = await supabase
         .from("rosters")
-        .select("team_id, jersey_number, position, players!inner(first_name, last_name, jersey_number)")
+        .select("team_id, jersey_number, player_id")
         .in("team_id", divisionTeamIds)
         .eq("position", "ARQUERO");
       return data ?? [];
@@ -110,6 +110,30 @@ export default function Stats() {
     enabled: divisionTeamIds.length > 0,
     staleTime: 5 * 60_000,
   });
+
+  // Fetch goalkeeper player profiles from players_public
+  const gkPlayerIds = useMemo(
+    () => Array.from(new Set(gkRosters.map((r: any) => r.player_id).filter(Boolean))),
+    [gkRosters],
+  );
+  const { data: gkPlayers = [] } = useQuery({
+    queryKey: ["valla-gk-players", gkPlayerIds],
+    queryFn: async () => {
+      if (gkPlayerIds.length === 0) return [];
+      const { data } = await supabase
+        .from("players_public")
+        .select("id, first_name, last_name, jersey_number")
+        .in("id", gkPlayerIds);
+      return data ?? [];
+    },
+    enabled: gkPlayerIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+  const gkPlayersMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    gkPlayers.forEach((p: any) => (m[p.id] = p));
+    return m;
+  }, [gkPlayers]);
 
   // Collect unique player IDs
   const playerIds = useMemo(() => {
@@ -232,35 +256,39 @@ export default function Stats() {
     const teamsInCat = divisionTeams.filter((t: any) => t.category_id === categoryId);
     if (teamsInCat.length === 0) return [];
 
-    // For each match in this category (closed/locked), map match_id -> [{team_id, side}]
-    const matchTeamsByMatch: Record<string, { team_id: string }[]> = {};
+    const teamIdSet = new Set<string>(teamsInCat.map((t: any) => t.id));
+
+    // match_id -> array of team_ids that participated (for closed/locked matches)
+    const matchTeamsByMatch: Record<string, string[]> = {};
     matchTeamsData.forEach((mt: any) => {
-      if (mt.matches?.category_id !== categoryId) return;
+      const cat = Array.isArray(mt.matches) ? mt.matches[0]?.category_id : mt.matches?.category_id;
+      if (cat !== categoryId) return;
       if (!matchTeamsByMatch[mt.match_id]) matchTeamsByMatch[mt.match_id] = [];
-      matchTeamsByMatch[mt.match_id].push({ team_id: mt.team_id });
+      matchTeamsByMatch[mt.match_id].push(mt.team_id);
     });
 
-    // Count goals against each team: for every goal_event in a closed/locked match in this category,
-    // the receiving team is the other team in match_teams.
+    // Count goals against each team
     const goalsAgainst: Record<string, number> = {};
     teamsInCat.forEach((t: any) => (goalsAgainst[t.id] = 0));
 
     goalEvents.forEach((e: any) => {
-      if (e.matches?.category_id !== categoryId) return;
-      if (!["closed", "locked"].includes(e.matches?.status)) return;
       const teamsInMatch = matchTeamsByMatch[e.match_id];
-      if (!teamsInMatch) return;
-      const opponent = teamsInMatch.find((m) => m.team_id !== e.team_id);
-      if (opponent && goalsAgainst[opponent.team_id] !== undefined) {
-        goalsAgainst[opponent.team_id] += 1;
-      }
+      if (!teamsInMatch || teamsInMatch.length < 2) return;
+      // Receiving team(s) = teams in this match other than the scoring team
+      teamsInMatch.forEach((tid) => {
+        if (tid !== e.team_id && teamIdSet.has(tid)) {
+          goalsAgainst[tid] = (goalsAgainst[tid] ?? 0) + 1;
+        }
+      });
     });
 
-    // Build goalkeeper map by team
+    // Build goalkeeper map by team using players_public lookup
     const gkByTeam: Record<string, { jersey: number; name: string }[]> = {};
-    goalkeepers.forEach((r: any) => {
-      const jersey = r.jersey_number ?? r.players?.jersey_number ?? 0;
-      const name = `${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""}`.trim();
+    gkRosters.forEach((r: any) => {
+      const p = gkPlayersMap[r.player_id];
+      if (!p) return;
+      const jersey = r.jersey_number ?? p.jersey_number ?? 0;
+      const name = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
       if (!gkByTeam[r.team_id]) gkByTeam[r.team_id] = [];
       gkByTeam[r.team_id].push({ jersey, name });
     });
