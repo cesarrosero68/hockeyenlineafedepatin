@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Star, Target, Crosshair } from "lucide-react";
+import { Star, Target, Crosshair, Shield } from "lucide-react";
 
 export default function Stats() {
   const [selectedDivision, setSelectedDivision] = useState<string>("");
@@ -53,12 +53,62 @@ export default function Stats() {
 
       const { data } = await supabase
         .from("goal_events")
-        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id)")
+        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id, status)")
         .in("matches.category_id", categoryIds);
       return data ?? [];
     },
     enabled: categories.length > 0,
     staleTime: 2 * 60_000,
+  });
+
+  // Fetch match_teams for closed/locked matches in active division to compute goals against
+  const { data: matchTeamsData = [] } = useQuery({
+    queryKey: ["valla-match-teams", activeDivisionId],
+    queryFn: async () => {
+      const categoryIds = categories.map((c) => c.id);
+      if (categoryIds.length === 0) return [];
+      const { data } = await supabase
+        .from("match_teams")
+        .select("match_id, team_id, side, matches!inner(category_id, status)")
+        .in("matches.category_id", categoryIds)
+        .in("matches.status", ["closed", "locked"]);
+      return data ?? [];
+    },
+    enabled: categories.length > 0,
+    staleTime: 2 * 60_000,
+  });
+
+  // Fetch teams (with club) for the active division's categories
+  const { data: divisionTeams = [] } = useQuery({
+    queryKey: ["valla-teams", activeDivisionId],
+    queryFn: async () => {
+      const categoryIds = categories.map((c) => c.id);
+      if (categoryIds.length === 0) return [];
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, category_id, clubs(name)")
+        .in("category_id", categoryIds);
+      return data ?? [];
+    },
+    enabled: categories.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  // Fetch rosters with ARQUERO position joined to players for these teams
+  const divisionTeamIds = useMemo(() => divisionTeams.map((t: any) => t.id), [divisionTeams]);
+  const { data: goalkeepers = [] } = useQuery({
+    queryKey: ["valla-goalkeepers", divisionTeamIds],
+    queryFn: async () => {
+      if (divisionTeamIds.length === 0) return [];
+      const { data } = await supabase
+        .from("rosters")
+        .select("team_id, jersey_number, position, players!inner(first_name, last_name, jersey_number)")
+        .in("team_id", divisionTeamIds)
+        .eq("position", "ARQUERO");
+      return data ?? [];
+    },
+    enabled: divisionTeamIds.length > 0,
+    staleTime: 5 * 60_000,
   });
 
   // Collect unique player IDs
@@ -177,6 +227,56 @@ export default function Stats() {
     return rows.sort((a, b) => b.points - a.points || b.goals - a.goals);
   };
 
+  // Build "Valla Menos Vencida" ranking per category
+  const buildVallaRanking = (categoryId: string) => {
+    const teamsInCat = divisionTeams.filter((t: any) => t.category_id === categoryId);
+    if (teamsInCat.length === 0) return [];
+
+    // For each match in this category (closed/locked), map match_id -> [{team_id, side}]
+    const matchTeamsByMatch: Record<string, { team_id: string }[]> = {};
+    matchTeamsData.forEach((mt: any) => {
+      if (mt.matches?.category_id !== categoryId) return;
+      if (!matchTeamsByMatch[mt.match_id]) matchTeamsByMatch[mt.match_id] = [];
+      matchTeamsByMatch[mt.match_id].push({ team_id: mt.team_id });
+    });
+
+    // Count goals against each team: for every goal_event in a closed/locked match in this category,
+    // the receiving team is the other team in match_teams.
+    const goalsAgainst: Record<string, number> = {};
+    teamsInCat.forEach((t: any) => (goalsAgainst[t.id] = 0));
+
+    goalEvents.forEach((e: any) => {
+      if (e.matches?.category_id !== categoryId) return;
+      if (!["closed", "locked"].includes(e.matches?.status)) return;
+      const teamsInMatch = matchTeamsByMatch[e.match_id];
+      if (!teamsInMatch) return;
+      const opponent = teamsInMatch.find((m) => m.team_id !== e.team_id);
+      if (opponent && goalsAgainst[opponent.team_id] !== undefined) {
+        goalsAgainst[opponent.team_id] += 1;
+      }
+    });
+
+    // Build goalkeeper map by team
+    const gkByTeam: Record<string, { jersey: number; name: string }[]> = {};
+    goalkeepers.forEach((r: any) => {
+      const jersey = r.jersey_number ?? r.players?.jersey_number ?? 0;
+      const name = `${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""}`.trim();
+      if (!gkByTeam[r.team_id]) gkByTeam[r.team_id] = [];
+      gkByTeam[r.team_id].push({ jersey, name });
+    });
+    Object.values(gkByTeam).forEach((arr) => arr.sort((a, b) => a.jersey - b.jersey));
+
+    return teamsInCat
+      .map((t: any) => ({
+        teamId: t.id,
+        teamName: t.name,
+        clubName: t.clubs?.name ?? "",
+        goalsAgainst: goalsAgainst[t.id] ?? 0,
+        goalkeepers: gkByTeam[t.id] ?? [],
+      }))
+      .sort((a, b) => a.goalsAgainst - b.goalsAgainst || a.teamName.localeCompare(b.teamName));
+  };
+
   if (isLoading) {
     return (
       <div className="container py-8 flex justify-center">
@@ -235,6 +335,9 @@ export default function Stats() {
                   <TabsTrigger value="assists" className="flex items-center gap-1">
                     <Crosshair className="h-4 w-4" /> Asistencias
                   </TabsTrigger>
+                  <TabsTrigger value="valla" className="flex items-center gap-1">
+                    <Shield className="h-4 w-4" /> Valla Menos Vencida
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="points">
@@ -263,6 +366,10 @@ export default function Stats() {
                       .map((s, i) => ({ ...s, rank: i + 1 }))}
                     sortBy="assists"
                   />
+                </TabsContent>
+
+                <TabsContent value="valla">
+                  <VallaTable data={buildVallaRanking(cat.id)} />
                 </TabsContent>
               </Tabs>
             )}
