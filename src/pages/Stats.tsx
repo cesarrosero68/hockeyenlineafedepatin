@@ -421,3 +421,53 @@ function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortB
     </Card>
   );
 }
+
+function VallaTable({ data }: { data: any[] }) {
+  if (data.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-center text-muted-foreground text-sm">
+          Sin datos registrados aún
+        </CardContent>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-display uppercase">Valla Menos Vencida</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {data.map((t: any, i: number) => (
+          <div key={t.teamId} className="border-b last:border-0 pb-3 last:pb-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium text-sm">
+                  <span className="text-muted-foreground mr-2">{i + 1}.</span>
+                  {t.teamName}
+                </div>
+                {t.clubName && t.clubName !== t.teamName && (
+                  <div className="text-xs text-muted-foreground ml-5">{t.clubName}</div>
+                )}
+              </div>
+              <Badge variant="secondary" className="text-sm">
+                {t.goalsAgainst} GC
+              </Badge>
+            </div>
+            {t.goalkeepers.length > 0 && (
+              <div className="mt-2 ml-5 space-y-0.5">
+                <div className="text-xs uppercase text-muted-foreground font-semibold">Arqueros</div>
+                {t.goalkeepers.map((gk: any, idx: number) => (
+                  <div key={idx} className="text-xs text-muted-foreground">
+                    {gk.jersey ? `#${gk.jersey} ` : ""}
+                    {gk.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
