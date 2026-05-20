@@ -362,7 +362,9 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
               <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
               <Badge variant="outline" className="text-xs">{match.division_name}</Badge>
               {match.phase !== "regular" && (
-                <Badge variant="outline" className="text-xs capitalize">{match.phase}</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {match.phase === "semifinal" ? "Semifinal" : match.phase === "playoff" ? "Playoff" : match.phase === "final" ? "Final" : match.phase === "third_place" ? "Tercer Puesto" : match.phase}
+                </Badge>
               )}
             </div>
             <Badge variant={statusColors[match.status] as any} className="text-xs">
