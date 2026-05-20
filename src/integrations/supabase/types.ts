@@ -867,7 +867,13 @@ export type Database = {
     Enums: {
       app_role: "admin" | "editor"
       extra_time_type: "none" | "ot" | "so"
-      match_phase: "regular" | "playoff" | "final" | "third_place" | "ranking"
+      match_phase:
+        | "regular"
+        | "playoff"
+        | "final"
+        | "third_place"
+        | "ranking"
+        | "semifinal"
       match_status: "scheduled" | "in_progress" | "closed" | "locked"
     }
     CompositeTypes: {
@@ -998,7 +1004,14 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "editor"],
       extra_time_type: ["none", "ot", "so"],
-      match_phase: ["regular", "playoff", "final", "third_place", "ranking"],
+      match_phase: [
+        "regular",
+        "playoff",
+        "final",
+        "third_place",
+        "ranking",
+        "semifinal",
+      ],
       match_status: ["scheduled", "in_progress", "closed", "locked"],
     },
   },
