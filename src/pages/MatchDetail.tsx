@@ -145,6 +145,11 @@ export default function MatchDetail() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary">{m.categories?.name}</Badge>
           <span>{m.categories?.divisions?.name}</span>
+          {m.phase && m.phase !== "regular" && (
+            <Badge variant="outline">
+              {m.phase === "semifinal" ? "Semifinal" : m.phase === "playoff" ? "Playoff" : m.phase === "final" ? "Final" : m.phase === "third_place" ? "Tercer Puesto" : m.phase}
+            </Badge>
+          )}
           <Badge variant={m.status === "closed" ? "outline" : m.status === "in_progress" ? "default" : "secondary"}>
             {statusLabels[m.status] ?? m.status}
           </Badge>
