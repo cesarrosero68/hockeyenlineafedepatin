@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Plus, Pencil, Trash2, Save, X } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Save, X, Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { utils, writeFile } from "xlsx";
 
 export default function AdminPlayers() {
   const queryClient = useQueryClient();
+
+  // Export filters
+  const [exportDivisionId, setExportDivisionId] = useState<string>("all");
+  const [exportCategoryId, setExportCategoryId] = useState<string>("all");
 
   // Player form
   const [newFirst, setNewFirst] = useState("");
@@ -60,6 +65,130 @@ export default function AdminPlayers() {
     },
     staleTime: 30_000,
   });
+
+  const { data: divisions = [] } = useQuery({
+    queryKey: ["admin-divisions-export"],
+    queryFn: async () => {
+      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["admin-categories-export"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name, division_id, sort_order")
+        .order("sort_order");
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  const filteredCategories = useMemo(
+    () => (exportDivisionId === "all" ? categories : categories.filter((c: any) => c.division_id === exportDivisionId)),
+    [categories, exportDivisionId],
+  );
+
+  const handleExportExcel = async () => {
+    try {
+      // Build category filter
+      let categoryIds: string[] = filteredCategories.map((c: any) => c.id);
+      if (exportCategoryId !== "all") categoryIds = [exportCategoryId];
+      if (categoryIds.length === 0) {
+        toast({ title: "Sin categorías para exportar", variant: "destructive" });
+        return;
+      }
+
+      // Teams in scope
+      const { data: teamsData, error: teamsErr } = await supabase
+        .from("teams")
+        .select("id, name, category_id, categories(id, name, division_id, sort_order, divisions(id, name))")
+        .in("category_id", categoryIds);
+      if (teamsErr) throw teamsErr;
+      const teamIds = (teamsData ?? []).map((t: any) => t.id);
+      if (teamIds.length === 0) {
+        toast({ title: "Sin equipos para exportar", variant: "destructive" });
+        return;
+      }
+
+      const { data: rostersData, error: rostersErr } = await supabase
+        .from("rosters")
+        .select("jersey_number, position, team_id, players!rosters_player_id_fkey(first_name, last_name)")
+        .in("team_id", teamIds);
+      if (rostersErr) throw rostersErr;
+
+      const teamById = new Map<string, any>((teamsData ?? []).map((t: any) => [t.id, t]));
+
+      // Group rows by category
+      const byCategory = new Map<string, { catName: string; divName: string; sortOrder: number; rows: any[] }>();
+      (rostersData ?? []).forEach((r: any) => {
+        const t = teamById.get(r.team_id);
+        if (!t) return;
+        const cat = t.categories;
+        const div = cat?.divisions;
+        const key = cat?.id ?? "unknown";
+        if (!byCategory.has(key)) {
+          byCategory.set(key, {
+            catName: cat?.name ?? "Sin categoría",
+            divName: div?.name ?? "Sin división",
+            sortOrder: cat?.sort_order ?? 999,
+            rows: [],
+          });
+        }
+        byCategory.get(key)!.rows.push({
+          Division: div?.name ?? "",
+          Categoria: cat?.name ?? "",
+          Equipo: t.name ?? "",
+          Dorsal: r.jersey_number ?? "",
+          Nombre: r.players?.first_name ?? "",
+          Apellido: r.players?.last_name ?? "",
+          Posicion: r.position ?? "",
+        });
+      });
+
+      if (byCategory.size === 0) {
+        toast({ title: "Sin jugadores para exportar", variant: "destructive" });
+        return;
+      }
+
+      const wb = utils.book_new();
+      const sortedCats = Array.from(byCategory.entries()).sort(
+        (a, b) => a[1].sortOrder - b[1].sortOrder || a[1].catName.localeCompare(b[1].catName),
+      );
+      const usedNames = new Set<string>();
+      sortedCats.forEach(([, group]) => {
+        // Sort rows: ARQUERO first by jersey, then others by jersey asc
+        group.rows.sort((a, b) => {
+          const aGk = (a.Posicion || "").toString().toUpperCase() === "ARQUERO";
+          const bGk = (b.Posicion || "").toString().toUpperCase() === "ARQUERO";
+          if (aGk !== bGk) return aGk ? -1 : 1;
+          const aj = typeof a.Dorsal === "number" ? a.Dorsal : 9999;
+          const bj = typeof b.Dorsal === "number" ? b.Dorsal : 9999;
+          return aj - bj;
+        });
+        const ws = utils.json_to_sheet(group.rows);
+        // Sanitize sheet name (max 31, no : \ / ? * [ ])
+        let base = `${group.divName} - ${group.catName}`.replace(/[:\\/?*\[\]]/g, "-").slice(0, 31);
+        let name = base;
+        let i = 2;
+        while (usedNames.has(name)) {
+          const suffix = ` (${i++})`;
+          name = base.slice(0, 31 - suffix.length) + suffix;
+        }
+        usedNames.add(name);
+        utils.book_append_sheet(wb, ws, name);
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      writeFile(wb, `jugadores_${today}.xlsx`);
+      toast({ title: "Exportación lista" });
+    } catch (e: any) {
+      toast({ title: "Error al exportar", description: e.message, variant: "destructive" });
+    }
+  };
 
   const createPlayerMutation = useMutation({
     mutationFn: async () => {
@@ -141,6 +270,42 @@ export default function AdminPlayers() {
       <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
         <Users className="h-6 w-6 text-primary" /> Gestión de Jugadores
       </h1>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex gap-2 items-end flex-wrap">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">División</label>
+              <Select
+                value={exportDivisionId}
+                onValueChange={(v) => {
+                  setExportDivisionId(v);
+                  setExportCategoryId("all");
+                }}
+              >
+                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las divisiones</SelectItem>
+                  {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Categoría</label>
+              <Select value={exportCategoryId} onValueChange={setExportCategoryId}>
+                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleExportExcel} className="gap-1">
+              <Download className="h-4 w-4" /> Descargar Excel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="players">
         <TabsList>
