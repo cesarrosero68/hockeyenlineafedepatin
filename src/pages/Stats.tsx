@@ -465,36 +465,40 @@ function VallaTable({ data }: { data: any[] }) {
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-display uppercase">Valla Menos Vencida</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {data.map((t: any, i: number) => (
-          <div key={t.teamId} className="border-b last:border-0 pb-3 last:pb-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium text-sm">
-                  <span className="text-muted-foreground mr-2">{i + 1}.</span>
-                  {t.teamName}
-                </div>
-                {t.clubName && t.clubName !== t.teamName && (
-                  <div className="text-xs text-muted-foreground ml-5">{t.clubName}</div>
-                )}
-              </div>
-              <Badge variant="secondary" className="text-sm">
-                {t.goalsAgainst} GC
-              </Badge>
-            </div>
-            {t.goalkeepers.length > 0 && (
-              <div className="mt-2 ml-5 space-y-0.5">
-                <div className="text-xs uppercase text-muted-foreground font-semibold">Arqueros</div>
-                {t.goalkeepers.map((gk: any, idx: number) => (
-                  <div key={idx} className="text-xs text-muted-foreground">
-                    {gk.jersey ? `#${gk.jersey} ` : ""}
-                    {gk.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+      <CardContent className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-muted-foreground text-xs">
+              <th className="text-left py-2 px-1 w-10">#</th>
+              <th className="text-left py-2 px-1">Equipo</th>
+              <th className="text-center py-2 px-1 font-bold w-16">GC</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((t: any, i: number) => (
+              <tr key={t.teamId} className="border-b last:border-0 align-top">
+                <td className="py-2 px-1 text-muted-foreground">{i + 1}</td>
+                <td className="py-2 px-1">
+                  <div className="font-medium">{t.teamName}</div>
+                  {t.clubName && t.clubName !== t.teamName && (
+                    <div className="text-xs text-muted-foreground">{t.clubName}</div>
+                  )}
+                  {t.goalkeepers.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                      {t.goalkeepers.map((gk: any, idx: number) => (
+                        <span key={idx} className="text-xs text-muted-foreground">
+                          {gk.jersey ? `#${gk.jersey} ` : ""}
+                          {gk.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td className="text-center py-2 px-1 font-bold">{t.goalsAgainst}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </CardContent>
     </Card>
   );
