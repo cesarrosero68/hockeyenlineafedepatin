@@ -834,6 +834,16 @@ export type Database = {
       }
     }
     Functions: {
+      _resolve_bracket_slot: {
+        Args: {
+          p_category_id: string
+          p_division_id: string
+          p_match_id: string
+          p_side: string
+          p_token: string
+        }
+        Returns: undefined
+      }
       delete_match_and_recalc: {
         Args: { p_match_id: string }
         Returns: undefined
