@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TournamentProvider } from "@/contexts/TournamentContext";
 import { useRealtimeUpdates } from "@/hooks/use-realtime";
 import PublicLayout from "@/components/PublicLayout";
 
@@ -17,6 +18,8 @@ const Standings = lazy(() => import("./pages/Standings"));
 const Stats = lazy(() => import("./pages/Stats"));
 const FairPlay = lazy(() => import("./pages/FairPlay"));
 const MatchDetail = lazy(() => import("./pages/MatchDetail"));
+const Podium = lazy(() => import("./pages/Podium"));
+const Editions = lazy(() => import("./pages/Editions"));
 const Login = lazy(() => import("./pages/Login"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminHome = lazy(() => import("./pages/admin/AdminHome"));
@@ -27,6 +30,8 @@ const AdminTeams = lazy(() => import("./pages/admin/AdminTeams"));
 const AdminPlayers = lazy(() => import("./pages/admin/AdminPlayers"));
 const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
 const AdminUpload = lazy(() => import("./pages/admin/AdminUpload"));
+const AdminAppearance = lazy(() => import("./pages/admin/AdminAppearance"));
+const AdminExport = lazy(() => import("./pages/admin/AdminExport"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -57,6 +62,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+        <TournamentProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -71,6 +77,8 @@ const App = () => (
                   <Route path="/standings" element={<Standings />} />
                   <Route path="/stats" element={<Stats />} />
                   <Route path="/fair-play" element={<FairPlay />} />
+                  <Route path="/podium" element={<Podium />} />
+                  <Route path="/editions" element={<Editions />} />
                   <Route path="/match/:id" element={<MatchDetail />} />
 
                   {/* Admin Routes */}
@@ -83,6 +91,8 @@ const App = () => (
                     <Route path="players" element={<AdminPlayers />} />
                     <Route path="audit" element={<AdminAudit />} />
                     <Route path="upload" element={<AdminUpload />} />
+                    <Route path="appearance" element={<AdminAppearance />} />
+                    <Route path="export" element={<AdminExport />} />
                   </Route>
                 </Route>
 
@@ -92,6 +102,7 @@ const App = () => (
             </Suspense>
             </RealtimeProvider>
           </BrowserRouter>
+        </TournamentProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

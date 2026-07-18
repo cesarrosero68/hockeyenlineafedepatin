@@ -1,7 +1,9 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Trophy, Calendar, BarChart3, Shield, Menu, X, Settings } from "lucide-react";
+import { Trophy, Calendar, BarChart3, Shield, Menu, X, Settings, Award, CalendarDays } from "lucide-react";
 import { useState } from "react";
+import { useTournament } from "@/contexts/TournamentContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const navItems = [
   { to: "/", label: "Inicio", icon: Trophy },
@@ -10,11 +12,14 @@ const navItems = [
   { to: "/standings", label: "Posiciones", icon: BarChart3 },
   { to: "/stats", label: "Estadísticas", icon: BarChart3 },
   { to: "/fair-play", label: "Fair Play", icon: Shield },
+  { to: "/podium", label: "Podio", icon: Award },
+  { to: "/editions", label: "Ediciones", icon: CalendarDays },
 ];
 
 export default function PublicLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { tournaments, currentId, setCurrentId } = useTournament();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -49,6 +54,14 @@ export default function PublicLayout() {
                 {item.label}
               </Link>
             ))}
+            {tournaments.length > 1 && currentId && (
+              <Select value={currentId} onValueChange={setCurrentId}>
+                <SelectTrigger className="h-8 w-[150px] text-xs ml-2"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {tournaments.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
             <Link
               to="/admin"
               className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground ml-2"

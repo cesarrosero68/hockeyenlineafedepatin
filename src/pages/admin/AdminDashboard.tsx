@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload, Palette, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 import PublicLayout from "@/components/PublicLayout";
@@ -15,6 +15,8 @@ const adminNavItems = [
   { to: "/admin/matches", label: "Partidos", icon: Calendar },
   { to: "/admin/audit", label: "Auditoría", icon: FileText },
   { to: "/admin/upload", label: "Cargue CSV", icon: Upload },
+  { to: "/admin/appearance", label: "Apariencia", icon: Palette },
+  { to: "/admin/export", label: "Exportar", icon: FileSpreadsheet },
 ];
 
 export default function AdminDashboard() {
