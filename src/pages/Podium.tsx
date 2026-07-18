@@ -21,12 +21,11 @@ export default function Podium() {
   const { data: matches = [] } = useQuery({
     queryKey: ["podium-matches", currentId],
     queryFn: async () => {
-      let q = supabase
-        .from("matches")
+      let q: any = (supabase.from("matches") as any)
         .select("id, phase, category_id, status, tournament_id, match_teams(team_id, is_winner, teams(name))")
-        .in("phase", ["final", "third_place"] as any)
-        .in("status", ["closed", "locked"] as any);
-      if (currentId) q = q.eq("tournament_id" as any, currentId);
+        .in("phase", ["final", "third_place"])
+        .in("status", ["closed", "locked"]);
+      if (currentId) q = q.eq("tournament_id", currentId);
       const { data } = await q;
       return data ?? [];
     },
@@ -35,8 +34,8 @@ export default function Podium() {
   const { data: standings = [] } = useQuery({
     queryKey: ["podium-standings", currentId],
     queryFn: async () => {
-      let q = supabase.from("standings_aggregate").select("category_id, team_id, rank, tournament_id, teams(name)").order("rank");
-      if (currentId) q = q.eq("tournament_id" as any, currentId);
+      let q: any = (supabase.from("standings_aggregate") as any).select("category_id, team_id, rank, tournament_id, teams(name)").order("rank");
+      if (currentId) q = q.eq("tournament_id", currentId);
       const { data } = await q;
       return data ?? [];
     },

@@ -16,16 +16,17 @@ export default function AdminExport() {
     if (!currentId) return toast.error("Selecciona una edición primero");
     setBusy(true);
     try {
+      const sb: any = supabase;
       const [matchesRes, goalsRes, penaltiesRes, standingsRes, rostersRes, playersRes, teamsRes, catsRes, divsRes] = await Promise.all([
-        supabase.from("matches").select("*, categories(name, divisions(name)), match_teams(side, score_regular, teams(name))").eq("tournament_id" as any, currentId),
-        supabase.from("goal_events").select("*, matches(id), teams(name)").eq("tournament_id" as any, currentId),
-        supabase.from("penalties").select("*, teams(name)").eq("tournament_id" as any, currentId),
-        supabase.from("standings_aggregate").select("*, teams(name), categories(name, divisions(name))").eq("tournament_id" as any, currentId),
-        supabase.from("rosters").select("*, teams(name, categories(name, divisions(name)))").eq("tournament_id" as any, currentId),
-        supabase.from("players_public").select("*"),
-        supabase.from("teams").select("*, categories(name, divisions(name))").eq("tournament_id" as any, currentId),
-        supabase.from("categories").select("*, divisions(name)").eq("tournament_id" as any, currentId),
-        supabase.from("divisions").select("*").eq("tournament_id" as any, currentId),
+        sb.from("matches").select("*, categories(name, divisions(name)), match_teams(side, score_regular, teams(name))").eq("tournament_id", currentId),
+        sb.from("goal_events").select("*, matches(id), teams(name)").eq("tournament_id", currentId),
+        sb.from("penalties").select("*, teams(name)").eq("tournament_id", currentId),
+        sb.from("standings_aggregate").select("*, teams(name), categories(name, divisions(name))").eq("tournament_id", currentId),
+        sb.from("rosters").select("*, teams(name, categories(name, divisions(name)))").eq("tournament_id", currentId),
+        sb.from("players_public").select("*"),
+        sb.from("teams").select("*, categories(name, divisions(name))").eq("tournament_id", currentId),
+        sb.from("categories").select("*, divisions(name)").eq("tournament_id", currentId),
+        sb.from("divisions").select("*").eq("tournament_id", currentId),
       ]);
 
       const playerMap = new Map<string, any>();
