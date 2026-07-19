@@ -76,7 +76,7 @@ export default function Index() {
                 <Card key={div.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <CardContent className="flex items-center gap-4 py-6">
                     {div.logo_url && (
-                      <img src={div.logo_url} alt={div.name} className="h-24 w-24 object-contain rounded-lg" loading="lazy" />
+                      <img src={div.logo_url} alt={div.name} className="h-20 w-20 md:h-32 md:w-32 object-contain rounded-lg" loading="lazy" />
                     )}
                     <div>
                       <p className="font-display font-bold uppercase">{div.name}</p>

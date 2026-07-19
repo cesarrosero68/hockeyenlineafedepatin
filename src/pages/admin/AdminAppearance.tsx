@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Palette } from "lucide-react";
+import { Palette, RotateCcw } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
 
 const FIELDS: { key: string; label: string; type: "color" | "text" }[] = [
@@ -48,6 +48,26 @@ export default function AdminAppearance() {
     setSaving(false);
     if (error) return toast.error("Error al guardar: " + error.message);
     toast.success("Apariencia guardada");
+    qc.invalidateQueries({ queryKey: ["tournaments"] });
+  };
+
+  const resetDefaults = async () => {
+    if (!selectedId) return;
+    setSaving(true);
+    const nulls: Record<string, any> = {};
+    FIELDS.forEach(f => { nulls[f.key] = null; });
+    nulls.font_family = null;
+    nulls.font_size = null;
+    const { error } = await supabase.from("tournaments" as any).update(nulls).eq("id", selectedId);
+    setSaving(false);
+    if (error) return toast.error("Error: " + error.message);
+    // Reset CSS vars immediately
+    const root = document.documentElement;
+    root.style.removeProperty("--primary");
+    root.style.removeProperty("--tournament-font");
+    document.body.style.fontFamily = "";
+    setValues({});
+    toast.success("Valores restablecidos");
     qc.invalidateQueries({ queryKey: ["tournaments"] });
   };
 
@@ -120,6 +140,9 @@ export default function AdminAppearance() {
 
       <div className="flex gap-2">
         <Button onClick={save} disabled={saving || !selectedId}>{saving ? "Guardando…" : "Guardar cambios"}</Button>
+        <Button variant="outline" onClick={resetDefaults} disabled={saving || !selectedId}>
+          <RotateCcw className="h-4 w-4 mr-1" /> Restablecer valores originales
+        </Button>
         {selectedId && selectedId !== currentId && (
           <Button variant="outline" onClick={() => setCurrentId(selectedId)}>Ver esta edición</Button>
         )}

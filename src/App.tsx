@@ -32,6 +32,8 @@ const AdminAudit = lazy(() => import("./pages/admin/AdminAudit"));
 const AdminUpload = lazy(() => import("./pages/admin/AdminUpload"));
 const AdminAppearance = lazy(() => import("./pages/admin/AdminAppearance"));
 const AdminExport = lazy(() => import("./pages/admin/AdminExport"));
+const AdminTournaments = lazy(() => import("./pages/admin/AdminTournaments"));
+const AdminAwards = lazy(() => import("./pages/admin/AdminAwards"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -93,6 +95,8 @@ const App = () => (
                     <Route path="upload" element={<AdminUpload />} />
                     <Route path="appearance" element={<AdminAppearance />} />
                     <Route path="export" element={<AdminExport />} />
+                    <Route path="tournaments" element={<AdminTournaments />} />
+                    <Route path="awards" element={<AdminAwards />} />
                   </Route>
                 </Route>
 
