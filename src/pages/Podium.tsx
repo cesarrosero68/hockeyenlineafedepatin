@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Medal, Award, Star, Shield } from "lucide-react";
+import { Trophy, Medal, Award, Crown } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
 
 export default function Podium() {
@@ -56,10 +56,25 @@ export default function Podium() {
     queryFn: async () => (await supabase.from("players_public").select("id, first_name, last_name")).data ?? [],
   });
 
-  const playerName = (id: string | null) => {
-    if (!id) return "";
+  const { data: rosters = [] } = useQuery({
+    queryKey: ["podium-rosters", currentId],
+    queryFn: async () => {
+      let q: any = supabase.from("rosters").select("player_id, jersey_number, teams(name, category_id)");
+      if (currentId) q = q.eq("tournament_id", currentId);
+      return (await q).data ?? [];
+    },
+  });
+
+  const playerInfo = (id: string | null, categoryId: string) => {
+    if (!id) return null;
     const p: any = players.find((pl: any) => pl.id === id);
-    return p ? `${p.first_name} ${p.last_name}` : "";
+    if (!p) return null;
+    const r: any = (rosters as any[]).find(x => x.player_id === id && x.teams?.category_id === categoryId);
+    return {
+      name: `${p.first_name} ${p.last_name}`,
+      jersey: r?.jersey_number,
+      team: r?.teams?.name,
+    };
   };
 
   const getPodium = (categoryId: string): { first?: string; second?: string; third?: string } => {
@@ -112,35 +127,23 @@ export default function Podium() {
                   const { first, second, third } = getPodium(cat.id);
                   const mvp = awards.find((a: any) => a.category_id === cat.id && a.award_type === "mvp");
                   const gk = awards.find((a: any) => a.category_id === cat.id && a.award_type === "best_goalkeeper");
+                  const mvpInfo = mvp ? playerInfo((mvp as any).player_id, cat.id) : null;
+                  const gkInfo = gk ? playerInfo((gk as any).player_id, cat.id) : null;
                   return (
                     <Card key={cat.id}>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-display uppercase">{cat.name}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="grid grid-cols-3 gap-3">
-                          <PodiumSpot rank={2} icon={Medal} team={second} color="text-slate-400" />
-                          <PodiumSpot rank={1} icon={Trophy} team={first} color="text-yellow-500" featured />
-                          <PodiumSpot rank={3} icon={Award} team={third} color="text-amber-700" />
+                        <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end pt-6">
+                          <PodiumSpot rank={2} team={second} />
+                          <PodiumSpot rank={1} team={first} />
+                          <PodiumSpot rank={3} team={third} />
                         </div>
-                        {(mvp || gk) && (
-                          <div className="grid gap-2 sm:grid-cols-2 pt-2 border-t">
-                            {mvp && (
-                              <div className="flex items-center gap-2 text-sm">
-                                <Star className="h-4 w-4 text-secondary" />
-                                <span className="font-medium">MVP:</span>
-                                <span>{playerName(mvp.player_id) || mvp.notes || "—"}</span>
-                              </div>
-                            )}
-                            {gk && (
-                              <div className="flex items-center gap-2 text-sm">
-                                <Shield className="h-4 w-4 text-accent" />
-                                <span className="font-medium">Mejor Arquero:</span>
-                                <span>{playerName(gk.player_id) || gk.notes || "—"}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <div className="grid gap-2 sm:grid-cols-2 pt-3 border-t">
+                          <AwardLine emoji="🏅" label="MVP" info={mvpInfo} fallback={(mvp as any)?.notes} />
+                          <AwardLine emoji="🧤" label="Valla Menos Vencida" info={gkInfo} fallback={(gk as any)?.notes} />
+                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -154,12 +157,45 @@ export default function Podium() {
   );
 }
 
-function PodiumSpot({ rank, icon: Icon, team, color, featured }: any) {
+function PodiumSpot({ rank, team }: { rank: 1 | 2 | 3; team?: string }) {
+  const config = {
+    1: { color: "#FFD700", height: "h-32 sm:h-40", icon: Crown, iconClass: "h-10 w-10", label: "1°", scale: "scale-110", ring: "ring-2 ring-yellow-400" },
+    2: { color: "#C0C0C0", height: "h-24 sm:h-28", icon: Medal, iconClass: "h-8 w-8", label: "2°", scale: "", ring: "" },
+    3: { color: "#CD7F32", height: "h-20 sm:h-24", icon: Award, iconClass: "h-7 w-7", label: "3°", scale: "", ring: "" },
+  }[rank];
+  const Icon = config.icon;
   return (
-    <div className={`flex flex-col items-center gap-2 rounded-lg p-3 border ${featured ? "bg-secondary/10 border-secondary" : "bg-muted/30"}`}>
-      <Icon className={`h-8 w-8 ${color}`} />
-      <div className="text-xs text-muted-foreground">{rank}° lugar</div>
-      <div className="font-semibold text-center text-sm">{team ?? "Por definir"}</div>
+    <div className={`flex flex-col items-center gap-2 ${config.scale}`}>
+      <Icon className={config.iconClass} style={{ color: config.color }} />
+      <div className="text-xs font-semibold text-center min-h-[2.5rem] flex items-center">
+        {team ?? <span className="text-muted-foreground italic">Por definir</span>}
+      </div>
+      <div
+        className={`w-full ${config.height} rounded-t-lg flex items-start justify-center pt-2 font-display font-bold text-2xl ${config.ring}`}
+        style={{ background: `linear-gradient(180deg, ${config.color}, ${config.color}99)`, color: rank === 1 ? "#5b3a00" : "#1a1a1a" }}
+      >
+        {config.label}
+      </div>
+    </div>
+  );
+}
+
+function AwardLine({ emoji, label, info, fallback }: { emoji: string; label: string; info: { name: string; jersey?: number; team?: string } | null; fallback?: string }) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <span className="text-lg leading-none">{emoji}</span>
+      <div>
+        <span className="font-medium">{label}:</span>{" "}
+        {info ? (
+          <span>
+            {info.name}
+            {info.jersey != null && <span className="text-muted-foreground"> #{info.jersey}</span>}
+            {info.team && <span className="text-muted-foreground"> — {info.team}</span>}
+          </span>
+        ) : (
+          <span className="text-muted-foreground italic">{fallback || "Por definir"}</span>
+        )}
+      </div>
     </div>
   );
 }
