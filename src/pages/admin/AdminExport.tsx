@@ -19,7 +19,7 @@ export default function AdminExport() {
       const sb: any = supabase;
       const [matchesRes, goalsRes, penaltiesRes, standingsRes, rostersRes, playersRes, teamsRes, catsRes, divsRes] = await Promise.all([
         sb.from("matches").select("*, categories(name, divisions(name)), match_teams(side, score_regular, teams(name))").eq("tournament_id", currentId),
-        sb.from("goal_events").select("*, matches(id), teams(name)").eq("tournament_id", currentId),
+        sb.from("goal_events").select("*, teams(name), matches(id, match_date, phase, categories(name), match_teams(side, score_regular, teams(name)))").eq("tournament_id", currentId),
         sb.from("penalties").select("*, teams(name)").eq("tournament_id", currentId),
         sb.from("standings_aggregate").select("*, teams(name), categories(name, divisions(name))").eq("tournament_id", currentId),
         sb.from("rosters").select("*, teams(name, categories(name, divisions(name)))").eq("tournament_id", currentId),
@@ -31,6 +31,26 @@ export default function AdminExport() {
 
       const playerMap = new Map<string, any>();
       (playersRes.data ?? []).forEach((p: any) => playerMap.set(p.id, p));
+
+      // Load penalties with related match info
+      const penFull = await sb.from("penalties").select("*, teams(name), matches(match_date, phase, categories(name), match_teams(side, score_regular, teams(name)))").eq("tournament_id", currentId);
+      const rosterJerseyMap = new Map<string, number>();
+      (rostersRes.data ?? []).forEach((r: any) => { if (r.player_id != null && r.jersey_number != null) rosterJerseyMap.set(r.player_id, r.jersey_number); });
+      const rosterTeamMap = new Map<string, string>();
+      (rostersRes.data ?? []).forEach((r: any) => { if (r.player_id && r.teams?.name) rosterTeamMap.set(r.player_id, r.teams.name); });
+
+      const matchInfo = (m: any) => {
+        const home = m?.match_teams?.find((mt: any) => mt.side === "home");
+        const away = m?.match_teams?.find((mt: any) => mt.side === "away");
+        return {
+          fecha: m?.match_date ? formatBogota(m.match_date, "yyyy-MM-dd HH:mm") : "",
+          categoria: m?.categories?.name ?? "",
+          fase: m?.phase ?? "",
+          local: home?.teams?.name ?? "",
+          visitante: away?.teams?.name ?? "",
+          resultado: `${home?.score_regular ?? 0}-${away?.score_regular ?? 0}`,
+        };
+      };
 
       const wb = XLSX.utils.book_new();
 
@@ -50,27 +70,47 @@ export default function AdminExport() {
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(matchRows), "Partidos");
 
-      // Goles
+      // Goleadores
       const goalRows = (goalsRes.data ?? []).map((g: any) => {
         const scorer = playerMap.get(g.scorer_player_id);
         const assist = playerMap.get(g.assist_player_id);
+        const info = matchInfo(g.matches);
         return {
-          "Partido ID": g.match_id, "Equipo": g.teams?.name ?? "", "Periodo": g.period,
-          "Tiempo": g.game_time ?? "",
+          "Fecha Partido": info.fecha,
+          "Categoría": info.categoria,
+          "Fase": info.fase,
+          "Local": info.local,
+          "Visitante": info.visitante,
+          "Resultado": info.resultado,
           "Goleador": scorer ? `${scorer.first_name} ${scorer.last_name}` : "",
+          "Dorsal": rosterJerseyMap.get(g.scorer_player_id) ?? "",
+          "Equipo": g.teams?.name ?? "",
           "Asistencia": assist ? `${assist.first_name} ${assist.last_name}` : "",
+          "Periodo": g.period,
+          "Tiempo": g.game_time ?? "",
+          "Es Overtime": (g.period != null && Number(g.period) > 3) || g.is_overtime ? "Sí" : "No",
         };
       });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(goalRows), "Goles");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(goalRows), "Goleadores");
 
       // Sanciones
-      const penRows = (penaltiesRes.data ?? []).map((p: any) => {
+      const penRows = (penFull.data ?? penaltiesRes.data ?? []).map((p: any) => {
         const pl = playerMap.get(p.player_id);
+        const info = matchInfo(p.matches);
         return {
-          "Partido ID": p.match_id, "Equipo": p.teams?.name ?? "",
+          "Fecha Partido": info.fecha,
+          "Categoría": info.categoria,
+          "Fase": info.fase,
+          "Local": info.local,
+          "Visitante": info.visitante,
+          "Resultado": info.resultado,
           "Jugador": pl ? `${pl.first_name} ${pl.last_name}` : "",
-          "Código": p.penalty_code, "Minutos": p.penalty_minutes,
-          "Periodo": p.period, "Tiempo": p.penalty_time ?? "",
+          "Dorsal": rosterJerseyMap.get(p.player_id) ?? "",
+          "Equipo": p.teams?.name ?? "",
+          "Tipo Sanción": p.penalty_code,
+          "Duración": p.penalty_minutes,
+          "Periodo": p.period,
+          "Tiempo": p.penalty_time ?? "",
         };
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(penRows), "Sanciones");
@@ -85,14 +125,16 @@ export default function AdminExport() {
 
       // Jugadores (rosters)
       const rosterRows = (rostersRes.data ?? []).map((r: any) => {
-        const pl = playerMap.get(r.player_id);
+        const pl: any = playerMap.get(r.player_id);
         return {
-          "División": r.teams?.categories?.divisions?.name ?? "",
           "Categoría": r.teams?.categories?.name ?? "",
+          "División": r.teams?.categories?.divisions?.name ?? "",
           "Equipo": r.teams?.name ?? "",
+          "Nombre": pl?.first_name ?? "",
+          "Apellido": pl?.last_name ?? "",
           "Dorsal": r.jersey_number ?? "",
-          "Nombre": pl?.first_name ?? "", "Apellido": pl?.last_name ?? "",
-          "Posición": r.position ?? "",
+          "Fecha Nacimiento": pl?.date_of_birth ?? "",
+          "Documento": pl?.document_number ?? pl?.cedula ?? "",
         };
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rosterRows), "Jugadores");
