@@ -4,34 +4,42 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3 } from "lucide-react";
+import { useTournament } from "@/contexts/TournamentContext";
 
 export default function Standings() {
+  const { viewedTournamentId } = useTournament();
   const { data: divisions = [] } = useQuery({
-    queryKey: ["divisions"],
+    queryKey: ["divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
+      let q: any = supabase.from("divisions").select("id, name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60_000,
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60_000,
   });
 
   const { data: standings = [], isLoading } = useQuery({
-    queryKey: ["standings"],
+    queryKey: ["standings", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q: any = supabase
         .from("standings_aggregate")
         .select("*, teams!inner(name)")
         .order("points", { ascending: false })
         .order("goal_diff", { ascending: false });
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });

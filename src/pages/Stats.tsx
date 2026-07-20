@@ -12,15 +12,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Star, Target, Crosshair, Shield } from "lucide-react";
+import { useTournament } from "@/contexts/TournamentContext";
 
 export default function Stats() {
+  const { viewedTournamentId } = useTournament();
   const [selectedDivision, setSelectedDivision] = useState<string>("");
 
   // Fetch divisions
   const { data: divisions = [] } = useQuery({
-    queryKey: ["divisions"],
+    queryKey: ["divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      let q: any = supabase.from("divisions").select("id, name").order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60_000,
@@ -31,13 +35,15 @@ export default function Stats() {
 
   // Fetch categories for selected division
   const { data: categories = [] } = useQuery({
-    queryKey: ["categories", activeDivisionId],
+    queryKey: ["categories", activeDivisionId, viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q: any = supabase
         .from("categories")
         .select("id, name, sort_order")
         .eq("division_id", activeDivisionId)
         .order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     enabled: !!activeDivisionId,

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { useTournament } from "@/contexts/TournamentContext";
 
 const POSITIONS = ["Portero", "Defensa", "Delantero"];
 
@@ -17,14 +18,17 @@ function getRandomPosition(seed: number) {
 }
 
 export default function TeamsPage() {
+  const { viewedTournamentId } = useTournament();
   const {
     data: divisions = [],
     isLoading: loadingDivisions,
     isError: errorDivisions,
   } = useQuery({
-    queryKey: ["divisions"],
+    queryKey: ["divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("divisions").select("id, name, logo_url").order("name");
+      let q: any = supabase.from("divisions").select("id, name, logo_url").order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -32,9 +36,11 @@ export default function TeamsPage() {
   });
 
   const { data: categories = [], isLoading: loadingCategories, isError: errorCategories } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -42,12 +48,14 @@ export default function TeamsPage() {
   });
 
   const { data: teams = [], isLoading: loadingTeams, isError: errorTeams } = useQuery({
-    queryKey: ["all-teams"],
+    queryKey: ["all-teams", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q: any = supabase
         .from("teams")
         .select("id, name, logo_url, category_id, clubs(name, logo_url)")
         .order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
