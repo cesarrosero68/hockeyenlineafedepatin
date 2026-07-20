@@ -9,12 +9,12 @@ export default function Podium() {
   const { currentId } = useTournament();
 
   const { data: divisions = [] } = useQuery({
-    queryKey: ["podium-divisions", currentId],
+    queryKey: ["podium-divisions"],
     queryFn: async () => (await supabase.from("divisions").select("id, name")).data ?? [],
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["podium-categories", currentId],
+    queryKey: ["podium-categories"],
     queryFn: async () => (await supabase.from("categories").select("id, name, division_id").order("sort_order")).data ?? [],
   });
 
@@ -32,11 +32,13 @@ export default function Podium() {
   });
 
   const { data: standings = [] } = useQuery({
-    queryKey: ["podium-standings"],
+    queryKey: ["podium-standings", currentId],
     queryFn: async () => {
-      const { data } = await (supabase.from("standings_aggregate" as any) as any)
+      let q: any = (supabase.from("standings_aggregate" as any) as any)
         .select("category_id, team_id, rank, teams(name)")
         .order("rank");
+      if (currentId) q = q.eq("tournament_id", currentId);
+      const { data } = await q;
       return data ?? [];
     },
   });
@@ -45,31 +47,35 @@ export default function Podium() {
   const { data: awards = [] } = useQuery({
     queryKey: ["podium-awards", currentId],
     queryFn: async () => {
-      let q = supabase.from("category_awards" as any).select("*");
-      if (currentId) q = (q as any).eq("tournament_id", currentId);
+      let q: any = supabase.from("category_awards" as any).select("*");
+      if (currentId) q = q.eq("tournament_id", currentId);
       const { data } = await q;
       return (data ?? []) as any[];
     },
   });
 
-  // Automatic MVPs from view (goals + assists)
+  // Automatic MVPs from view (goals + assists), filtered by tournament
   const { data: autoMvps = [] } = useQuery({
-    queryKey: ["podium-auto-mvps"],
+    queryKey: ["podium-auto-mvps", currentId],
     queryFn: async () => {
-      const { data } = await (supabase.from("mvp_by_category" as any) as any)
-        .select("category_id, player_id, player_name, jersey_number, team_name, goals, assists, total_contributions, rank_in_category")
+      let q: any = (supabase.from("mvp_by_category" as any) as any)
+        .select("category_id, tournament_id, player_id, player_name, jersey_number, team_name, goals, assists, total_contributions, rank_in_category")
         .eq("rank_in_category", 1);
+      if (currentId) q = q.eq("tournament_id", currentId);
+      const { data } = await q;
       return (data ?? []) as any[];
     },
   });
 
-  // Automatic best defense from view (least goals against)
+  // Automatic best defense from view, filtered by tournament
   const { data: autoDefense = [] } = useQuery({
-    queryKey: ["podium-auto-defense"],
+    queryKey: ["podium-auto-defense", currentId],
     queryFn: async () => {
-      const { data } = await (supabase.from("best_defense_by_category" as any) as any)
-        .select("category_id, team_id, team_name, goals_against, played, rank_in_category")
+      let q: any = (supabase.from("best_defense_by_category" as any) as any)
+        .select("category_id, tournament_id, team_id, team_name, goals_against, played, rank_in_category")
         .eq("rank_in_category", 1);
+      if (currentId) q = q.eq("tournament_id", currentId);
+      const { data } = await q;
       return (data ?? []) as any[];
     },
   });
@@ -102,9 +108,8 @@ export default function Podium() {
   const getMvpInfo = (categoryId: string) => {
     // Check manual override first
     const manual = (awards as any[]).find((a: any) => a.category_id === categoryId && a.award_type === "mvp");
-    if (manual?.player_id) {
-      // manual override with player_id — show notes or fallback
-      return { name: manual.notes || "Ver admin", jersey: undefined, team: undefined, isManual: true };
+    if (manual?.notes) {
+      return { name: manual.notes, jersey: undefined, team: undefined, extra: undefined };
     }
     // Auto from view
     const auto = (autoMvps as any[]).find((m: any) => m.category_id === categoryId);
@@ -114,7 +119,6 @@ export default function Podium() {
         jersey: auto.jersey_number,
         team: auto.team_name,
         extra: `${auto.goals}G + ${auto.assists}A`,
-        isManual: false,
       };
     }
     return null;
@@ -124,16 +128,16 @@ export default function Podium() {
     // Check manual override first
     const manual = (awards as any[]).find((a: any) => a.category_id === categoryId && a.award_type === "best_goalkeeper");
     if (manual?.notes) {
-      return { name: manual.notes, jersey: undefined, team: undefined, isManual: true };
+      return { name: manual.notes, jersey: undefined, team: undefined, extra: undefined };
     }
-    // Auto from view — best defense team
+    // Auto from view
     const auto = (autoDefense as any[]).find((d: any) => d.category_id === categoryId);
     if (auto) {
       return {
         name: auto.team_name,
         jersey: undefined,
         team: `${auto.goals_against} goles en contra`,
-        isManual: false,
+        extra: undefined,
       };
     }
     return null;
