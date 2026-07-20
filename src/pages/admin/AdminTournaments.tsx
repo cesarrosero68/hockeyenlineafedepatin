@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Database, Pencil, Plus } from "lucide-react";
+import { Database, Pencil, Plus, Power } from "lucide-react";
 import { toast } from "sonner";
 
 type T = { id: string; name: string; year: number | null; semester: string | null; season: string | null; status: string };
@@ -50,6 +50,19 @@ export default function AdminTournaments() {
       }
       toast.success(editing ? "Torneo actualizado" : "Torneo creado");
       setOpen(false);
+      qc.invalidateQueries({ queryKey: ["tournaments"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error");
+    }
+  };
+
+  const activate = async (t: T) => {
+    try {
+      const { error: e1 } = await (supabase as any).from("tournaments").update({ status: "finished" }).neq("id", t.id);
+      if (e1) throw e1;
+      const { error: e2 } = await (supabase as any).from("tournaments").update({ status: "active" }).eq("id", t.id);
+      if (e2) throw e2;
+      toast.success(`"${t.name}" es ahora la edición activa`);
       qc.invalidateQueries({ queryKey: ["tournaments"] });
     } catch (e: any) {
       toast.error(e.message ?? "Error");
@@ -103,10 +116,15 @@ export default function AdminTournaments() {
                 {t.status === "active" ? "Activo" : "Finalizado"}
               </Badge>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => openEdit(t)}>
                 <Pencil className="h-3 w-3 mr-1" />Editar
               </Button>
+              {t.status !== "active" && (
+                <Button variant="default" size="sm" onClick={() => activate(t)}>
+                  <Power className="h-3 w-3 mr-1" />Activar
+                </Button>
+              )}
             </CardContent>
           </Card>
         ))}
