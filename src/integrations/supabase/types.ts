@@ -95,8 +95,22 @@ export type Database = {
             foreignKeyName: "brackets_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "brackets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brackets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["category_id"]
           },
           {
             foreignKeyName: "brackets_match_id_fkey"
@@ -116,8 +130,22 @@ export type Database = {
             foreignKeyName: "brackets_team_a_id_fkey"
             columns: ["team_a_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "brackets_team_a_id_fkey"
+            columns: ["team_a_id"]
+            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brackets_team_b_id_fkey"
+            columns: ["team_b_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "brackets_team_b_id_fkey"
@@ -132,6 +160,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tournaments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brackets_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "brackets_winner_id_fkey"
@@ -223,8 +258,22 @@ export type Database = {
             foreignKeyName: "category_awards_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "category_awards_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "category_awards_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["category_id"]
           },
           {
             foreignKeyName: "category_awards_tournament_id_fkey"
@@ -321,8 +370,29 @@ export type Database = {
             foreignKeyName: "fair_play_aggregate_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "fair_play_aggregate_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fair_play_aggregate_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "fair_play_aggregate_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "fair_play_aggregate_team_id_fkey"
@@ -385,6 +455,13 @@ export type Database = {
             foreignKeyName: "goal_events_assist_player_id_fkey"
             columns: ["assist_player_id"]
             isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "goal_events_assist_player_id_fkey"
+            columns: ["assist_player_id"]
+            isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
@@ -406,6 +483,13 @@ export type Database = {
             foreignKeyName: "goal_events_scorer_player_id_fkey"
             columns: ["scorer_player_id"]
             isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "goal_events_scorer_player_id_fkey"
+            columns: ["scorer_player_id"]
+            isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
@@ -415,6 +499,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_events_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "goal_events_team_id_fkey"
@@ -499,6 +590,13 @@ export type Database = {
             foreignKeyName: "match_teams_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "match_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -552,8 +650,22 @@ export type Database = {
             foreignKeyName: "matches_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "matches_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["category_id"]
           },
           {
             foreignKeyName: "matches_tournament_id_fkey"
@@ -619,6 +731,13 @@ export type Database = {
             foreignKeyName: "penalties_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "penalties_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
@@ -628,6 +747,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "penalties_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "penalties_team_id_fkey"
@@ -775,6 +901,13 @@ export type Database = {
             foreignKeyName: "rosters_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "rosters_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
@@ -784,6 +917,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players_public"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rosters_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "rosters_team_id_fkey"
@@ -855,8 +995,29 @@ export type Database = {
             foreignKeyName: "standings_aggregate_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "standings_aggregate_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standings_aggregate_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "standings_aggregate_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "standings_aggregate_team_id_fkey"
@@ -907,8 +1068,22 @@ export type Database = {
             foreignKeyName: "teams_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "teams_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "mvp_by_category"
+            referencedColumns: ["category_id"]
           },
           {
             foreignKeyName: "teams_club_id_fkey"
@@ -1003,6 +1178,33 @@ export type Database = {
       }
     }
     Views: {
+      best_defense_by_category: {
+        Row: {
+          category_id: string | null
+          category_name: string | null
+          goals_against: number | null
+          played: number | null
+          rank_in_category: number | null
+          team_id: string | null
+          team_name: string | null
+        }
+        Relationships: []
+      }
+      mvp_by_category: {
+        Row: {
+          assists: number | null
+          category_id: string | null
+          category_name: string | null
+          goals: number | null
+          jersey_number: number | null
+          player_id: string | null
+          player_name: string | null
+          rank_in_category: number | null
+          team_name: string | null
+          total_contributions: number | null
+        }
+        Relationships: []
+      }
       player_scoring_totals: {
         Row: {
           asistencias: number | null

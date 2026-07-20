@@ -3,33 +3,41 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield } from "lucide-react";
+import { useTournament } from "@/contexts/TournamentContext";
 
 export default function FairPlay() {
+  const { viewedTournamentId } = useTournament();
   const { data: divisions = [] } = useQuery({
-    queryKey: ["divisions"],
+    queryKey: ["divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
+      let q: any = supabase.from("divisions").select("id, name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60_000,
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60_000,
   });
 
   const { data: fairPlay = [], isLoading } = useQuery({
-    queryKey: ["fair-play"],
+    queryKey: ["fair-play", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q: any = supabase
         .from("fair_play_aggregate")
         .select("*, teams!inner(name)")
         .order("total_penalty_minutes", { ascending: true });
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });

@@ -10,6 +10,7 @@ import { es } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTournament } from "@/contexts/TournamentContext";
 
 interface MatchWithDetails {
   id: string;
@@ -38,6 +39,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Schedule() {
+  const { viewedTournamentId } = useTournament();
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [filterDivision, setFilterDivision] = useState<string>("all");
@@ -46,27 +48,33 @@ export default function Schedule() {
 
   // Fetch divisions, categories, teams for filters
   const { data: divisions = [] } = useQuery({
-    queryKey: ["filter-divisions"],
+    queryKey: ["filter-divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      let q: any = supabase.from("divisions").select("id, name").order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 300_000,
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["filter-categories"],
+    queryKey: ["filter-categories", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 300_000,
   });
 
   const { data: teams = [] } = useQuery({
-    queryKey: ["filter-teams"],
+    queryKey: ["filter-teams", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("teams").select("id, name, category_id").order("name");
+      let q: any = supabase.from("teams").select("id, name, category_id").order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 300_000,
@@ -88,9 +96,9 @@ export default function Schedule() {
   }, [teams, filterDivision, filterCategory, filteredCategories]);
 
   const { data: matches = [], isLoading } = useQuery({
-    queryKey: ["schedule-matches"],
+    queryKey: ["schedule-matches", viewedTournamentId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q: any = supabase
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, category_id,
@@ -98,6 +106,8 @@ export default function Schedule() {
           match_teams(side, score_regular, teams!inner(id, name))
         `)
         .order("match_date", { ascending: true });
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
 
       return (data ?? []).map((m: any) => {
         const home = m.match_teams?.find((mt: any) => mt.side === "home");

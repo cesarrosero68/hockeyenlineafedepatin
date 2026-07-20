@@ -21,6 +21,14 @@ export interface Tournament {
 
 interface Ctx {
   tournaments: Tournament[];
+  activeTournament: Tournament | null;
+  activeTournamentId: string | null;
+  viewedTournament: Tournament | null;
+  viewedTournamentId: string | null;
+  isReadOnly: boolean;
+  setEdition: (id: string) => void;
+  clearEdition: () => void;
+  // Backward compat aliases
   currentId: string | null;
   current: Tournament | null;
   setCurrentId: (id: string) => void;
@@ -28,11 +36,11 @@ interface Ctx {
 }
 
 const TournamentContext = createContext<Ctx | null>(null);
-const STORAGE_KEY = "fedepatin:tournament_id";
+const VIEW_KEY = "fedepatin:viewed_tournament_id";
 
 export function TournamentProvider({ children }: { children: ReactNode }) {
-  const [currentId, setCurrentIdState] = useState<string | null>(() => {
-    try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+  const [viewedId, setViewedIdState] = useState<string | null>(() => {
+    try { return localStorage.getItem(VIEW_KEY); } catch { return null; }
   });
 
   const { data: tournaments = [], isLoading } = useQuery({
@@ -47,22 +55,24 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60_000,
   });
 
-  useEffect(() => {
-    if (!currentId && tournaments.length > 0) {
-      const active = tournaments.find(t => t.status === "active") ?? tournaments[0];
-      setCurrentIdState(active.id);
-    }
-  }, [tournaments, currentId]);
+  const activeTournament = tournaments.find(t => t.status === "active") ?? tournaments[0] ?? null;
+  const activeTournamentId = activeTournament?.id ?? null;
+  const viewedTournamentId = viewedId ?? activeTournamentId;
+  const viewedTournament = tournaments.find(t => t.id === viewedTournamentId) ?? activeTournament;
+  const isReadOnly = !!viewedId && !!activeTournamentId && viewedId !== activeTournamentId;
 
-  const setCurrentId = (id: string) => {
-    setCurrentIdState(id);
-    try { localStorage.setItem(STORAGE_KEY, id); } catch {}
+  const setEdition = (id: string) => {
+    setViewedIdState(id);
+    try { localStorage.setItem(VIEW_KEY, id); } catch {}
   };
-
-  const current = tournaments.find(t => t.id === currentId) ?? null;
+  const clearEdition = () => {
+    setViewedIdState(null);
+    try { localStorage.removeItem(VIEW_KEY); } catch {}
+  };
 
   // Apply theme CSS vars
   useEffect(() => {
+    const current = viewedTournament;
     if (!current) return;
     const root = document.documentElement;
     const hexToHsl = (hex: string): string | null => {
@@ -92,10 +102,23 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       root.style.setProperty("--tournament-font", current.font_family);
       document.body.style.fontFamily = current.font_family;
     }
-  }, [current]);
+  }, [viewedTournament]);
 
   return (
-    <TournamentContext.Provider value={{ tournaments, currentId, current, setCurrentId, loading: isLoading }}>
+    <TournamentContext.Provider value={{
+      tournaments,
+      activeTournament,
+      activeTournamentId,
+      viewedTournament,
+      viewedTournamentId,
+      isReadOnly,
+      setEdition,
+      clearEdition,
+      currentId: viewedTournamentId,
+      current: viewedTournament,
+      setCurrentId: setEdition,
+      loading: isLoading,
+    }}>
       {children}
     </TournamentContext.Provider>
   );
