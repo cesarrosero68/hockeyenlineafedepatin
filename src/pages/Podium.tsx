@@ -31,16 +31,17 @@ export default function Podium() {
     },
   });
 
-  const { data: standings = [] } = useQuery({
-    queryKey: ["podium-standings", currentId],
+const { data: standings = [] } = useQuery({
+    queryKey: ["podium-standings"],
     queryFn: async () => {
-      let q: any = (supabase.from("standings_aggregate") as any).select("category_id, team_id, rank, tournament_id, teams(name)").order("rank");
-      if (currentId) q = q.eq("tournament_id", currentId);
-      const { data } = await q;
+      const { data } = await supabase
+        .from("standings_aggregate" as any)
+        .select("category_id, team_id, rank, teams(name)")
+        .order("rank");
       return data ?? [];
     },
   });
-
+  
   const { data: awards = [] } = useQuery({
     queryKey: ["podium-awards", currentId],
     queryFn: async () => {
