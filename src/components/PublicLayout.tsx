@@ -140,7 +140,7 @@ export default function PublicLayout() {
         <div className="container text-center text-sm text-muted-foreground space-y-1">
           <div>© 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados.</div>
           <div>
-            Desarrollo por{" "}
+            By {" "}
             <a
               href="https://www.instagram.com/hlc_hockeycolombia/"
               target="_blank"
