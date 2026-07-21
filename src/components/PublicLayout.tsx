@@ -137,8 +137,20 @@ export default function PublicLayout() {
 
       {/* Footer */}
       <footer className="border-t bg-card py-6">
-        <div className="container text-center text-sm text-muted-foreground">
-          © 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados.
+        <div className="container text-center text-sm text-muted-foreground space-y-1">
+          <div>© 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados.</div>
+          <div>
+            Desarrollo por{" "}
+            <a
+              href="https://www.instagram.com/hlc_hockeycolombia/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              Fundación HLC
+            </a>
+            {" "}- César Rosero
+          </div>
         </div>
       </footer>
 
