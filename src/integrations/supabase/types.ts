@@ -775,6 +775,7 @@ export type Database = {
         Row: {
           created_at: string
           date_of_birth: string | null
+          document_number: string | null
           first_name: string
           id: string
           jersey_number: number | null
@@ -784,6 +785,7 @@ export type Database = {
         Insert: {
           created_at?: string
           date_of_birth?: string | null
+          document_number?: string | null
           first_name: string
           id?: string
           jersey_number?: number | null
@@ -793,6 +795,7 @@ export type Database = {
         Update: {
           created_at?: string
           date_of_birth?: string | null
+          document_number?: string | null
           first_name?: string
           id?: string
           jersey_number?: number | null
@@ -1187,8 +1190,17 @@ export type Database = {
           rank_in_category: number | null
           team_id: string | null
           team_name: string | null
+          tournament_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "standings_aggregate_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mvp_by_category: {
         Row: {
@@ -1202,8 +1214,17 @@ export type Database = {
           rank_in_category: number | null
           team_name: string | null
           total_contributions: number | null
+          tournament_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "goal_events_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       player_scoring_totals: {
         Row: {
