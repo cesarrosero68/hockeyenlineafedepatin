@@ -19,16 +19,16 @@ function getRandomPosition(seed: number) {
 
 export default function TeamsPage() {
   const { viewedTournamentId } = useTournament();
+
+  // Divisions and categories are shared structure across editions — never filtered by tournament_id
   const {
     data: divisions = [],
     isLoading: loadingDivisions,
     isError: errorDivisions,
   } = useQuery({
-    queryKey: ["divisions", viewedTournamentId],
+    queryKey: ["divisions"],
     queryFn: async () => {
-      let q: any = supabase.from("divisions").select("id, name, logo_url").order("name");
-      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
-      const { data, error } = await q;
+      const { data, error } = await supabase.from("divisions").select("id, name, logo_url").order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -36,17 +36,16 @@ export default function TeamsPage() {
   });
 
   const { data: categories = [], isLoading: loadingCategories, isError: errorCategories } = useQuery({
-    queryKey: ["categories", viewedTournamentId],
+    queryKey: ["categories"],
     queryFn: async () => {
-      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
-      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
-      const { data, error } = await q;
+      const { data, error } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
       if (error) throw error;
       return data ?? [];
     },
     staleTime: 5 * 60_000,
   });
 
+  // Teams ARE edition-specific — filtered by viewedTournamentId
   const { data: teams = [], isLoading: loadingTeams, isError: errorTeams } = useQuery({
     queryKey: ["all-teams", viewedTournamentId],
     queryFn: async () => {
@@ -64,7 +63,15 @@ export default function TeamsPage() {
 
   const isLoading = loadingDivisions || loadingCategories || loadingTeams;
   const hasError = errorDivisions || errorCategories || errorTeams;
-  const defaultTab = divisions[0]?.id ?? "";
+
+  // Only show divisions/categories that actually have teams in this edition
+  const divisionsWithTeams = useMemo(() => {
+    return divisions.filter((d: any) =>
+      categories.some((c: any) => c.division_id === d.id && teams.some((t: any) => t.category_id === c.id))
+    );
+  }, [divisions, categories, teams]);
+
+  const defaultTab = divisionsWithTeams[0]?.id ?? "";
 
   return (
     <div className="container py-8 space-y-6">
@@ -87,21 +94,23 @@ export default function TeamsPage() {
             <p className="text-sm mt-1">Recarga la página y si persiste reviso la conexión del backend.</p>
           </CardContent>
         </Card>
-      ) : divisions.length === 0 ? (
+      ) : divisionsWithTeams.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">No hay divisiones disponibles.</CardContent>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            No hay equipos registrados aún en esta edición.
+          </CardContent>
         </Card>
       ) : (
         <Tabs defaultValue={defaultTab} key={defaultTab}>
           <TabsList className="flex-wrap h-auto gap-1">
-            {divisions.map((d: any) => (
+            {divisionsWithTeams.map((d: any) => (
               <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">
                 {d.name}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          {divisions.map((div: any) => {
+          {divisionsWithTeams.map((div: any) => {
             const divCategories = categories.filter((c: any) => c.division_id === div.id);
             return (
               <TabsContent key={div.id} value={div.id} className="space-y-6">
@@ -141,7 +150,6 @@ function TeamCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  // Lazy-load rosters only when expanded
   const { data: rosterData, isLoading: rostersLoading } = useQuery({
     queryKey: ["team-rosters", team.id],
     queryFn: async () => {
