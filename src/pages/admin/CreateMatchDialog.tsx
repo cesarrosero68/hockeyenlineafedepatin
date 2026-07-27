@@ -45,6 +45,20 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
   const [status, setStatus] = useState<string>("scheduled");
   const [notes, setNotes] = useState("");
 
+  // Active tournament being managed — every match created here belongs to it
+  const { data: activeTournament } = useQuery({
+    queryKey: ["admin-active-tournament"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("tournaments")
+        .select("id, name")
+        .eq("status", "active")
+        .maybeSingle();
+      return data as { id: string; name: string } | null;
+    },
+  });
+  const activeTournamentId = activeTournament?.id;
+
   const { data: divisions = [] } = useQuery({
     queryKey: ["admin-divisions"],
     queryFn: async () => {
@@ -63,10 +77,16 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Teams ARE edition-specific — only show teams from the active tournament
   const { data: teams = [] } = useQuery({
-    queryKey: ["admin-teams"],
+    queryKey: ["admin-teams-create-match", activeTournamentId],
+    enabled: !!activeTournamentId,
     queryFn: async () => {
-      const { data } = await supabase.from("teams").select("id, name, category_id").order("name");
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, category_id")
+        .eq("tournament_id", activeTournamentId as string)
+        .order("name");
       return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
@@ -84,11 +104,13 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (!activeTournamentId) throw new Error("No hay un torneo activo definido");
       if (!categoryId || !homeTeamId || !awayTeamId) throw new Error("Faltan campos obligatorios");
       if (homeTeamId === awayTeamId) throw new Error("Los equipos deben ser diferentes");
 
       const matchPayload: any = {
         category_id: categoryId,
+        tournament_id: activeTournamentId,
         phase,
         status,
         match_date: matchDate ? bogotaInputToUTC(matchDate) : null,
@@ -141,103 +163,111 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
           <DialogTitle>Crear Partido</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>División</Label>
-              <Select value={divisionId} onValueChange={(v) => { setDivisionId(v); setCategoryId(""); setHomeTeamId(""); setAwayTeamId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Categoría *</Label>
-              <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setHomeTeamId(""); setAwayTeamId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        {!activeTournamentId && (
+          <p className="text-sm text-muted-foreground">
+            No hay un torneo activo. Ve a "Torneos" y marca una edición como activa antes de crear partidos.
+          </p>
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Equipo Local *</Label>
-              <Select value={homeTeamId} onValueChange={setHomeTeamId} disabled={!categoryId}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  {filteredTeams.filter((t) => t.id !== awayTeamId).map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {activeTournamentId && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>División</Label>
+                <Select value={divisionId} onValueChange={(v) => { setDivisionId(v); setCategoryId(""); setHomeTeamId(""); setAwayTeamId(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Categoría *</Label>
+                <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setHomeTeamId(""); setAwayTeamId(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Equipo Visitante *</Label>
-              <Select value={awayTeamId} onValueChange={setAwayTeamId} disabled={!categoryId}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  {filteredTeams.filter((t) => t.id !== homeTeamId).map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Fase</Label>
-              <Select value={phase} onValueChange={setPhase}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Constants.public.Enums.match_phase.map((p) => (
-                    <SelectItem key={p} value={p}>{phaseLabels[p] ?? p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Equipo Local *</Label>
+                <Select value={homeTeamId} onValueChange={setHomeTeamId} disabled={!categoryId}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredTeams.filter((t) => t.id !== awayTeamId).map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Equipo Visitante *</Label>
+                <Select value={awayTeamId} onValueChange={setAwayTeamId} disabled={!categoryId}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredTeams.filter((t) => t.id !== homeTeamId).map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Estado</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["scheduled", "in_progress", "closed"].map((s) => (
-                    <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Fecha y Hora (Bogotá)</Label>
-              <Input type="datetime-local" value={matchDate} onChange={(e) => setMatchDate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Fase</Label>
+                <Select value={phase} onValueChange={setPhase}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Constants.public.Enums.match_phase.map((p) => (
+                      <SelectItem key={p} value={p}>{phaseLabels[p] ?? p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Estado</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["scheduled", "in_progress", "closed"].map((s) => (
+                      <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Fecha y Hora (Bogotá)</Label>
+                <Input type="datetime-local" value={matchDate} onChange={(e) => setMatchDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Ronda</Label>
+                <Input type="number" min={1} value={roundNumber} onChange={(e) => setRoundNumber(e.target.value)} placeholder="Opcional" />
+              </div>
+            </div>
+
             <div className="space-y-1">
-              <Label>Ronda</Label>
-              <Input type="number" min={1} value={roundNumber} onChange={(e) => setRoundNumber(e.target.value)} placeholder="Opcional" />
+              <Label>Cancha / Venue</Label>
+              <Input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Ej: Cancha 1" />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Notas</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" rows={2} />
             </div>
           </div>
-
-          <div className="space-y-1">
-            <Label>Cancha / Venue</Label>
-            <Input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Ej: Cancha 1" />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Notas</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" rows={2} />
-          </div>
-        </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !categoryId || !homeTeamId || !awayTeamId}>
+          <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !activeTournamentId || !categoryId || !homeTeamId || !awayTeamId}>
             {createMutation.isPending ? "Creando..." : "Crear Partido"}
           </Button>
         </DialogFooter>
