@@ -66,7 +66,6 @@ function parseDateBogota(raw: string): string | null {
   if (!raw || !raw.trim()) return null;
   const s = raw.trim();
 
-  // ISO-like: YYYY-MM-DD or YYYY-MM-DDTHH:mm(:ss)
   const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (isoMatch) {
     const [, y, mo, d, hh, mm, ss] = isoMatch;
@@ -75,16 +74,13 @@ function parseDateBogota(raw: string): string | null {
     return isNaN(date.getTime()) ? null : date.toISOString();
   }
 
-  // Slash format: could be M/D/YYYY or D/M/YYYY
   const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (slashMatch) {
     let [, a, b, y] = slashMatch;
     let month: string, day: string;
-    // If first number > 12, it must be the day (DD/MM/YYYY)
     if (parseInt(a) > 12) {
       day = a; month = b;
     } else {
-      // Default: M/D/YYYY (US format, common in spreadsheets)
       month = a; day = b;
     }
     const dateStr = `${y}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00-05:00`;
@@ -110,6 +106,21 @@ function parseFlexDate(raw: string): string | null {
 
 const isPlaceholder = (name: string) => /^(seed|winner|loser|win\s|winnersub)/i.test(name.trim());
 
+// ---- Active tournament hook ----
+function useActiveTournament() {
+  return useQuery({
+    queryKey: ["admin-active-tournament"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("tournaments")
+        .select("id, name")
+        .eq("status", "active")
+        .maybeSingle();
+      return data as { id: string; name: string } | null;
+    },
+  });
+}
+
 // ---- Schedule upload ----
 const SCHEDULE_HEADERS = ["division", "categoria", "equipo_local", "equipo_visitante", "fecha", "fase", "ronda"];
 
@@ -119,6 +130,9 @@ function ScheduleUpload() {
   const [fileName, setFileName] = useState("");
   const [purgeFirst, setPurgeFirst] = useState(false);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  const { data: activeTournament } = useActiveTournament();
+  const activeTournamentId = activeTournament?.id;
 
   const { data: divisions } = useQuery({
     queryKey: ["upload-divisions"],
@@ -134,10 +148,15 @@ function ScheduleUpload() {
       return data ?? [];
     },
   });
+  // Teams ARE edition-specific — only match against teams from the active tournament
   const { data: teams } = useQuery({
-    queryKey: ["upload-teams"],
+    queryKey: ["upload-teams", activeTournamentId],
+    enabled: !!activeTournamentId,
     queryFn: async () => {
-      const { data } = await supabase.from("teams").select("id, name, category_id");
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, category_id")
+        .eq("tournament_id", activeTournamentId as string);
       return data ?? [];
     },
   });
@@ -171,13 +190,13 @@ function ScheduleUpload() {
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
+      if (!activeTournamentId) throw new Error("No hay un torneo activo. Ve a Torneos y marca una edición como activa.");
       if (rows.length < 2) throw new Error("Sin datos");
       const header = rows[0].map((h) => h.toLowerCase().replace(/\s+/g, "_"));
       const dataRows = rows.slice(1);
       const errs: string[] = [];
       const inserts: { category_id: string; match_date: string | null; phase: string; round_number: number | null; home_team_id: string | null; away_team_id: string | null; notes: string | null }[] = [];
 
-      // Collect category IDs that appear in the CSV (for purge)
       const categoryIdsInCsv = new Set<string>();
 
       for (let i = 0; i < dataRows.length; i++) {
@@ -206,16 +225,15 @@ function ScheduleUpload() {
 
         if (!homePlaceholder) {
           const home = teams?.find((t) => normalizeStripped(t.name) === normalizeStripped(homeName) && t.category_id === cat.id);
-          if (!home) { errs.push(`Fila ${i + 2}: equipo local "${homeName}" no encontrado en categoría "${catName}"`); continue; }
+          if (!home) { errs.push(`Fila ${i + 2}: equipo local "${homeName}" no encontrado en categoría "${catName}" (edición activa)`); continue; }
           homeTeamId = home.id;
         }
         if (!awayPlaceholder) {
           const away = teams?.find((t) => normalizeStripped(t.name) === normalizeStripped(awayName) && t.category_id === cat.id);
-          if (!away) { errs.push(`Fila ${i + 2}: equipo visitante "${awayName}" no encontrado en categoría "${catName}"`); continue; }
+          if (!away) { errs.push(`Fila ${i + 2}: equipo visitante "${awayName}" no encontrado en categoría "${catName}" (edición activa)`); continue; }
           awayTeamId = away.id;
         }
 
-        // Use robust date parser
         const matchDate = parseDateBogota(fecha);
         if (fecha && !matchDate) {
           errs.push(`Fila ${i + 2}: fecha inválida "${fecha}" — use YYYY-MM-DD, YYYY-MM-DDTHH:mm, o M/D/YYYY`);
@@ -241,37 +259,34 @@ function ScheduleUpload() {
 
       if (errs.length > 0) throw new Error(errs.join("\n"));
 
-      // --- PURGE: delete existing 'scheduled' matches in affected categories ---
+      // --- PURGE: delete existing 'scheduled' matches in affected categories, scoped to this tournament ---
       if (purgeFirst && categoryIdsInCsv.size > 0) {
         for (const catId of categoryIdsInCsv) {
-          // Only delete matches with status='scheduled' to avoid removing played matches
           const { data: scheduledMatches } = await supabase
             .from("matches")
             .select("id")
             .eq("category_id", catId)
+            .eq("tournament_id", activeTournamentId)
             .eq("status", "scheduled");
 
           if (scheduledMatches && scheduledMatches.length > 0) {
             const matchIds = scheduledMatches.map((m) => m.id);
-            // Delete match_teams first
             await supabase.from("match_teams").delete().in("match_id", matchIds);
-            // Delete matches
             await supabase.from("matches").delete().in("id", matchIds);
           }
         }
       }
 
-      // --- DUPLICATE CHECK ---
+      // --- DUPLICATE CHECK (scoped to this tournament) ---
       let skippedCount = 0;
 
-      // Insert matches + match_teams
       for (const ins of inserts) {
-        // If skipDuplicates is on, check if a match with same category+teams+date+phase already exists
         if (skipDuplicates && !purgeFirst) {
           let query = supabase
             .from("matches")
             .select("id, match_teams(team_id, side)")
             .eq("category_id", ins.category_id)
+            .eq("tournament_id", activeTournamentId)
             .eq("phase", ins.phase as any);
 
           if (ins.match_date) {
@@ -283,7 +298,6 @@ function ScheduleUpload() {
           const { data: existing } = await query;
 
           if (existing && existing.length > 0) {
-            // Check if any existing match has the same teams
             const isDuplicate = existing.some((m: any) => {
               const existingHome = m.match_teams?.find((mt: any) => mt.side === "home")?.team_id ?? null;
               const existingAway = m.match_teams?.find((mt: any) => mt.side === "away")?.team_id ?? null;
@@ -300,6 +314,7 @@ function ScheduleUpload() {
           .from("matches")
           .insert({
             category_id: ins.category_id,
+            tournament_id: activeTournamentId,
             match_date: ins.match_date,
             phase: ins.phase as any,
             round_number: ins.round_number,
@@ -336,10 +351,23 @@ function ScheduleUpload() {
 
   return (
     <div className="space-y-4">
+      {activeTournament && (
+        <Badge variant="default" className="text-xs">
+          Cargando a: {activeTournament.name}
+        </Badge>
+      )}
+      {!activeTournamentId && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">
+            No hay un torneo activo. Ve a "Torneos" y marca una edición como activa antes de cargar partidos.
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center gap-3">
         <label className="cursor-pointer">
-          <input type="file" accept=".csv" className="hidden" onChange={handleFile} />
-          <Button asChild variant="outline" className="gap-2">
+          <input type="file" accept=".csv" className="hidden" onChange={handleFile} disabled={!activeTournamentId} />
+          <Button asChild variant="outline" className="gap-2" disabled={!activeTournamentId}>
             <span><Upload className="h-4 w-4" /> Seleccionar archivo CSV</span>
           </Button>
         </label>
@@ -391,7 +419,6 @@ function ScheduleUpload() {
             </CardContent>
           </Card>
 
-          {/* Duplicate / purge options */}
           <Card>
             <CardContent className="p-4 space-y-3">
               <p className="text-sm font-medium">Opciones de re-cargue</p>
@@ -407,7 +434,7 @@ function ScheduleUpload() {
                     Borrar partidos "Programados" existentes
                   </span>
                   <span className="text-muted-foreground block text-xs mt-0.5">
-                    Elimina todos los partidos con estado "Programado" en las categorías del CSV antes de insertar. 
+                    Elimina todos los partidos con estado "Programado" en las categorías del CSV (dentro de esta edición) antes de insertar.
                     Los partidos iniciados, cerrados o bloqueados NO se eliminan.
                   </span>
                 </Label>
@@ -422,7 +449,7 @@ function ScheduleUpload() {
                   <Label htmlFor="skip-duplicates" className="text-sm leading-tight cursor-pointer">
                     <span className="font-medium">Omitir duplicados</span>
                     <span className="text-muted-foreground block text-xs mt-0.5">
-                      Si ya existe un partido con los mismos equipos, fecha, fase y categoría, no lo vuelve a crear.
+                      Si ya existe un partido con los mismos equipos, fecha, fase y categoría en esta edición, no lo vuelve a crear.
                     </span>
                   </Label>
                 </div>
@@ -433,7 +460,7 @@ function ScheduleUpload() {
           <Button
             className="gap-2"
             onClick={() => confirmMutation.mutate()}
-            disabled={confirmMutation.isPending}
+            disabled={confirmMutation.isPending || !activeTournamentId}
           >
             <CheckCircle className="h-4 w-4" />
             {confirmMutation.isPending ? "Cargando..." : `Confirmar cargue de ${rows.length - 1} partidos`}
@@ -457,6 +484,9 @@ function RosterUpload() {
   const [errors, setErrors] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
 
+  const { data: activeTournament } = useActiveTournament();
+  const activeTournamentId = activeTournament?.id;
+
   const { data: divisions } = useQuery({
     queryKey: ["upload-divisions"],
     queryFn: async () => {
@@ -471,10 +501,15 @@ function RosterUpload() {
       return data ?? [];
     },
   });
+  // Teams ARE edition-specific — only match against teams from the active tournament
   const { data: teams } = useQuery({
-    queryKey: ["upload-teams"],
+    queryKey: ["upload-teams", activeTournamentId],
+    enabled: !!activeTournamentId,
     queryFn: async () => {
-      const { data } = await supabase.from("teams").select("id, name, category_id");
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, category_id")
+        .eq("tournament_id", activeTournamentId as string);
       return data ?? [];
     },
   });
@@ -512,6 +547,7 @@ function RosterUpload() {
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
+      if (!activeTournamentId) throw new Error("No hay un torneo activo. Ve a Torneos y marca una edición como activa.");
       if (rows.length < 2) throw new Error("Sin datos");
       const header = rows[0].map((h) => {
         let key = h.toLowerCase().replace(/\s+/g, "_").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -542,17 +578,17 @@ function RosterUpload() {
         const cat = categories?.find((c) => normalize(c.name) === normalize(catName) && c.division_id === div.id);
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada`); continue; }
         const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
-        if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}"`); continue; }
+        if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}" (edición activa)`); continue; }
 
+        // Duplicate check scoped to this team's roster (already scoped to tournament via team)
         const { data: existingRosters } = await supabase
           .from("rosters")
-          .select("id, player_id, players_public!inner(first_name, last_name)")
-          .eq("team_id", team.id)
-          .eq("season", "2026");
+          .select("id, player_id, players!rosters_player_id_fkey(first_name, last_name)")
+          .eq("team_id", team.id);
 
         const alreadyExists = existingRosters?.some((r: any) => {
-          const fn = r.players_public?.first_name ?? "";
-          const ln = r.players_public?.last_name ?? "";
+          const fn = r.players?.first_name ?? "";
+          const ln = r.players?.last_name ?? "";
           return normalize(fn) === normalize(firstName) && normalize(ln) === normalize(lastName);
         });
 
@@ -568,6 +604,7 @@ function RosterUpload() {
             last_name: lastName,
             jersey_number: jersey ? parseInt(jersey) || null : null,
             date_of_birth: dob,
+            tournament_id: activeTournamentId,
           })
           .select("id")
           .single();
@@ -578,7 +615,6 @@ function RosterUpload() {
           team_id: team.id,
           jersey_number: jersey ? parseInt(jersey) || null : null,
           position: position || null,
-          season: "2026",
         });
         if (rErr) { errs.push(`Fila ${i + 2}: error insertando roster — ${rErr.message}`); continue; }
 
@@ -607,10 +643,23 @@ function RosterUpload() {
 
   return (
     <div className="space-y-4">
+      {activeTournament && (
+        <Badge variant="default" className="text-xs">
+          Cargando a: {activeTournament.name}
+        </Badge>
+      )}
+      {!activeTournamentId && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">
+            No hay un torneo activo. Ve a "Torneos" y marca una edición como activa antes de cargar jugadores.
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center gap-3">
         <label className="cursor-pointer">
-          <input type="file" accept=".csv" className="hidden" onChange={handleFile} />
-          <Button asChild variant="outline" className="gap-2">
+          <input type="file" accept=".csv" className="hidden" onChange={handleFile} disabled={!activeTournamentId} />
+          <Button asChild variant="outline" className="gap-2" disabled={!activeTournamentId}>
             <span><Upload className="h-4 w-4" /> Seleccionar archivo CSV</span>
           </Button>
         </label>
@@ -665,7 +714,7 @@ function RosterUpload() {
           <Button
             className="gap-2"
             onClick={() => confirmMutation.mutate()}
-            disabled={confirmMutation.isPending}
+            disabled={confirmMutation.isPending || !activeTournamentId}
           >
             <CheckCircle className="h-4 w-4" />
             {confirmMutation.isPending ? "Cargando..." : `Confirmar cargue de ${rows.length - 1} jugadores`}
@@ -722,7 +771,7 @@ export default function AdminUpload() {
               <CardDescription>
                 Suba un archivo .csv con las columnas: <code className="text-xs bg-muted px-1 rounded">nombre, apellido, dorsal, equipo, categoria, division</code>.
                 Columnas opcionales: <code className="text-xs bg-muted px-1 rounded">posicion, fecha_nacimiento</code>.
-                Los equipos, categorías y divisiones deben existir previamente.
+                Los equipos, categorías y divisiones deben existir previamente en la edición activa.
               </CardDescription>
             </CardHeader>
             <CardContent>
