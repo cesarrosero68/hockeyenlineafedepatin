@@ -231,8 +231,12 @@ function TeamCard({
     <Card className="overflow-hidden">
       <CardContent className="p-4 cursor-pointer flex items-center justify-between gap-3" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-3">
-          {(team.clubs?.logo_url || team.logo_url) && (
-            <img src={team.clubs?.logo_url || team.logo_url} alt={team.name} className="h-10 w-10 object-contain rounded" loading="lazy" />
+          {(team.logo_url || team.clubs?.logo_url) ? (
+            <img src={team.logo_url || team.clubs?.logo_url} alt={team.name} className="h-10 w-10 object-contain rounded" loading="lazy" />
+          ) : (
+            <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center text-muted-foreground text-[10px] font-bold">
+              {team.name?.slice(0, 2).toUpperCase()}
+            </div>
           )}
           <div>
             <p className="font-display font-bold text-sm uppercase">{team.name}</p>

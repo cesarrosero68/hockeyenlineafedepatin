@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
     const raw = url.searchParams.get("path") ?? "";
     const path = raw.replace(/^\/+/, "");
 
-    if (!path || !/^[A-Za-z0-9._-]+$/.test(path)) {
+    if (!path || path.includes("..") || !/^[A-Za-z0-9._\/-]+$/.test(path)) {
       return new Response(JSON.stringify({ error: "Invalid path" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
