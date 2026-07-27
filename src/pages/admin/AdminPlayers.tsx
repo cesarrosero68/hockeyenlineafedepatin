@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Pencil, Trash2, Save, X, Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { utils, writeFile } from "xlsx";
@@ -23,6 +24,7 @@ export default function AdminPlayers() {
   const [newLast, setNewLast] = useState("");
   const [newJersey, setNewJersey] = useState("");
   const [newDob, setNewDob] = useState("");
+  const [newDocNumber, setNewDocNumber] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFirst, setEditFirst] = useState("");
   const [editLast, setEditLast] = useState("");
@@ -34,10 +36,29 @@ export default function AdminPlayers() {
   const [rosterJersey, setRosterJersey] = useState("");
   const [rosterPosition, setRosterPosition] = useState("");
 
-  const { data: players = [], isLoading } = useQuery({
-    queryKey: ["admin-players"],
+  // Active tournament being managed
+  const { data: activeTournament } = useQuery({
+    queryKey: ["admin-active-tournament"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("players").select("*").order("last_name");
+      const { data } = await (supabase as any)
+        .from("tournaments")
+        .select("id, name")
+        .eq("status", "active")
+        .maybeSingle();
+      return data as { id: string; name: string } | null;
+    },
+  });
+  const activeTournamentId = activeTournament?.id;
+
+  const { data: players = [], isLoading } = useQuery({
+    queryKey: ["admin-players", activeTournamentId],
+    enabled: !!activeTournamentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("players")
+        .select("*")
+        .eq("tournament_id", activeTournamentId as string)
+        .order("last_name");
       if (error) throw error;
       return data;
     },
@@ -45,20 +66,27 @@ export default function AdminPlayers() {
   });
 
   const { data: teams = [] } = useQuery({
-    queryKey: ["admin-teams"],
+    queryKey: ["admin-teams", activeTournamentId],
+    enabled: !!activeTournamentId,
     queryFn: async () => {
-      const { data } = await supabase.from("teams").select("id, name, categories(name, divisions(name))").order("name");
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, categories(name, divisions(name))")
+        .eq("tournament_id", activeTournamentId as string)
+        .order("name");
       return data ?? [];
     },
     staleTime: 30_000,
   });
 
   const { data: rosters = [] } = useQuery({
-    queryKey: ["admin-rosters"],
+    queryKey: ["admin-rosters", activeTournamentId],
+    enabled: !!activeTournamentId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("rosters")
-        .select("id, jersey_number, position, team_id, player_id, teams(name), players!rosters_player_id_fkey(first_name, last_name)")
+        .select("id, jersey_number, position, team_id, player_id, teams!inner(name, tournament_id), players!rosters_player_id_fkey(first_name, last_name)")
+        .eq("teams.tournament_id", activeTournamentId as string)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -94,6 +122,10 @@ export default function AdminPlayers() {
 
   const handleExportExcel = async () => {
     try {
+      if (!activeTournamentId) {
+        toast({ title: "No hay torneo activo", variant: "destructive" });
+        return;
+      }
       // Build category filter
       let categoryIds: string[] = filteredCategories.map((c: any) => c.id);
       if (exportCategoryId !== "all") categoryIds = [exportCategoryId];
@@ -102,11 +134,12 @@ export default function AdminPlayers() {
         return;
       }
 
-      // Teams in scope
+      // Teams in scope — filtered to active tournament
       const { data: teamsData, error: teamsErr } = await supabase
         .from("teams")
-        .select("id, name, category_id, categories(id, name, division_id, sort_order, divisions(id, name))")
-        .in("category_id", categoryIds);
+        .select("id, name, category_id, tournament_id, categories(id, name, division_id, sort_order, divisions(id, name))")
+        .in("category_id", categoryIds)
+        .eq("tournament_id", activeTournamentId);
       if (teamsErr) throw teamsErr;
       const teamIds = (teamsData ?? []).map((t: any) => t.id);
       if (teamIds.length === 0) {
@@ -116,7 +149,7 @@ export default function AdminPlayers() {
 
       const { data: rostersData, error: rostersErr } = await supabase
         .from("rosters")
-        .select("jersey_number, position, team_id, players!rosters_player_id_fkey(first_name, last_name)")
+        .select("jersey_number, position, team_id, players!rosters_player_id_fkey(first_name, last_name, date_of_birth, document_number)")
         .in("team_id", teamIds);
       if (rostersErr) throw rostersErr;
 
@@ -146,6 +179,8 @@ export default function AdminPlayers() {
           Nombre: r.players?.first_name ?? "",
           Apellido: r.players?.last_name ?? "",
           Posicion: r.position ?? "",
+          Nacimiento: r.players?.date_of_birth ?? "",
+          Documento: r.players?.document_number ?? "",
         });
       });
 
@@ -192,16 +227,19 @@ export default function AdminPlayers() {
 
   const createPlayerMutation = useMutation({
     mutationFn: async () => {
+      if (!activeTournamentId) throw new Error("No hay un torneo activo definido");
       const { error } = await supabase.from("players").insert({
         first_name: newFirst, last_name: newLast,
         jersey_number: newJersey ? parseInt(newJersey) : null,
         date_of_birth: newDob || null,
+        document_number: newDocNumber || null,
+        tournament_id: activeTournamentId,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-players"] });
-      setNewFirst(""); setNewLast(""); setNewJersey(""); setNewDob("");
+      setNewFirst(""); setNewLast(""); setNewJersey(""); setNewDob(""); setNewDocNumber("");
       toast({ title: "Jugador creado" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -267,181 +305,218 @@ export default function AdminPlayers() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
-        <Users className="h-6 w-6 text-primary" /> Gestión de Jugadores
-      </h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
+          <Users className="h-6 w-6 text-primary" /> Gestión de Jugadores
+        </h1>
+        {activeTournament && (
+          <Badge variant="default" className="text-xs">
+            Gestionando: {activeTournament.name}
+          </Badge>
+        )}
+      </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-2 items-end flex-wrap">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">División</label>
-              <Select
-                value={exportDivisionId}
-                onValueChange={(v) => {
-                  setExportDivisionId(v);
-                  setExportCategoryId("all");
-                }}
-              >
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las divisiones</SelectItem>
-                  {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Categoría</label>
-              <Select value={exportCategoryId} onValueChange={setExportCategoryId}>
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las categorías</SelectItem>
-                  {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleExportExcel} className="gap-1">
-              <Download className="h-4 w-4" /> Descargar Excel
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {!activeTournamentId && (
+        <Card>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            No hay un torneo activo. Ve a "Torneos" y marca una edición como activa antes de gestionar jugadores.
+          </CardContent>
+        </Card>
+      )}
 
-      <Tabs defaultValue="players">
-        <TabsList>
-          <TabsTrigger value="players">Jugadores</TabsTrigger>
-          <TabsTrigger value="rosters">Nóminas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="players" className="space-y-4">
+      {activeTournamentId && (
+        <>
           <Card>
             <CardContent className="p-4">
               <div className="flex gap-2 items-end flex-wrap">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Nombre</label>
-                  <Input value={newFirst} onChange={e => setNewFirst(e.target.value)} placeholder="Nombre" className="w-[150px]" />
+                  <label className="text-xs font-medium">División</label>
+                  <Select
+                    value={exportDivisionId}
+                    onValueChange={(v) => {
+                      setExportDivisionId(v);
+                      setExportCategoryId("all");
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las divisiones</SelectItem>
+                      {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Apellido</label>
-                  <Input value={newLast} onChange={e => setNewLast(e.target.value)} placeholder="Apellido" className="w-[150px]" />
+                  <label className="text-xs font-medium">Categoría</label>
+                  <Select value={exportCategoryId} onValueChange={setExportCategoryId}>
+                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las categorías</SelectItem>
+                      {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">#</label>
-                  <Input value={newJersey} onChange={e => setNewJersey(e.target.value)} placeholder="#" className="w-[60px]" type="number" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Nacimiento</label>
-                  <Input value={newDob} onChange={e => setNewDob(e.target.value)} type="date" className="w-[150px]" />
-                </div>
-                <Button onClick={() => createPlayerMutation.mutate()} disabled={!newFirst.trim() || !newLast.trim() || createPlayerMutation.isPending} className="gap-1">
-                  <Plus className="h-4 w-4" /> Agregar
+                <Button onClick={handleExportExcel} className="gap-1">
+                  <Download className="h-4 w-4" /> Descargar Excel
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>#</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Apellido</TableHead>
-                <TableHead className="w-[120px]">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {players.map((p) => (
-                <TableRow key={p.id}>
-                  {editingId === p.id ? (
-                    <>
-                      <TableCell><Input value={editJersey} onChange={e => setEditJersey(e.target.value)} className="h-8 w-[60px]" type="number" /></TableCell>
-                      <TableCell><Input value={editFirst} onChange={e => setEditFirst(e.target.value)} className="h-8" /></TableCell>
-                      <TableCell><Input value={editLast} onChange={e => setEditLast(e.target.value)} className="h-8" /></TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button size="sm" className="h-8 w-8 p-0" onClick={() => updatePlayerMutation.mutate({ id: p.id, first_name: editFirst, last_name: editLast, jersey_number: editJersey })}><Save className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
-                        </div>
+          <Tabs defaultValue="players">
+            <TabsList>
+              <TabsTrigger value="players">Jugadores</TabsTrigger>
+              <TabsTrigger value="rosters">Nóminas</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="players" className="space-y-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex gap-2 items-end flex-wrap">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Nombre</label>
+                      <Input value={newFirst} onChange={e => setNewFirst(e.target.value)} placeholder="Nombre" className="w-[150px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Apellido</label>
+                      <Input value={newLast} onChange={e => setNewLast(e.target.value)} placeholder="Apellido" className="w-[150px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">#</label>
+                      <Input value={newJersey} onChange={e => setNewJersey(e.target.value)} placeholder="#" className="w-[60px]" type="number" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Nacimiento</label>
+                      <Input value={newDob} onChange={e => setNewDob(e.target.value)} type="date" className="w-[150px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Documento / ID Jugador</label>
+                      <Input value={newDocNumber} onChange={e => setNewDocNumber(e.target.value)} placeholder="Opcional" className="w-[150px]" />
+                    </div>
+                    <Button onClick={() => createPlayerMutation.mutate()} disabled={!newFirst.trim() || !newLast.trim() || createPlayerMutation.isPending} className="gap-1">
+                      <Plus className="h-4 w-4" /> Agregar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Apellido</TableHead>
+                    <TableHead className="w-[120px]">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {players.map((p) => (
+                    <TableRow key={p.id}>
+                      {editingId === p.id ? (
+                        <>
+                          <TableCell><Input value={editJersey} onChange={e => setEditJersey(e.target.value)} className="h-8 w-[60px]" type="number" /></TableCell>
+                          <TableCell><Input value={editFirst} onChange={e => setEditFirst(e.target.value)} className="h-8" /></TableCell>
+                          <TableCell><Input value={editLast} onChange={e => setEditLast(e.target.value)} className="h-8" /></TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-8 w-8 p-0" onClick={() => updatePlayerMutation.mutate({ id: p.id, first_name: editFirst, last_name: editLast, jersey_number: editJersey })}><Save className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell>{p.jersey_number ?? "—"}</TableCell>
+                          <TableCell>{p.first_name}</TableCell>
+                          <TableCell>{p.last_name}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); }}><Pencil className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deletePlayerMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  ))}
+                  {players.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
+                        Sin jugadores aún en esta edición.
                       </TableCell>
-                    </>
-                  ) : (
-                    <>
-                      <TableCell>{p.jersey_number ?? "—"}</TableCell>
-                      <TableCell>{p.first_name}</TableCell>
-                      <TableCell>{p.last_name}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); }}><Pencil className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deletePlayerMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </TableCell>
-                    </>
+                    </TableRow>
                   )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TabsContent>
+                </TableBody>
+              </Table>
+            </TabsContent>
 
-        <TabsContent value="rosters" className="space-y-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-2 items-end flex-wrap">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Jugador</label>
-                  <Select value={rosterPlayerId} onValueChange={setRosterPlayerId}>
-                    <SelectTrigger className="w-[200px]"><SelectValue placeholder="Seleccionar jugador" /></SelectTrigger>
-                    <SelectContent>{players.map(p => <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Equipo</label>
-                  <Select value={rosterTeamId} onValueChange={setRosterTeamId}>
-                    <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
-                    <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium"># Camiseta</label>
-                  <Input value={rosterJersey} onChange={e => setRosterJersey(e.target.value)} placeholder="#" className="w-[60px]" type="number" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Posición</label>
-                  <Input value={rosterPosition} onChange={e => setRosterPosition(e.target.value)} placeholder="Posición" className="w-[120px]" />
-                </div>
-                <Button onClick={() => createRosterMutation.mutate()} disabled={!rosterPlayerId || !rosterTeamId || createRosterMutation.isPending} className="gap-1">
-                  <Plus className="h-4 w-4" /> Asignar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            <TabsContent value="rosters" className="space-y-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex gap-2 items-end flex-wrap">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Jugador</label>
+                      <Select value={rosterPlayerId} onValueChange={setRosterPlayerId}>
+                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Seleccionar jugador" /></SelectTrigger>
+                        <SelectContent>{players.map(p => <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Equipo</label>
+                      <Select value={rosterTeamId} onValueChange={setRosterTeamId}>
+                        <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium"># Camiseta</label>
+                      <Input value={rosterJersey} onChange={e => setRosterJersey(e.target.value)} placeholder="#" className="w-[60px]" type="number" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Posición</label>
+                      <Input value={rosterPosition} onChange={e => setRosterPosition(e.target.value)} placeholder="Posición" className="w-[120px]" />
+                    </div>
+                    <Button onClick={() => createRosterMutation.mutate()} disabled={!rosterPlayerId || !rosterTeamId || createRosterMutation.isPending} className="gap-1">
+                      <Plus className="h-4 w-4" /> Asignar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Jugador</TableHead>
-                <TableHead>Equipo</TableHead>
-                <TableHead>#</TableHead>
-                <TableHead>Posición</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rosters.map((r: any) => (
-                <TableRow key={r.id}>
-                  <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
-                  <TableCell>{r.teams?.name}</TableCell>
-                  <TableCell>{r.jersey_number ?? "—"}</TableCell>
-                  <TableCell>{r.position ?? "—"}</TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteRosterMutation.mutate(r.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TabsContent>
-      </Tabs>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Jugador</TableHead>
+                    <TableHead>Equipo</TableHead>
+                    <TableHead>#</TableHead>
+                    <TableHead>Posición</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rosters.map((r: any) => (
+                    <TableRow key={r.id}>
+                      <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
+                      <TableCell>{r.teams?.name}</TableCell>
+                      <TableCell>{r.jersey_number ?? "—"}</TableCell>
+                      <TableCell>{r.position ?? "—"}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteRosterMutation.mutate(r.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {rosters.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
+                        Sin nóminas aún en esta edición.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }
