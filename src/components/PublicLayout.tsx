@@ -40,6 +40,7 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <div className="page-bg" aria-hidden="true" />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-20 items-center justify-between gap-4">

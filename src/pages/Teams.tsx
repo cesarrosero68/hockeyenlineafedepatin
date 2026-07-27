@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,9 @@ function getRandomPosition(seed: number) {
 
 export default function TeamsPage() {
   const { viewedTournamentId } = useTournament();
+  const [searchParams] = useSearchParams();
+  const requestedDivision = searchParams.get("division");
+  const [activeDivision, setActiveDivision] = useState<string>("");
 
   // Divisions and categories are shared structure across editions — never filtered by tournament_id
   const {
@@ -73,6 +77,18 @@ export default function TeamsPage() {
 
   const defaultTab = divisionsWithTeams[0]?.id ?? "";
 
+  useEffect(() => {
+    if (divisionsWithTeams.length === 0) return;
+    const match = requestedDivision
+      ? divisionsWithTeams.find(
+          (d: any) =>
+            d.id === requestedDivision ||
+            d.name.toLowerCase() === requestedDivision.toLowerCase()
+        )
+      : null;
+    setActiveDivision((prev) => match?.id ?? (prev && divisionsWithTeams.some((d: any) => d.id === prev) ? prev : defaultTab));
+  }, [requestedDivision, divisionsWithTeams, defaultTab]);
+
   return (
     <div className="container py-8 space-y-6">
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
@@ -101,7 +117,7 @@ export default function TeamsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue={defaultTab} key={defaultTab}>
+        <Tabs value={activeDivision || defaultTab} onValueChange={setActiveDivision}>
           <TabsList className="flex-wrap h-auto gap-1">
             {divisionsWithTeams.map((d: any) => (
               <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">
