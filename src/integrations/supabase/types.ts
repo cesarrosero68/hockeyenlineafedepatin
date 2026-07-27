@@ -1309,6 +1309,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_tournament_locked: { Args: { t_id: string }; Returns: boolean }
       recalc_fair_play_for_category: {
         Args: { p_category_id: string }
         Returns: undefined
