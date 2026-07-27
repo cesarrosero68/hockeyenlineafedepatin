@@ -65,10 +65,18 @@ export default function EditMatchDialog({ open, onOpenChange, match }: Props) {
     }
   }, [match, open]);
 
+  // Teams ARE edition-specific — only show teams from this match's own tournament
+  const matchTournamentId = match?.tournament_id as string | undefined;
+
   const { data: teams = [] } = useQuery({
-    queryKey: ["admin-teams"],
+    queryKey: ["admin-teams-edit-match", matchTournamentId],
+    enabled: !!matchTournamentId,
     queryFn: async () => {
-      const { data } = await supabase.from("teams").select("id, name, category_id").order("name");
+      const { data } = await supabase
+        .from("teams")
+        .select("id, name, category_id")
+        .eq("tournament_id", matchTournamentId as string)
+        .order("name");
       return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
@@ -77,8 +85,6 @@ export default function EditMatchDialog({ open, onOpenChange, match }: Props) {
   // Get category_id from the match
   const matchCategoryId = useMemo(() => {
     if (!match) return "";
-    // The match query joins categories, so we need the category's id
-    // It's stored as match.categories.id or we can look it up
     return (match as any).categories?.id ?? categoryId;
   }, [match, categoryId]);
 
