@@ -1106,6 +1106,8 @@ export type Database = {
       }
       tournaments: {
         Row: {
+          background_style: string | null
+          background_url: string | null
           bg_color: string | null
           created_at: string
           font_family: string | null
@@ -1123,6 +1125,8 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          background_style?: string | null
+          background_url?: string | null
           bg_color?: string | null
           created_at?: string
           font_family?: string | null
@@ -1140,6 +1144,8 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          background_style?: string | null
+          background_url?: string | null
           bg_color?: string | null
           created_at?: string
           font_family?: string | null
