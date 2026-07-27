@@ -41,6 +41,8 @@ export default function AdminClubs() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const targetClubId = useRef<string | null>(null);
+  const teamFileInputRef = useRef<HTMLInputElement | null>(null);
+  const targetTeamId = useRef<string | null>(null);
 
   const { data: activeTournament } = useQuery({
     queryKey: ["admin-active-tournament"],
@@ -70,7 +72,7 @@ export default function AdminClubs() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("teams")
-        .select("id, name, club_id, categories(name)")
+        .select("id, name, club_id, logo_url, categories(name)")
         .eq("tournament_id", activeTournamentId as string)
         .order("name");
       if (error) throw error;
@@ -135,6 +137,38 @@ export default function AdminClubs() {
     fileInputRef.current?.click();
   };
 
+  const pickTeamFile = (teamId: string) => {
+    targetTeamId.current = teamId;
+    teamFileInputRef.current?.click();
+  };
+
+  const handleTeamFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const teamId = targetTeamId.current;
+    e.target.value = "";
+    if (!file || !teamId) return;
+    setUploadingId(teamId);
+    try {
+      const blob = await compressToWebp(file);
+      const fileName = `teams/${teamId}.webp`;
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(fileName, blob, { contentType: "image/webp", upsert: true });
+      if (upErr) throw upErr;
+      const url = `${logoPublicUrl(fileName)}&v=${Date.now()}`;
+      const { error: dbErr } = await supabase.from("teams").update({ logo_url: url }).eq("id", teamId);
+      if (dbErr) throw dbErr;
+      queryClient.invalidateQueries({ queryKey: ["admin-clubs-teams"] });
+      queryClient.invalidateQueries({ queryKey: ["all-teams"] });
+      toast({ title: "Logo del equipo actualizado" });
+    } catch (err: any) {
+      toast({ title: "Error al subir el logo del equipo", description: err?.message ?? String(err), variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+      targetTeamId.current = null;
+    }
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const clubId = targetClubId.current;
@@ -168,6 +202,7 @@ export default function AdminClubs() {
   return (
     <div className="space-y-6">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <input ref={teamFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleTeamFile} />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" /> Gestión de Clubes
