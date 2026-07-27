@@ -47,7 +47,9 @@ export default function AdminAppearance() {
   const save = async () => {
     if (!selectedId) return;
     setSaving(true);
-    const { error } = await supabase.from("tournaments" as any).update(values).eq("id", selectedId);
+    const payload: Record<string, any> = { ...values };
+    Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+    const { error } = await supabase.from("tournaments" as any).update(payload).eq("id", selectedId);
     setSaving(false);
     if (error) return toast.error("Error al guardar: " + error.message);
     toast.success("Apariencia guardada");
