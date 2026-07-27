@@ -148,6 +148,31 @@ export default function AdminAppearance() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle className="text-base">Fondo de las páginas</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs">Estilo de fondo</Label>
+            <Select value={values.background_style || "default"} onValueChange={(v) => setValues(x => ({ ...x, background_style: v }))}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BACKGROUND_PRESETS.map(p => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Imagen de fondo (URL, opcional)</Label>
+            <Input
+              className="mt-1"
+              value={values.background_url || ""}
+              onChange={(e) => setValues(x => ({ ...x, background_url: e.target.value }))}
+              placeholder="https://…"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Se muestra muy tenue detrás del contenido.</p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex gap-2">
         <Button onClick={save} disabled={saving || !selectedId}>{saving ? "Guardando…" : "Guardar cambios"}</Button>
         <Button variant="outline" onClick={resetDefaults} disabled={saving || !selectedId}>
