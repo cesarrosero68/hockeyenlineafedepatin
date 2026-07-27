@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Palette, RotateCcw } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
+import { BACKGROUND_PRESETS } from "@/lib/backgrounds";
 
 const FIELDS: { key: string; label: string; type: "color" | "text" }[] = [
   { key: "primary_color", label: "Color primario", type: "color" },
@@ -38,6 +39,8 @@ export default function AdminAppearance() {
     FIELDS.forEach(f => { v[f.key] = (t as any)[f.key] ?? ""; });
     v.font_family = t.font_family ?? "Inter";
     v.font_size = t.font_size ?? "16px";
+    v.background_style = (t as any).background_style ?? "default";
+    v.background_url = (t as any).background_url ?? "";
     setValues(v);
   }, [selectedId, tournaments]);
 
@@ -58,6 +61,8 @@ export default function AdminAppearance() {
     FIELDS.forEach(f => { nulls[f.key] = null; });
     nulls.font_family = null;
     nulls.font_size = null;
+    nulls.background_style = null;
+    nulls.background_url = null;
     const { error } = await supabase.from("tournaments" as any).update(nulls).eq("id", selectedId);
     setSaving(false);
     if (error) return toast.error("Error: " + error.message);
@@ -65,6 +70,9 @@ export default function AdminAppearance() {
     const root = document.documentElement;
     root.style.removeProperty("--primary");
     root.style.removeProperty("--tournament-font");
+    root.style.removeProperty("--page-bg-image");
+    root.style.removeProperty("--page-bg-size");
+    root.style.removeProperty("--page-bg-photo");
     document.body.style.fontFamily = "";
     setValues({});
     toast.success("Valores restablecidos");

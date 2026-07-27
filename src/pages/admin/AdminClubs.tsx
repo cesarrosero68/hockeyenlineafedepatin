@@ -276,7 +276,29 @@ export default function AdminClubs() {
                       </TableCell>
                     </>
                   ) : null}
-                  <TableCell>{t.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {t.logo_url ? (
+                        <img src={t.logo_url} alt={`Logo ${t.name}`} className="h-8 w-8 object-contain rounded border bg-muted" loading="lazy" />
+                      ) : (
+                        <div className="h-8 w-8 rounded border bg-muted flex items-center justify-center text-muted-foreground">
+                          <ImageIcon className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+                      <span>{t.name}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 gap-1 px-2"
+                        disabled={uploadingId === t.id}
+                        onClick={() => pickTeamFile(t.id)}
+                        title="Subir logo del equipo"
+                      >
+                        {uploadingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                        <span className="text-[11px]">Logo equipo</span>
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm">{t.categories?.name}</TableCell>
                   {i === 0 ? (
                     <TableCell rowSpan={clubTeams.length} className="align-top pt-2">
