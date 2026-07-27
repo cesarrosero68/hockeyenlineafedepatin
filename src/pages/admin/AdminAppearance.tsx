@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Palette, RotateCcw } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
+import { BACKGROUND_PRESETS } from "@/lib/backgrounds";
 
 const FIELDS: { key: string; label: string; type: "color" | "text" }[] = [
   { key: "primary_color", label: "Color primario", type: "color" },
@@ -38,13 +39,17 @@ export default function AdminAppearance() {
     FIELDS.forEach(f => { v[f.key] = (t as any)[f.key] ?? ""; });
     v.font_family = t.font_family ?? "Inter";
     v.font_size = t.font_size ?? "16px";
+    v.background_style = (t as any).background_style ?? "default";
+    v.background_url = (t as any).background_url ?? "";
     setValues(v);
   }, [selectedId, tournaments]);
 
   const save = async () => {
     if (!selectedId) return;
     setSaving(true);
-    const { error } = await supabase.from("tournaments" as any).update(values).eq("id", selectedId);
+    const payload: Record<string, any> = { ...values };
+    Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
+    const { error } = await supabase.from("tournaments" as any).update(payload).eq("id", selectedId);
     setSaving(false);
     if (error) return toast.error("Error al guardar: " + error.message);
     toast.success("Apariencia guardada");
@@ -58,6 +63,8 @@ export default function AdminAppearance() {
     FIELDS.forEach(f => { nulls[f.key] = null; });
     nulls.font_family = null;
     nulls.font_size = null;
+    nulls.background_style = null;
+    nulls.background_url = null;
     const { error } = await supabase.from("tournaments" as any).update(nulls).eq("id", selectedId);
     setSaving(false);
     if (error) return toast.error("Error: " + error.message);
@@ -65,6 +72,9 @@ export default function AdminAppearance() {
     const root = document.documentElement;
     root.style.removeProperty("--primary");
     root.style.removeProperty("--tournament-font");
+    root.style.removeProperty("--page-bg-image");
+    root.style.removeProperty("--page-bg-size");
+    root.style.removeProperty("--page-bg-photo");
     document.body.style.fontFamily = "";
     setValues({});
     toast.success("Valores restablecidos");
@@ -134,6 +144,31 @@ export default function AdminAppearance() {
                 {SIZES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Fondo de las páginas</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs">Estilo de fondo</Label>
+            <Select value={values.background_style || "default"} onValueChange={(v) => setValues(x => ({ ...x, background_style: v }))}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BACKGROUND_PRESETS.map(p => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Imagen de fondo (URL, opcional)</Label>
+            <Input
+              className="mt-1"
+              value={values.background_url || ""}
+              onChange={(e) => setValues(x => ({ ...x, background_url: e.target.value }))}
+              placeholder="https://…"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Se muestra muy tenue detrás del contenido.</p>
           </div>
         </CardContent>
       </Card>

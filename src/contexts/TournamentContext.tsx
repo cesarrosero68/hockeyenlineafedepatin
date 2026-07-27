@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getBackgroundPreset } from "@/lib/backgrounds";
 
 export interface Tournament {
   id: string;
@@ -17,6 +18,8 @@ export interface Tournament {
   text_color: string | null;
   font_family: string | null;
   font_size: string | null;
+  background_url: string | null;
+  background_style: string | null;
 }
 
 interface Ctx {
@@ -101,6 +104,21 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     if (current.font_family) {
       root.style.setProperty("--tournament-font", current.font_family);
       document.body.style.fontFamily = current.font_family;
+    }
+
+    // Decorative page background
+    const preset = getBackgroundPreset(current.background_style);
+    if (preset.key === "default") {
+      root.style.removeProperty("--page-bg-image");
+      root.style.removeProperty("--page-bg-size");
+    } else {
+      root.style.setProperty("--page-bg-image", preset.image ?? "none");
+      root.style.setProperty("--page-bg-size", preset.size ?? "auto");
+    }
+    if (current.background_url) {
+      root.style.setProperty("--page-bg-photo", `url("${current.background_url}")`);
+    } else {
+      root.style.removeProperty("--page-bg-photo");
     }
   }, [viewedTournament]);
 

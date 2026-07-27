@@ -109,3 +109,35 @@
     @apply font-display;
   }
 }
+
+@layer components {
+  /* Decorative, non-disruptive page backdrop for public pages */
+  .page-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    pointer-events: none;
+    background-color: hsl(var(--background));
+    background-repeat: repeat;
+    background-position: center;
+    background-image: var(
+      --page-bg-image,
+      radial-gradient(ellipse at 12% 0%, hsl(var(--primary) / 0.1), transparent 55%),
+      radial-gradient(ellipse at 92% 6%, hsl(var(--secondary) / 0.1), transparent 45%),
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px)
+    );
+    background-size: var(--page-bg-size, auto, auto, 48px 48px, 48px 48px);
+  }
+
+  .page-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--page-bg-photo, none);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    opacity: 0.08;
+  }
+}

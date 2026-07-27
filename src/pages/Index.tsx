@@ -73,25 +73,33 @@ export default function Index() {
               </Card>
             ) : (
               divisions.map((div: any) => (
-                <Card key={div.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardContent className="flex items-center gap-4 py-6">
-                    {div.logo_url && (
-                      <img src={div.logo_url} alt={div.name} className="h-20 w-20 md:h-32 md:w-32 object-contain rounded-lg" loading="lazy" />
-                    )}
-                    <div>
-                      <p className="font-display font-bold uppercase">{div.name}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {categories
-                          .filter((c: any) => c.division_id === div.id)
-                          .map((cat: any) => (
-                            <Badge key={cat.id} variant="secondary" className="text-xs">
-                              {cat.name}
-                            </Badge>
-                          ))}
+                <Link key={div.id} to={`/teams?division=${encodeURIComponent(div.id)}`} className="block group">
+                  <Card className="overflow-hidden h-full hover:shadow-lg hover:border-primary/40 transition-all">
+                    <CardContent className="flex items-center gap-5 p-4 md:p-5">
+                      {div.logo_url && (
+                        <img
+                          src={div.logo_url}
+                          alt={div.name}
+                          className="h-32 w-32 md:h-44 md:w-44 object-contain shrink-0 group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      )}
+                      <div>
+                        <p className="font-display font-bold uppercase text-lg md:text-xl">{div.name}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {categories
+                            .filter((c: any) => c.division_id === div.id)
+                            .map((cat: any) => (
+                              <Badge key={cat.id} variant="secondary" className="text-xs">
+                                {cat.name}
+                              </Badge>
+                            ))}
+                        </div>
+                        <p className="text-xs text-primary mt-3 font-medium">Ver equipos →</p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))
             )}
           </div>
