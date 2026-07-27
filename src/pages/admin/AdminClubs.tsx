@@ -251,7 +251,7 @@ export default function AdminClubs() {
                           <span className="text-xs">Logo</span>
                         </Button>
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(club.id); setEditName(club.name); }}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteMutation.mutate(club.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar el club "${club.name}"? Esta acción no se puede deshacer.`)) deleteMutation.mutate(club.id); }}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   ) : null}
