@@ -47,63 +47,63 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     key: "aurora",
     label: "Aurora (azul-verde vibrante)",
     image:
-      "radial-gradient(ellipse at 0% 50%, rgba(56,189,248,0.18), transparent 60%), radial-gradient(ellipse at 100% 50%, rgba(16,185,129,0.18), transparent 60%), radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.12), transparent 60%)",
+      "radial-gradient(ellipse at 0% 50%, rgba(56,189,248,0.35), transparent 60%), radial-gradient(ellipse at 100% 50%, rgba(16,185,129,0.32), transparent 60%), radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.25), transparent 60%)",
     size: "auto",
   },
   {
     key: "sunset",
     label: "Atardecer (naranja-rojo-púrpura)",
     image:
-      "radial-gradient(ellipse at 0% 0%, rgba(251,146,60,0.22), transparent 55%), radial-gradient(ellipse at 100% 0%, rgba(239,68,68,0.18), transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(168,85,247,0.15), transparent 60%)",
+      "radial-gradient(ellipse at 0% 0%, rgba(251,146,60,0.38), transparent 55%), radial-gradient(ellipse at 100% 0%, rgba(239,68,68,0.32), transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(168,85,247,0.28), transparent 60%)",
     size: "auto",
   },
   {
     key: "ocean",
     label: "Océano (azul profundo)",
     image:
-      "radial-gradient(ellipse at 20% 20%, rgba(14,165,233,0.2), transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(6,182,212,0.18), transparent 55%), radial-gradient(ellipse at 50% 50%, rgba(15,23,42,0.06), transparent 70%)",
+      "radial-gradient(ellipse at 20% 20%, rgba(14,165,233,0.36), transparent 55%), radial-gradient(ellipse at 80% 80%, rgba(6,182,212,0.32), transparent 55%), radial-gradient(ellipse at 50% 50%, rgba(15,23,42,0.1), transparent 70%)",
     size: "auto",
   },
   {
     key: "forest",
     label: "Bosque (verde esmeralda)",
     image:
-      "radial-gradient(ellipse at 10% 90%, rgba(16,185,129,0.2), transparent 55%), radial-gradient(ellipse at 90% 10%, rgba(52,211,153,0.15), transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(6,95,70,0.08), transparent 70%)",
+      "radial-gradient(ellipse at 10% 90%, rgba(16,185,129,0.36), transparent 55%), radial-gradient(ellipse at 90% 10%, rgba(52,211,153,0.30), transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(6,95,70,0.14), transparent 70%)",
     size: "auto",
   },
   {
     key: "midnight",
     label: "Medianoche (azul oscuro intenso)",
     image:
-      "radial-gradient(ellipse at 25% 25%, rgba(99,102,241,0.22), transparent 55%), radial-gradient(ellipse at 75% 75%, rgba(139,92,246,0.18), transparent 55%), radial-gradient(ellipse at 50% 0%, rgba(30,27,75,0.1), transparent 60%)",
+      "radial-gradient(ellipse at 25% 25%, rgba(99,102,241,0.38), transparent 55%), radial-gradient(ellipse at 75% 75%, rgba(139,92,246,0.32), transparent 55%), radial-gradient(ellipse at 50% 0%, rgba(30,27,75,0.18), transparent 60%)",
     size: "auto",
   },
   {
     key: "fire",
     label: "Fuego (rojo-naranja intenso)",
     image:
-      "radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.22), transparent 55%), radial-gradient(ellipse at 0% 100%, rgba(251,146,60,0.18), transparent 55%), radial-gradient(ellipse at 100% 100%, rgba(220,38,38,0.15), transparent 55%)",
+      "radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.38), transparent 55%), radial-gradient(ellipse at 0% 100%, rgba(251,146,60,0.32), transparent 55%), radial-gradient(ellipse at 100% 100%, rgba(220,38,38,0.28), transparent 55%)",
     size: "auto",
   },
   {
     key: "ice",
     label: "Hielo (blanco-celeste cristalino)",
     image:
-      "radial-gradient(ellipse at 30% 30%, rgba(186,230,253,0.35), transparent 55%), radial-gradient(ellipse at 70% 70%, rgba(224,242,254,0.3), transparent 55%), radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.4), transparent 50%)",
+      "radial-gradient(ellipse at 30% 30%, rgba(186,230,253,0.55), transparent 55%), radial-gradient(ellipse at 70% 70%, rgba(224,242,254,0.50), transparent 55%), radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.55), transparent 50%)",
     size: "auto",
   },
   {
     key: "diamond",
     label: "Diamante (rombos elegantes)",
     image:
-      "repeating-linear-gradient(45deg, hsl(var(--primary) / 0.06) 0 1px, transparent 1px 28px), repeating-linear-gradient(-45deg, hsl(var(--primary) / 0.06) 0 1px, transparent 1px 28px)",
+      "repeating-linear-gradient(45deg, hsl(var(--primary) / 0.12) 0 1px, transparent 1px 28px), repeating-linear-gradient(-45deg, hsl(var(--primary) / 0.12) 0 1px, transparent 1px 28px)",
     size: "auto",
   },
   {
     key: "hexagon",
     label: "Hexágonos (patrón deportivo)",
     image:
-      "repeating-linear-gradient(60deg, hsl(var(--primary) / 0.07) 0 1px, transparent 1px 30px), repeating-linear-gradient(-60deg, hsl(var(--primary) / 0.07) 0 1px, transparent 1px 30px), repeating-linear-gradient(0deg, hsl(var(--primary) / 0.04) 0 1px, transparent 1px 30px)",
+      "repeating-linear-gradient(60deg, hsl(var(--primary) / 0.14) 0 1px, transparent 1px 30px), repeating-linear-gradient(-60deg, hsl(var(--primary) / 0.14) 0 1px, transparent 1px 30px), repeating-linear-gradient(0deg, hsl(var(--primary) / 0.10) 0 1px, transparent 1px 30px)",
     size: "auto",
   },
 ];
