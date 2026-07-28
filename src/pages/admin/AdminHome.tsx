@@ -5,17 +5,36 @@ import { Trophy, Users, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AdminHome() {
+  const { data: activeTournament } = useQuery({
+    queryKey: ["admin-active-tournament"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("tournaments")
+        .select("id, name")
+        .eq("status", "active")
+        .maybeSingle();
+      return data as { id: string; name: string } | null;
+    },
+  });
+
+  const activeTournamentId = activeTournament?.id;
+
   const {
     data: counts = { divisions: 0, teams: 0, matches: 0, players: 0 },
     isError,
   } = useQuery({
-    queryKey: ["admin-counts"],
+    queryKey: ["admin-counts", activeTournamentId],
+    enabled: !!activeTournamentId,
     queryFn: async () => {
       const [d, t, m, p] = await Promise.all([
-        supabase.from("divisions").select("id", { count: "exact", head: true }),
-        supabase.from("teams").select("id", { count: "exact", head: true }),
-        supabase.from("matches").select("id", { count: "exact", head: true }),
-        supabase.from("rosters").select("id", { count: "exact", head: true }),
+        supabase.from("divisions").select("id", { count: "exact", head: true })
+          .eq("tournament_id", activeTournamentId as string),
+        supabase.from("teams").select("id", { count: "exact", head: true })
+          .eq("tournament_id", activeTournamentId as string),
+        supabase.from("matches").select("id", { count: "exact", head: true })
+          .eq("tournament_id", activeTournamentId as string),
+        supabase.from("rosters").select("id", { count: "exact", head: true })
+          .eq("tournament_id", activeTournamentId as string),
       ]);
 
       const firstError = d.error ?? t.error ?? m.error ?? p.error;
