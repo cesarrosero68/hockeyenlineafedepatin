@@ -27,8 +27,7 @@ export default function AdminHome() {
     enabled: !!activeTournamentId,
     queryFn: async () => {
       const [d, t, m, p] = await Promise.all([
-        supabase.from("divisions").select("id", { count: "exact", head: true })
-          .eq("tournament_id", activeTournamentId as string),
+        supabase.from("divisions").select("id", { count: "exact", head: true }),
         supabase.from("teams").select("id", { count: "exact", head: true })
           .eq("tournament_id", activeTournamentId as string),
         supabase.from("matches").select("id", { count: "exact", head: true })
