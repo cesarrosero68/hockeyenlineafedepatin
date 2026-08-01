@@ -6,6 +6,7 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import SponsorsMarquee from "@/components/SponsorsMarquee";
 
 const navItems = [
   { to: "/", label: "Inicio", icon: Trophy },
@@ -130,6 +131,8 @@ export default function PublicLayout() {
           </div>
         )}
       </header>
+
+      <SponsorsMarquee />
 
       {/* Main Content */}
       <main className="flex-1 pb-20 md:pb-0">
