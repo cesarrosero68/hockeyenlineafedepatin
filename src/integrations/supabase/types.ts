@@ -676,6 +676,30 @@ export type Database = {
           },
         ]
       }
+      page_views: {
+        Row: {
+          device_type: string | null
+          id: string
+          page: string
+          tournament_id: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          device_type?: string | null
+          id?: string
+          page: string
+          tournament_id?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          device_type?: string | null
+          id?: string
+          page?: string
+          tournament_id?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: []
+      }
       penalties: {
         Row: {
           created_at: string
@@ -940,6 +964,38 @@ export type Database = {
             columns: ["tournament_id"]
             isOneToOne: false
             referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsor_clicks: {
+        Row: {
+          clicked_at: string | null
+          created_at: string | null
+          device_type: string | null
+          id: string
+          sponsor_id: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          id?: string
+          sponsor_id?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          id?: string
+          sponsor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsor_clicks_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsors"
             referencedColumns: ["id"]
           },
         ]

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTournament } from "@/contexts/TournamentContext";
+import { trackSponsorClick } from "@/lib/tracking";
 
 export interface Sponsor {
   id: string;
@@ -42,6 +43,7 @@ export default function SponsorsMarquee() {
 
   const handleClick = async (s: Sponsor) => {
     try {
+      await trackSponsorClick(s.id);
       await supabase
         .from("sponsors" as any)
         .update({ click_count: (s.click_count ?? 0) + 1 })

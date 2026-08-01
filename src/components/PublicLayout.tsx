@@ -1,8 +1,9 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Trophy, Calendar, BarChart3, Shield, Menu, Settings, Award, CalendarDays, Home, TrendingUp, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTournament } from "@/contexts/TournamentContext";
+import { pageNameFor, trackPageView } from "@/lib/tracking";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -36,8 +37,18 @@ export default function PublicLayout() {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
-  const { isReadOnly, viewedTournament, clearEdition } = useTournament();
+  const { isReadOnly, viewedTournament, clearEdition, viewedTournamentId } = useTournament();
   const statsActive = statsPaths.includes(location.pathname);
+  const lastTracked = useRef<string | null>(null);
+
+  useEffect(() => {
+    const page = pageNameFor(location.pathname);
+    if (!page) return;
+    const key = `${page}|${viewedTournamentId ?? ""}`;
+    if (lastTracked.current === key) return;
+    lastTracked.current = key;
+    void trackPageView(page, viewedTournamentId ?? null);
+  }, [location.pathname, viewedTournamentId]);
 
   return (
     <div className="min-h-screen flex flex-col">
