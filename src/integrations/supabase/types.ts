@@ -944,6 +944,53 @@ export type Database = {
           },
         ]
       }
+      sponsors: {
+        Row: {
+          active: boolean | null
+          click_count: number | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          logo_url: string | null
+          name: string
+          speed: string | null
+          tournament_id: string | null
+          website_url: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          click_count?: number | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          speed?: string | null
+          tournament_id?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          click_count?: number | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          speed?: string | null
+          tournament_id?: string | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsors_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       standings_aggregate: {
         Row: {
           category_id: string
@@ -1119,6 +1166,7 @@ export type Database = {
           primary_color: string | null
           season: string | null
           semester: string | null
+          sponsors_enabled: boolean | null
           status: string
           text_color: string | null
           title_color: string | null
@@ -1138,6 +1186,7 @@ export type Database = {
           primary_color?: string | null
           season?: string | null
           semester?: string | null
+          sponsors_enabled?: boolean | null
           status?: string
           text_color?: string | null
           title_color?: string | null
@@ -1157,6 +1206,7 @@ export type Database = {
           primary_color?: string | null
           season?: string | null
           semester?: string | null
+          sponsors_enabled?: boolean | null
           status?: string
           text_color?: string | null
           title_color?: string | null

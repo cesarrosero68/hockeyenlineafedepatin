@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload, Palette, FileSpreadsheet, Database, Star } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload, Palette, FileSpreadsheet, Database, Star, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 import PublicLayout from "@/components/PublicLayout";
@@ -19,6 +19,7 @@ const adminNavItems = [
   { to: "/admin/export", label: "Exportar", icon: FileSpreadsheet },
   { to: "/admin/tournaments", label: "Torneos", icon: Database },
   { to: "/admin/awards", label: "Podio y Premios", icon: Star },
+  { to: "/admin/sponsors", label: "Patrocinadores", icon: Megaphone },
 ];
 
 export default function AdminDashboard() {
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen flex flex-col">
       {/* Admin sub-nav */}
       <div className="border-b bg-muted/50">
-        <div className="container flex items-center gap-1 overflow-x-auto py-2">
+        <div className="container flex flex-wrap items-center gap-1 py-2">
           {adminNavItems.map((item) => {
             const isActive = item.exact
               ? location.pathname === item.to
