@@ -269,10 +269,15 @@ function TeamCard({
             {team.clubs?.name && <p className="text-xs text-muted-foreground">{team.clubs.name}</p>}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Badge variant="secondary" className="text-xs">
             {categoryName}
           </Badge>
+          {groupName && (
+            <Badge variant="outline" className="text-xs">
+              Grupo {groupName}
+            </Badge>
+          )}
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
       </CardContent>
