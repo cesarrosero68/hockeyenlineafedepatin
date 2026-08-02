@@ -55,7 +55,7 @@ export default function TeamsPage() {
     queryFn: async () => {
       let q: any = supabase
         .from("teams")
-        .select("id, name, logo_url, category_id, clubs(name, logo_url)")
+        .select("id, name, logo_url, category_id, group_name, clubs(name, logo_url)")
         .order("name");
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
       const { data, error } = await q;
