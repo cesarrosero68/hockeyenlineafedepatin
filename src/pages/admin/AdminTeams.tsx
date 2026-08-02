@@ -16,6 +16,7 @@ export default function AdminTeams() {
   const [editName, setEditName] = useState("");
   const [editClubId, setEditClubId] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("");
+  const [editGroup, setEditGroup] = useState("none");
   const [newName, setNewName] = useState("");
   const [newClubId, setNewClubId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
@@ -56,7 +57,7 @@ export default function AdminTeams() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("teams")
-        .select("id, name, logo_url, club_id, category_id, tournament_id, clubs(name), categories(name, divisions(name))")
+        .select("id, name, logo_url, club_id, category_id, group_name, tournament_id, clubs(name), categories(name, divisions(name))")
         .eq("tournament_id", activeTournamentId as string)
         .order("name");
       if (error) throw error;
@@ -84,8 +85,8 @@ export default function AdminTeams() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, name, club_id, category_id }: { id: string; name: string; club_id: string; category_id: string }) => {
-      const { error } = await supabase.from("teams").update({ name, club_id, category_id }).eq("id", id);
+    mutationFn: async ({ id, name, club_id, category_id, group_name }: { id: string; name: string; club_id: string; category_id: string; group_name: string | null }) => {
+      const { error } = await (supabase as any).from("teams").update({ name, club_id, category_id, group_name }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -169,6 +170,7 @@ export default function AdminTeams() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Club</TableHead>
                 <TableHead>Categoría</TableHead>
+                <TableHead>Grupo</TableHead>
                 <TableHead className="w-[120px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -191,8 +193,18 @@ export default function AdminTeams() {
                         </Select>
                       </TableCell>
                       <TableCell>
+                        <Select value={editGroup} onValueChange={setEditGroup}>
+                          <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin grupo</SelectItem>
+                            <SelectItem value="A">A</SelectItem>
+                            <SelectItem value="B">B</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-1">
-                          <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateMutation.mutate({ id: t.id, name: editName, club_id: editClubId, category_id: editCategoryId })}><Save className="h-4 w-4" /></Button>
+                          <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateMutation.mutate({ id: t.id, name: editName, club_id: editClubId, category_id: editCategoryId, group_name: editGroup === "none" ? null : editGroup })}><Save className="h-4 w-4" /></Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
@@ -203,8 +215,11 @@ export default function AdminTeams() {
                       <TableCell>{t.clubs?.name}</TableCell>
                       <TableCell>{t.categories?.divisions?.name} — {t.categories?.name}</TableCell>
                       <TableCell>
+                        {t.group_name ? <Badge variant="secondary" className="text-xs">Grupo {t.group_name}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(t.id); setEditName(t.name); setEditClubId(t.club_id); setEditCategoryId(t.category_id); }}><Pencil className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(t.id); setEditName(t.name); setEditClubId(t.club_id); setEditCategoryId(t.category_id); setEditGroup(t.group_name ?? "none"); }}><Pencil className="h-4 w-4" /></Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteMutation.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
@@ -214,7 +229,7 @@ export default function AdminTeams() {
               ))}
               {teams.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
                     Sin equipos aún en esta edición.
                   </TableCell>
                 </TableRow>

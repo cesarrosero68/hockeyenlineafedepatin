@@ -1146,6 +1146,7 @@ export type Database = {
           category_id: string
           club_id: string
           created_at: string
+          group_name: string | null
           id: string
           logo_url: string | null
           name: string
@@ -1155,6 +1156,7 @@ export type Database = {
           category_id: string
           club_id: string
           created_at?: string
+          group_name?: string | null
           id?: string
           logo_url?: string | null
           name: string
@@ -1164,6 +1166,7 @@ export type Database = {
           category_id?: string
           club_id?: string
           created_at?: string
+          group_name?: string | null
           id?: string
           logo_url?: string | null
           name?: string
