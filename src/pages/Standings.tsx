@@ -175,12 +175,12 @@ export default function Standings() {
             <TabsContent key={div.id} value={div.id} className="space-y-6">
               {divCategories.map((cat: any) => {
                 const catStandings = standings.filter((s: any) => s.category_id === cat.id);
-                const groups = Array.from(
+                const groups: string[] = Array.from(
                   new Set(
                     teams
                       .filter((t: any) => t.category_id === cat.id && t.group_name)
                       .map((t: any) => t.group_name as string)
-                  )
+                  ) as Set<string>
                 ).sort();
 
                 if (groups.length > 0) {
