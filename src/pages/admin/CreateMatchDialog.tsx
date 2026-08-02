@@ -84,7 +84,7 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from("teams")
-        .select("id, name, category_id")
+        .select("id, name, category_id, group_name")
         .eq("tournament_id", activeTournamentId as string)
         .order("name");
       return data ?? [];
@@ -102,11 +102,26 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
     [teams, categoryId]
   );
 
+  // Categories can be split into groups (e.g. Sub-10 Grupo A / B).
+  // When they are, only same-group matchups are allowed.
+  const categoryHasGroups = useMemo(
+    () => filteredTeams.some((t: any) => !!t.group_name),
+    [filteredTeams]
+  );
+  const groupOf = (id: string) => (filteredTeams.find((t: any) => t.id === id) as any)?.group_name ?? null;
+  const sameGroup = (id: string, otherId: string) => {
+    if (!categoryHasGroups || !otherId) return true;
+    return groupOf(id) === groupOf(otherId);
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!activeTournamentId) throw new Error("No hay un torneo activo definido");
       if (!categoryId || !homeTeamId || !awayTeamId) throw new Error("Faltan campos obligatorios");
       if (homeTeamId === awayTeamId) throw new Error("Los equipos deben ser diferentes");
+      if (categoryHasGroups && groupOf(homeTeamId) !== groupOf(awayTeamId)) {
+        throw new Error("En esta categoría solo se permiten partidos entre equipos del mismo grupo");
+      }
 
       const matchPayload: any = {
         category_id: categoryId,
@@ -198,8 +213,8 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
                 <Select value={homeTeamId} onValueChange={setHomeTeamId} disabled={!categoryId}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
-                    {filteredTeams.filter((t) => t.id !== awayTeamId).map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    {filteredTeams.filter((t) => t.id !== awayTeamId && sameGroup(t.id, awayTeamId)).map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}{t.group_name ? ` (Grupo ${t.group_name})` : ""}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -209,8 +224,8 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
                 <Select value={awayTeamId} onValueChange={setAwayTeamId} disabled={!categoryId}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
-                    {filteredTeams.filter((t) => t.id !== homeTeamId).map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    {filteredTeams.filter((t) => t.id !== homeTeamId && sameGroup(t.id, homeTeamId)).map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}{t.group_name ? ` (Grupo ${t.group_name})` : ""}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
