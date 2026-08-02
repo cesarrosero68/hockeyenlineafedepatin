@@ -189,6 +189,7 @@ function TeamCard({
   team: any;
   categoryName: string;
 }) {
+  const groupName = team.group_name;
   const [expanded, setExpanded] = useState(false);
 
   const { data: rosterData, isLoading: rostersLoading } = useQuery({
