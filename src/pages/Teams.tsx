@@ -55,7 +55,7 @@ export default function TeamsPage() {
     queryFn: async () => {
       let q: any = supabase
         .from("teams")
-        .select("id, name, logo_url, category_id, clubs(name, logo_url)")
+        .select("id, name, logo_url, category_id, group_name, clubs(name, logo_url)")
         .order("name");
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
       const { data, error } = await q;
@@ -133,18 +133,43 @@ export default function TeamsPage() {
                 {divCategories.map((cat: any) => {
                   const catTeams = teams.filter((t: any) => t.category_id === cat.id);
                   if (catTeams.length === 0) return null;
+                  const hasGroups = catTeams.some((t: any) => t.group_name);
+                  const groups = hasGroups
+                    ? Array.from(new Set(catTeams.map((t: any) => t.group_name).filter(Boolean))).sort()
+                    : [];
                   return (
                     <div key={cat.id} className="space-y-3">
                       <h3 className="font-display font-bold uppercase text-sm text-muted-foreground">{cat.name}</h3>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {catTeams.map((team: any) => (
-                          <TeamCard
-                            key={team.id}
-                            team={team}
-                            categoryName={cat.name}
-                          />
-                        ))}
-                      </div>
+                      {hasGroups ? (
+                        <div className="grid lg:grid-cols-2 gap-6">
+                          {groups.map((group: string) => (
+                            <div key={group} className="space-y-3">
+                              <h4 className="font-display font-bold uppercase text-sm">Grupo {group}</h4>
+                              <div className="grid sm:grid-cols-2 gap-3">
+                                {catTeams
+                                  .filter((t: any) => t.group_name === group)
+                                  .map((team: any) => (
+                                    <TeamCard
+                                      key={team.id}
+                                      team={team}
+                                      categoryName={cat.name}
+                                    />
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {catTeams.map((team: any) => (
+                            <TeamCard
+                              key={team.id}
+                              team={team}
+                              categoryName={cat.name}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -164,6 +189,7 @@ function TeamCard({
   team: any;
   categoryName: string;
 }) {
+  const groupName = team.group_name;
   const [expanded, setExpanded] = useState(false);
 
   const { data: rosterData, isLoading: rostersLoading } = useQuery({
@@ -243,10 +269,15 @@ function TeamCard({
             {team.clubs?.name && <p className="text-xs text-muted-foreground">{team.clubs.name}</p>}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Badge variant="secondary" className="text-xs">
             {categoryName}
           </Badge>
+          {groupName && (
+            <Badge variant="outline" className="text-xs">
+              Grupo {groupName}
+            </Badge>
+          )}
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
       </CardContent>
