@@ -133,18 +133,43 @@ export default function TeamsPage() {
                 {divCategories.map((cat: any) => {
                   const catTeams = teams.filter((t: any) => t.category_id === cat.id);
                   if (catTeams.length === 0) return null;
+                  const hasGroups = catTeams.some((t: any) => t.group_name);
+                  const groups = hasGroups
+                    ? Array.from(new Set(catTeams.map((t: any) => t.group_name).filter(Boolean))).sort()
+                    : [];
                   return (
                     <div key={cat.id} className="space-y-3">
                       <h3 className="font-display font-bold uppercase text-sm text-muted-foreground">{cat.name}</h3>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {catTeams.map((team: any) => (
-                          <TeamCard
-                            key={team.id}
-                            team={team}
-                            categoryName={cat.name}
-                          />
-                        ))}
-                      </div>
+                      {hasGroups ? (
+                        <div className="grid lg:grid-cols-2 gap-6">
+                          {groups.map((group: string) => (
+                            <div key={group} className="space-y-3">
+                              <h4 className="font-display font-bold uppercase text-sm">Grupo {group}</h4>
+                              <div className="grid sm:grid-cols-2 gap-3">
+                                {catTeams
+                                  .filter((t: any) => t.group_name === group)
+                                  .map((team: any) => (
+                                    <TeamCard
+                                      key={team.id}
+                                      team={team}
+                                      categoryName={cat.name}
+                                    />
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {catTeams.map((team: any) => (
+                            <TeamCard
+                              key={team.id}
+                              team={team}
+                              categoryName={cat.name}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
