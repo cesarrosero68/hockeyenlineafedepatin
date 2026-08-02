@@ -44,6 +44,33 @@ export default function Standings() {
     },
   });
 
+  // Teams with group assignment (only some categories use groups)
+  const { data: teams = [] } = useQuery({
+    queryKey: ["standings-teams-groups", viewedTournamentId],
+    queryFn: async () => {
+      let q: any = supabase.from("teams").select("id, name, category_id, group_name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
+      return data ?? [];
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  // Matches (regular phase, finished) used to compute per-group standings
+  const { data: groupMatches = [] } = useQuery({
+    queryKey: ["standings-group-matches", viewedTournamentId],
+    queryFn: async () => {
+      let q: any = supabase
+        .from("matches")
+        .select("id, category_id, status, phase, match_teams(team_id, side, score_regular)")
+        .eq("phase", "regular")
+        .in("status", ["closed", "locked"]);
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
+      return data ?? [];
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="container py-8 flex justify-center">
@@ -53,6 +80,80 @@ export default function Standings() {
   }
 
   const defaultTab = divisions[0]?.id ?? "";
+
+  const computeGroupStandings = (categoryId: string, group: string) => {
+    const groupTeams = teams.filter(
+      (t: any) => t.category_id === categoryId && t.group_name === group
+    );
+    const ids = new Set(groupTeams.map((t: any) => t.id));
+    const rows = new Map<string, any>();
+    groupTeams.forEach((t: any) =>
+      rows.set(t.id, {
+        id: t.id, name: t.name, played: 0, wins: 0, draws: 0, losses: 0,
+        goals_for: 0, goals_against: 0, goal_diff: 0, points: 0,
+      })
+    );
+
+    groupMatches
+      .filter((m: any) => m.category_id === categoryId)
+      .forEach((m: any) => {
+        const mt = m.match_teams ?? [];
+        if (mt.length !== 2) return;
+        const [a, b] = mt;
+        if (!ids.has(a.team_id) || !ids.has(b.team_id)) return;
+        [[a, b], [b, a]].forEach(([self, opp]: any[]) => {
+          const r = rows.get(self.team_id);
+          if (!r) return;
+          r.played += 1;
+          r.goals_for += self.score_regular ?? 0;
+          r.goals_against += opp.score_regular ?? 0;
+          if ((self.score_regular ?? 0) > (opp.score_regular ?? 0)) { r.wins += 1; r.points += 3; }
+          else if ((self.score_regular ?? 0) === (opp.score_regular ?? 0)) { r.draws += 1; r.points += 1; }
+          else r.losses += 1;
+        });
+      });
+
+    return Array.from(rows.values())
+      .map((r) => ({ ...r, goal_diff: r.goals_for - r.goals_against }))
+      .sort((x, y) =>
+        y.points - x.points || y.goal_diff - x.goal_diff || y.goals_for - x.goals_for || x.name.localeCompare(y.name)
+      );
+  };
+
+  const StandingsTable = ({ rows }: { rows: any[] }) => (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b text-muted-foreground text-xs">
+          <th className="text-left py-2 px-1">#</th>
+          <th className="text-left py-2 px-1">Equipo</th>
+          <th className="text-center py-2 px-1">PJ</th>
+          <th className="text-center py-2 px-1">G</th>
+          <th className="text-center py-2 px-1">E</th>
+          <th className="text-center py-2 px-1">P</th>
+          <th className="text-center py-2 px-1">GF</th>
+          <th className="text-center py-2 px-1">GC</th>
+          <th className="text-center py-2 px-1">DG</th>
+          <th className="text-center py-2 px-1 font-bold">Pts</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((s: any, i: number) => (
+          <tr key={s.id} className="border-b last:border-0">
+            <td className="py-2 px-1 text-muted-foreground">{i + 1}</td>
+            <td className="py-2 px-1 font-medium">{s.name}</td>
+            <td className="text-center py-2 px-1">{s.played}</td>
+            <td className="text-center py-2 px-1">{s.wins}</td>
+            <td className="text-center py-2 px-1">{s.draws}</td>
+            <td className="text-center py-2 px-1">{s.losses}</td>
+            <td className="text-center py-2 px-1">{s.goals_for}</td>
+            <td className="text-center py-2 px-1">{s.goals_against}</td>
+            <td className="text-center py-2 px-1">{s.goal_diff}</td>
+            <td className="text-center py-2 px-1 font-bold">{s.points}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 
   return (
     <div className="container py-8 space-y-6">
@@ -74,6 +175,32 @@ export default function Standings() {
             <TabsContent key={div.id} value={div.id} className="space-y-6">
               {divCategories.map((cat: any) => {
                 const catStandings = standings.filter((s: any) => s.category_id === cat.id);
+                const groups = Array.from(
+                  new Set(
+                    teams
+                      .filter((t: any) => t.category_id === cat.id && t.group_name)
+                      .map((t: any) => t.group_name as string)
+                  )
+                ).sort();
+
+                if (groups.length > 0) {
+                  return (
+                    <Card key={cat.id}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-display uppercase">{cat.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="grid gap-6 md:grid-cols-2">
+                        {groups.map((g) => (
+                          <div key={g} className="overflow-x-auto">
+                            <h3 className="text-xs font-display uppercase font-bold mb-2">Grupo {g}</h3>
+                            <StandingsTable rows={computeGroupStandings(cat.id, g)} />
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
                 return (
                   <Card key={cat.id}>
                     <CardHeader className="pb-2">
