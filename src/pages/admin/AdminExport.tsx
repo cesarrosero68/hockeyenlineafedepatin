@@ -23,7 +23,7 @@ export default function AdminExport() {
         sb.from("penalties").select("*, teams(name)").eq("tournament_id", currentId),
         sb.from("standings_aggregate").select("*, teams(name), categories(name, divisions(name))").eq("tournament_id", currentId),
         sb.from("rosters").select("*, teams(name, categories(name, divisions(name)))").eq("tournament_id", currentId),
-        sb.from("players_public").select("*"),
+        sb.from("players").select("*"),
         sb.from("teams").select("*, categories(name, divisions(name))").eq("tournament_id", currentId),
         sb.from("categories").select("*, divisions(name)").eq("tournament_id", currentId),
         sb.from("divisions").select("*").eq("tournament_id", currentId),
@@ -134,7 +134,7 @@ export default function AdminExport() {
           "Apellido": pl?.last_name ?? "",
           "Dorsal": r.jersey_number ?? "",
           "Fecha Nacimiento": pl?.date_of_birth ?? "",
-          "Documento": pl?.document_number ?? pl?.cedula ?? "",
+          "Documento": pl?.velopro_number ?? pl?.document_number ?? "",
         };
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rosterRows), "Jugadores");
