@@ -79,7 +79,6 @@ export default function AdminAppearance() {
     nulls.font_size = null;
     nulls.background_style = null;
     nulls.background_url = null;
-    TEXT_FIELDS.forEach(f => { nulls[f.key] = null; });
     const { error } = await supabase.from("tournaments" as any).update(nulls).eq("id", selectedId);
     setSaving(false);
     if (error) return toast.error("Error: " + error.message);
