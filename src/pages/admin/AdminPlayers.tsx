@@ -29,6 +29,8 @@ export default function AdminPlayers() {
   const [editFirst, setEditFirst] = useState("");
   const [editLast, setEditLast] = useState("");
   const [editJersey, setEditJersey] = useState("");
+  const [editDob, setEditDob] = useState("");
+  const [editVelopro, setEditVelopro] = useState("");
 
   // Roster form
   const [rosterPlayerId, setRosterPlayerId] = useState("");
@@ -37,6 +39,11 @@ export default function AdminPlayers() {
   const [staffFirst, setStaffFirst] = useState("");
   const [staffLast, setStaffLast] = useState("");
   const [staffRole, setStaffRole] = useState("ENTRENADOR");
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [editStaffFirst, setEditStaffFirst] = useState("");
+  const [editStaffLast, setEditStaffLast] = useState("");
+  const [editStaffRole, setEditStaffRole] = useState("ENTRENADOR");
+  const [editStaffVelopro, setEditStaffVelopro] = useState("");
   const [rosterJersey, setRosterJersey] = useState("");
   const [rosterPosition, setRosterPosition] = useState("");
 
@@ -268,8 +275,14 @@ export default function AdminPlayers() {
   });
 
   const updatePlayerMutation = useMutation({
-    mutationFn: async ({ id, first_name, last_name, jersey_number }: any) => {
-      const { error } = await supabase.from("players").update({ first_name, last_name, jersey_number: jersey_number ? parseInt(jersey_number) : null }).eq("id", id);
+    mutationFn: async ({ id, first_name, last_name, jersey_number, date_of_birth, velopro_number }: any) => {
+      const { error } = await supabase.from("players").update({
+        first_name,
+        last_name,
+        jersey_number: jersey_number ? parseInt(jersey_number) : null,
+        date_of_birth: date_of_birth || null,
+        velopro_number: velopro_number || null,
+      }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -298,7 +311,7 @@ export default function AdminPlayers() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("team_staff")
-        .select("id, first_name, last_name, role, team_id, teams!inner(name, tournament_id)")
+        .select("id, first_name, last_name, role, velopro_number, team_id, teams!inner(name, tournament_id)")
         .eq("teams.tournament_id", activeTournamentId as string);
       if (error) throw error;
       return (data as any[]) ?? [];
@@ -320,6 +333,21 @@ export default function AdminPlayers() {
       queryClient.invalidateQueries({ queryKey: ["admin-staff"] });
       setStaffFirst(""); setStaffLast("");
       toast({ title: "Cuerpo técnico agregado" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: async ({ id, first_name, last_name, role, velopro_number }: any) => {
+      const { error } = await (supabase as any).from("team_staff").update({
+        first_name, last_name, role, velopro_number: velopro_number || null,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-staff"] });
+      setEditingStaffId(null);
+      toast({ title: "Cuerpo técnico actualizado" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -489,6 +517,8 @@ export default function AdminPlayers() {
                     <TableHead>#</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Apellido</TableHead>
+                    <TableHead>Nacimiento</TableHead>
+                    <TableHead>VeloPro</TableHead>
                     <TableHead className="w-[120px]">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -500,9 +530,11 @@ export default function AdminPlayers() {
                           <TableCell><Input value={editJersey} onChange={e => setEditJersey(e.target.value)} className="h-8 w-[60px]" type="number" /></TableCell>
                           <TableCell><Input value={editFirst} onChange={e => setEditFirst(e.target.value)} className="h-8" /></TableCell>
                           <TableCell><Input value={editLast} onChange={e => setEditLast(e.target.value)} className="h-8" /></TableCell>
+                          <TableCell><Input value={editDob} onChange={e => setEditDob(e.target.value)} className="h-8 w-[140px]" type="date" /></TableCell>
+                          <TableCell><Input value={editVelopro} onChange={e => setEditVelopro(e.target.value)} className="h-8 w-[110px]" placeholder="VeloPro" /></TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button size="sm" className="h-8 w-8 p-0" onClick={() => updatePlayerMutation.mutate({ id: p.id, first_name: editFirst, last_name: editLast, jersey_number: editJersey })}><Save className="h-4 w-4" /></Button>
+                              <Button size="sm" className="h-8 w-8 p-0" onClick={() => updatePlayerMutation.mutate({ id: p.id, first_name: editFirst, last_name: editLast, jersey_number: editJersey, date_of_birth: editDob, velopro_number: editVelopro })}><Save className="h-4 w-4" /></Button>
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
@@ -512,9 +544,11 @@ export default function AdminPlayers() {
                           <TableCell>{p.jersey_number ?? "—"}</TableCell>
                           <TableCell>{p.first_name}</TableCell>
                           <TableCell>{p.last_name}</TableCell>
+                          <TableCell>{p.date_of_birth ?? "—"}</TableCell>
+                          <TableCell>{p.velopro_number ?? "—"}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); }}><Pencil className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); setEditDob(p.date_of_birth ?? ""); setEditVelopro(p.velopro_number ?? ""); }}><Pencil className="h-4 w-4" /></Button>
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${p.first_name} ${p.last_name}? Esta acción no se puede deshacer y también eliminará sus nóminas asociadas.`)) deletePlayerMutation.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
@@ -660,23 +694,57 @@ export default function AdminPlayers() {
                     <TableHead>Nombre</TableHead>
                     <TableHead>Equipo</TableHead>
                     <TableHead>Rol</TableHead>
-                    <TableHead className="w-[60px]"></TableHead>
+                    <TableHead>VeloPro</TableHead>
+                    <TableHead className="w-[100px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {staff.map((st: any) => (
                     <TableRow key={st.id}>
-                      <TableCell>{st.first_name} {st.last_name}</TableCell>
-                      <TableCell>{st.teams?.name}</TableCell>
-                      <TableCell>{st.role}</TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${st.first_name} ${st.last_name} (${st.role}) de ${st.teams?.name}? Esta acción no se puede deshacer.`)) deleteStaffMutation.mutate(st.id); }}><Trash2 className="h-4 w-4" /></Button>
-                      </TableCell>
+                      {editingStaffId === st.id ? (
+                        <>
+                          <TableCell className="flex gap-1">
+                            <Input value={editStaffFirst} onChange={e => setEditStaffFirst(e.target.value)} className="h-8 w-[110px]" placeholder="Nombre" />
+                            <Input value={editStaffLast} onChange={e => setEditStaffLast(e.target.value)} className="h-8 w-[110px]" placeholder="Apellido" />
+                          </TableCell>
+                          <TableCell>{st.teams?.name}</TableCell>
+                          <TableCell>
+                            <Select value={editStaffRole} onValueChange={setEditStaffRole}>
+                              <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ENTRENADOR">Entrenador</SelectItem>
+                                <SelectItem value="ASISTENTE">Asistente</SelectItem>
+                                <SelectItem value="DELEGADO">Delegado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell><Input value={editStaffVelopro} onChange={e => setEditStaffVelopro(e.target.value)} className="h-8 w-[110px]" placeholder="VeloPro" /></TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateStaffMutation.mutate({ id: st.id, first_name: editStaffFirst, last_name: editStaffLast, role: editStaffRole, velopro_number: editStaffVelopro })}><Save className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingStaffId(null)}><X className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell>{st.first_name} {st.last_name}</TableCell>
+                          <TableCell>{st.teams?.name}</TableCell>
+                          <TableCell>{st.role}</TableCell>
+                          <TableCell>{st.velopro_number ?? "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingStaffId(st.id); setEditStaffFirst(st.first_name); setEditStaffLast(st.last_name); setEditStaffRole(st.role); setEditStaffVelopro(st.velopro_number ?? ""); }}><Pencil className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${st.first_name} ${st.last_name} (${st.role}) de ${st.teams?.name}? Esta acción no se puede deshacer.`)) deleteStaffMutation.mutate(st.id); }}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                   {staff.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
                         Sin cuerpo técnico aún en esta edición.
                       </TableCell>
                     </TableRow>
