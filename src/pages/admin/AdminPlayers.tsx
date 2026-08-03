@@ -54,13 +54,32 @@ export default function AdminPlayers() {
     queryKey: ["admin-players", activeTournamentId],
     enabled: !!activeTournamentId,
     queryFn: async () => {
+      // Jugadores con roster en la edición activa
+      const { data: inEdition, error: e1 } = await supabase
+        .from("rosters")
+        .select("player_id, teams!inner(tournament_id)")
+        .eq("teams.tournament_id", activeTournamentId as string);
+      if (e1) throw e1;
+
+      // Jugadores con roster en cualquier edición
+      const { data: anyRoster, error: e2 } = await supabase
+        .from("rosters")
+        .select("player_id");
+      if (e2) throw e2;
+
+      const idsEdition = new Set((inEdition ?? []).map((r: any) => r.player_id));
+      const idsAny = new Set((anyRoster ?? []).map((r: any) => r.player_id));
+
       const { data, error } = await supabase
         .from("players")
         .select("*")
-        .eq("tournament_id", activeTournamentId as string)
         .order("last_name");
       if (error) throw error;
-      return data;
+
+      // Muestra los de esta edición + los recién creados que aún no tienen roster
+      return (data ?? []).filter(
+        (p: any) => idsEdition.has(p.id) || !idsAny.has(p.id)
+      );
     },
     staleTime: 30_000,
   });
@@ -233,7 +252,6 @@ export default function AdminPlayers() {
         jersey_number: newJersey ? parseInt(newJersey) : null,
         date_of_birth: newDob || null,
         document_number: newDocNumber || null,
-        tournament_id: activeTournamentId,
       });
       if (error) throw error;
     },
@@ -281,6 +299,7 @@ export default function AdminPlayers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rosters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-players"] });
       setRosterPlayerId(""); setRosterTeamId(""); setRosterJersey(""); setRosterPosition("");
       toast({ title: "Jugador asignado al equipo" });
     },
@@ -294,6 +313,7 @@ export default function AdminPlayers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rosters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-players"] });
       toast({ title: "Asignación eliminada" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
