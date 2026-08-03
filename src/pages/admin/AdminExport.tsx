@@ -17,16 +17,17 @@ export default function AdminExport() {
     setBusy(true);
     try {
       const sb: any = supabase;
-      const [matchesRes, goalsRes, penaltiesRes, standingsRes, rostersRes, playersRes, teamsRes, catsRes, divsRes] = await Promise.all([
+      const [matchesRes, goalsRes, penaltiesRes, standingsRes, rostersRes, playersRes, teamsRes, catsRes, divsRes, staffRes] = await Promise.all([
         sb.from("matches").select("*, categories(name, divisions(name)), match_teams(side, score_regular, teams(name))").eq("tournament_id", currentId),
         sb.from("goal_events").select("*, teams(name), matches(id, match_date, phase, categories(name), match_teams(side, score_regular, teams(name)))").eq("tournament_id", currentId),
         sb.from("penalties").select("*, teams(name)").eq("tournament_id", currentId),
         sb.from("standings_aggregate").select("*, teams(name), categories(name, divisions(name))").eq("tournament_id", currentId),
         sb.from("rosters").select("*, teams(name, categories(name, divisions(name)))").eq("tournament_id", currentId),
-        sb.from("players").select("*"),
+        sb.from("players_public").select("*"),
         sb.from("teams").select("*, categories(name, divisions(name))").eq("tournament_id", currentId),
         sb.from("categories").select("*, divisions(name)").eq("tournament_id", currentId),
         sb.from("divisions").select("*").eq("tournament_id", currentId),
+        sb.from("team_staff").select("*, teams!inner(name, tournament_id, categories(name, divisions(name)))").eq("teams.tournament_id", currentId),
       ]);
 
       const playerMap = new Map<string, any>();
@@ -134,10 +135,27 @@ export default function AdminExport() {
           "Apellido": pl?.last_name ?? "",
           "Dorsal": r.jersey_number ?? "",
           "Fecha Nacimiento": pl?.date_of_birth ?? "",
-          "Documento": pl?.velopro_number ?? pl?.document_number ?? "",
+          "VeloPro": pl?.velopro_number ?? "",
+          "Documento": pl?.document_number ?? pl?.cedula ?? "",
         };
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rosterRows), "Jugadores");
+
+      // Cuerpo Técnico
+      const roleOrder: Record<string, number> = { ENTRENADOR: 0, ASISTENTE: 1, DELEGADO: 2 };
+      const staffRows = (staffRes.data ?? [])
+        .slice()
+        .sort((a: any, b: any) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9))
+        .map((st: any) => ({
+          "División": st.teams?.categories?.divisions?.name ?? "",
+          "Categoría": st.teams?.categories?.name ?? "",
+          "Equipo": st.teams?.name ?? "",
+          "Nombre": st.first_name ?? "",
+          "Apellido": st.last_name ?? "",
+          "Rol": st.role ?? "",
+          "VeloPro": st.velopro_number ?? "",
+        }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(staffRows), "Cuerpo Técnico");
 
       // Equipos
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((teamsRes.data ?? []).map((t: any) => ({
