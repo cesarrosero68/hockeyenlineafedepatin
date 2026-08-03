@@ -139,6 +139,42 @@ export default function AdminAppearance() {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle className="text-base">Textos de la Página de Inicio</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {!textsEditable && (
+            <p className="text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2">
+              Estos textos solo se pueden editar en la edición activa.
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {TEXT_FIELDS.map(f => (
+              <div key={f.key} className={f.multiline ? "sm:col-span-2" : undefined}>
+                <Label className="text-xs">{f.label}</Label>
+                {f.multiline ? (
+                  <Textarea
+                    className="mt-1"
+                    rows={2}
+                    disabled={!textsEditable}
+                    placeholder={f.placeholder}
+                    value={values[f.key] || ""}
+                    onChange={(e) => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  />
+                ) : (
+                  <Input
+                    className="mt-1"
+                    disabled={!textsEditable}
+                    placeholder={f.placeholder}
+                    value={values[f.key] || ""}
+                    onChange={(e) => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle className="text-base">Tipografía</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
