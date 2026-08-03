@@ -55,24 +55,24 @@ export default function SponsorsMarquee() {
 
   return (
     <div className="border-b bg-card/70 backdrop-blur">
-      <div className="container flex items-center gap-3 py-2">
-        <span className="shrink-0 text-[11px] font-display font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="container flex items-center gap-4 py-3">
+        <span className="shrink-0 text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
           Patrocinadores
         </span>
         <div className="marquee relative flex-1 overflow-hidden">
           <div className="marquee-track" style={{ animationDuration: duration }}>
             {loop.map((s, i) => {
               const content = (
-                <span className="flex items-center gap-2 px-5">
+                <span className="flex items-center gap-3 px-6">
                   {s.logo_url && (
                     <img
                       src={s.logo_url}
                       alt={`Logo de ${s.name}`}
                       loading="lazy"
-                      className="h-8 w-auto max-w-[110px] object-contain"
+                      className="h-12 w-auto max-w-[165px] object-contain"
                     />
                   )}
-                  <span className="text-xs font-medium whitespace-nowrap">{s.name}</span>
+                  <span className="text-sm font-medium whitespace-nowrap">{s.name}</span>
                 </span>
               );
               return s.website_url ? (
@@ -93,8 +93,8 @@ export default function SponsorsMarquee() {
               );
             })}
           </div>
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-card to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-card to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-card to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-card to-transparent" />
         </div>
       </div>
     </div>
