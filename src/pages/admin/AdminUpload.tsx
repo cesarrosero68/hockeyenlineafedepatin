@@ -604,7 +604,6 @@ function RosterUpload() {
             last_name: lastName,
             jersey_number: jersey ? parseInt(jersey) || null : null,
             date_of_birth: dob,
-            tournament_id: activeTournamentId,
           })
           .select("id")
           .single();
