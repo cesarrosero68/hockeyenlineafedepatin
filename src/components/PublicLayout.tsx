@@ -153,7 +153,7 @@ export default function PublicLayout() {
       {/* Footer */}
       <footer className="border-t bg-card py-6">
         <div className="container text-center text-sm text-muted-foreground space-y-1">
-          <div>© 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados.</div>
+          <div>{(viewedTournament as any)?.footer_text || "© 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados."}</div>
           <div>
             By {" "}
             <a

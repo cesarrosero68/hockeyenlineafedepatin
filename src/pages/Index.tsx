@@ -4,8 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Calendar, Star, TrendingUp, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTournament } from "@/contexts/TournamentContext";
 
 export default function Index() {
+  const { viewedTournament } = useTournament();
   const {
     data: divisions = [],
     isLoading: isLoadingDivisions,
@@ -35,9 +37,9 @@ export default function Index() {
   return (
     <div className="container py-8 space-y-10">
       <section className="text-center space-y-4 py-8">
-        <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight">Fedepatin - Hockey en Línea</h1>
+        <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight">{viewedTournament?.home_title || "Fedepatin - Hockey en Línea"}</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Programación, resultados, posiciones y estadísticas en tiempo real
+          {viewedTournament?.home_subtitle || "Programación, resultados, posiciones y estadísticas en tiempo real"}
         </p>
       </section>
 
@@ -112,7 +114,7 @@ export default function Index() {
             <CardContent className="flex items-center gap-4 py-6">
               <Calendar className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />
               <div>
-                <p className="font-display font-bold uppercase">Programación</p>
+                <p className="font-display font-bold uppercase">{viewedTournament?.home_card_schedule_label || "Programación"}</p>
                 <p className="text-sm text-muted-foreground">Calendario de partidos</p>
               </div>
             </CardContent>
@@ -123,7 +125,7 @@ export default function Index() {
             <CardContent className="flex items-center gap-4 py-6">
               <TrendingUp className="h-10 w-10 text-accent group-hover:scale-110 transition-transform" />
               <div>
-                <p className="font-display font-bold uppercase">Posiciones</p>
+                <p className="font-display font-bold uppercase">{viewedTournament?.home_card_standings_label || "Posiciones"}</p>
                 <p className="text-sm text-muted-foreground">Tabla general</p>
               </div>
             </CardContent>
@@ -134,7 +136,7 @@ export default function Index() {
             <CardContent className="flex items-center gap-4 py-6">
               <Star className="h-10 w-10 text-secondary group-hover:scale-110 transition-transform" />
               <div>
-                <p className="font-display font-bold uppercase">Estadísticas</p>
+                <p className="font-display font-bold uppercase">{viewedTournament?.home_card_stats_label || "Estadísticas"}</p>
                 <p className="text-sm text-muted-foreground">Líderes del torneo</p>
               </div>
             </CardContent>
