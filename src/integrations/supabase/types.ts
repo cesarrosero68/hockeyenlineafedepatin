@@ -47,6 +47,102 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_20260803_players: {
+        Row: {
+          created_at: string | null
+          date_of_birth: string | null
+          document_number: string | null
+          first_name: string | null
+          id: string | null
+          jersey_number: number | null
+          last_name: string | null
+          tournament_id: string | null
+          velopro_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260803_rosters: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          jersey_number: number | null
+          player_id: string | null
+          position: string | null
+          season: string | null
+          team_id: string | null
+          tournament_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          player_id?: string | null
+          position?: string | null
+          season?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          player_id?: string | null
+          position?: string | null
+          season?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260803_team_staff: {
+        Row: {
+          created_at: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          role: string | null
+          team_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          role?: string | null
+          team_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          role?: string | null
+          team_id?: string | null
+        }
+        Relationships: []
+      }
       brackets: {
         Row: {
           category_id: string
@@ -805,6 +901,7 @@ export type Database = {
           jersey_number: number | null
           last_name: string
           tournament_id: string | null
+          velopro_number: string | null
         }
         Insert: {
           created_at?: string
@@ -815,6 +912,7 @@ export type Database = {
           jersey_number?: number | null
           last_name: string
           tournament_id?: string | null
+          velopro_number?: string | null
         }
         Update: {
           created_at?: string
@@ -825,6 +923,7 @@ export type Database = {
           jersey_number?: number | null
           last_name?: string
           tournament_id?: string | null
+          velopro_number?: string | null
         }
         Relationships: [
           {
@@ -1141,6 +1240,51 @@ export type Database = {
           },
         ]
       }
+      team_staff: {
+        Row: {
+          created_at: string | null
+          first_name: string
+          id: string
+          last_name: string
+          role: string | null
+          team_id: string | null
+          velopro_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          role?: string | null
+          team_id?: string | null
+          velopro_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          role?: string | null
+          team_id?: string | null
+          velopro_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_staff_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "best_defense_by_category"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "team_staff_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           category_id: string
@@ -1219,7 +1363,13 @@ export type Database = {
           font_family: string | null
           font_size: string | null
           footer_color: string | null
+          footer_text: string | null
           header_color: string | null
+          home_card_schedule_label: string | null
+          home_card_standings_label: string | null
+          home_card_stats_label: string | null
+          home_subtitle: string | null
+          home_title: string | null
           id: string
           name: string
           primary_color: string | null
@@ -1239,7 +1389,13 @@ export type Database = {
           font_family?: string | null
           font_size?: string | null
           footer_color?: string | null
+          footer_text?: string | null
           header_color?: string | null
+          home_card_schedule_label?: string | null
+          home_card_standings_label?: string | null
+          home_card_stats_label?: string | null
+          home_subtitle?: string | null
+          home_title?: string | null
           id?: string
           name: string
           primary_color?: string | null
@@ -1259,7 +1415,13 @@ export type Database = {
           font_family?: string | null
           font_size?: string | null
           footer_color?: string | null
+          footer_text?: string | null
           header_color?: string | null
+          home_card_schedule_label?: string | null
+          home_card_standings_label?: string | null
+          home_card_stats_label?: string | null
+          home_subtitle?: string | null
+          home_title?: string | null
           id?: string
           name?: string
           primary_color?: string | null
@@ -1371,24 +1533,30 @@ export type Database = {
       players_public: {
         Row: {
           created_at: string | null
+          date_of_birth: string | null
           first_name: string | null
           id: string | null
           jersey_number: number | null
           last_name: string | null
+          velopro_number: string | null
         }
         Insert: {
           created_at?: string | null
+          date_of_birth?: string | null
           first_name?: string | null
           id?: string | null
           jersey_number?: number | null
           last_name?: string | null
+          velopro_number?: string | null
         }
         Update: {
           created_at?: string | null
+          date_of_birth?: string | null
           first_name?: string | null
           id?: string | null
           jersey_number?: number | null
           last_name?: string | null
+          velopro_number?: string | null
         }
         Relationships: []
       }
