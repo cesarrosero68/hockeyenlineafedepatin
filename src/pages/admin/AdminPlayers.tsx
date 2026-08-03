@@ -33,6 +33,10 @@ export default function AdminPlayers() {
   // Roster form
   const [rosterPlayerId, setRosterPlayerId] = useState("");
   const [rosterTeamId, setRosterTeamId] = useState("");
+  const [staffTeamId, setStaffTeamId] = useState("");
+  const [staffFirst, setStaffFirst] = useState("");
+  const [staffLast, setStaffLast] = useState("");
+  const [staffRole, setStaffRole] = useState("ENTRENADOR");
   const [rosterJersey, setRosterJersey] = useState("");
   const [rosterPosition, setRosterPosition] = useState("");
 
@@ -288,6 +292,50 @@ export default function AdminPlayers() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const { data: staff = [] } = useQuery({
+    queryKey: ["admin-staff", activeTournamentId],
+    enabled: !!activeTournamentId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("team_staff")
+        .select("id, first_name, last_name, role, team_id, teams!inner(name, tournament_id)")
+        .eq("teams.tournament_id", activeTournamentId as string);
+      if (error) throw error;
+      return (data as any[]) ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const createStaffMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("team_staff").insert({
+        team_id: staffTeamId,
+        first_name: staffFirst.trim(),
+        last_name: staffLast.trim(),
+        role: staffRole,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-staff"] });
+      setStaffFirst(""); setStaffLast("");
+      toast({ title: "Cuerpo técnico agregado" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("team_staff").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-staff"] });
+      toast({ title: "Registro eliminado" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const createRosterMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("rosters").insert({
@@ -386,6 +434,7 @@ export default function AdminPlayers() {
             <TabsList>
               <TabsTrigger value="players">Jugadores</TabsTrigger>
               <TabsTrigger value="rosters">Nóminas</TabsTrigger>
+              <TabsTrigger value="staff">Cuerpo Técnico</TabsTrigger>
             </TabsList>
 
             <TabsContent value="players" className="space-y-4">
@@ -528,6 +577,74 @@ export default function AdminPlayers() {
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
                         Sin nóminas aún en esta edición.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TabsContent>
+
+            <TabsContent value="staff" className="space-y-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex gap-2 items-end flex-wrap">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Equipo</label>
+                      <Select value={staffTeamId} onValueChange={setStaffTeamId}>
+                        <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Nombre</label>
+                      <Input value={staffFirst} onChange={e => setStaffFirst(e.target.value)} placeholder="Nombre" className="w-[160px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Apellido</label>
+                      <Input value={staffLast} onChange={e => setStaffLast(e.target.value)} placeholder="Apellido" className="w-[160px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Rol</label>
+                      <Select value={staffRole} onValueChange={setStaffRole}>
+                        <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ENTRENADOR">Entrenador</SelectItem>
+                          <SelectItem value="ASISTENTE">Asistente</SelectItem>
+                          <SelectItem value="DELEGADO">Delegado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={() => createStaffMutation.mutate()} disabled={!staffTeamId || !staffFirst || !staffLast || createStaffMutation.isPending} className="gap-1">
+                      <Plus className="h-4 w-4" /> Agregar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Equipo</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {staff.map((st: any) => (
+                    <TableRow key={st.id}>
+                      <TableCell>{st.first_name} {st.last_name}</TableCell>
+                      <TableCell>{st.teams?.name}</TableCell>
+                      <TableCell>{st.role}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteStaffMutation.mutate(st.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {staff.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
+                        Sin cuerpo técnico aún en esta edición.
                       </TableCell>
                     </TableRow>
                   )}
