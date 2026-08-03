@@ -3,21 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Users, Calendar, Shield, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTournament } from "@/contexts/TournamentContext";
 
 export default function AdminHome() {
-  const { data: activeTournament } = useQuery({
-    queryKey: ["admin-active-tournament"],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("tournaments")
-        .select("id, name")
-        .eq("status", "active")
-        .maybeSingle();
-      return data as { id: string; name: string } | null;
-    },
-  });
-
-  const activeTournamentId = activeTournament?.id;
+  // Sigue la edición que se está viendo (no siempre la activa)
+  const { viewedTournament, viewedTournamentId } = useTournament();
+  const activeTournament = viewedTournament as { id: string; name: string } | null;
+  const activeTournamentId = viewedTournamentId ?? undefined;
 
   const {
     data: counts = { divisions: 0, teams: 0, matches: 0, players: 0 },
