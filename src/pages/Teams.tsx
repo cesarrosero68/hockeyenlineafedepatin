@@ -337,7 +337,7 @@ function TeamCard({
                       <th className="text-left py-1.5 px-1 uppercase text-[10px]">#</th>
                       <th className="text-left py-1.5 px-1 uppercase text-[10px]">Nombre Completo</th>
                       <th className="text-left py-1.5 px-1 uppercase text-[10px]">Posición</th>
-                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">Documento</th>
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">VeloPro</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -346,9 +346,9 @@ function TeamCard({
                         <td className="py-1.5 px-1 font-mono">{p.jersey}</td>
                         <td className="py-1.5 px-1 font-medium">{p.name}</td>
                         <td className="py-1.5 px-1 text-muted-foreground">
-                          {p.position === "ARQUERO" ? "Arquero" : "Jugador de Campo"}
+                          {p.position === "ARQUERO" ? "Arquero" : "Jugador"}
                         </td>
-                        <td className="py-1.5 px-1 text-muted-foreground">{p.document || "—"}</td>
+                        <td className="py-1.5 px-1 text-muted-foreground">{p.document}</td>
                       </tr>
                     ))}
                   </tbody>
