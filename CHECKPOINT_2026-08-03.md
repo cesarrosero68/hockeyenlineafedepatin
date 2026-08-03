@@ -52,22 +52,41 @@ este documento describe exactamente a qué estado volver.
 
 ---
 
-## DESPUÉS (a completar según avance la carga)
+## DESPUÉS (actualizado — carga completada el 3 de agosto de 2026)
 
-> Actualizar esta sección conforme se ejecuten los cargues.
+- [x] CSV de cuerpo técnico cargado — resumen: 43 de cuerpo técnico, 0 errores.
+- [x] CSV de jugadores cargado (archivo único con los 6 equipos) — resumen:
+  **146 jugadores cargados — 54 nuevos, 92 reutilizados.**
+- [x] Verificado: `players` = 383 (329 + 54 nuevos), `rosters` en
+  Copa 2026-II = 146, `team_staff` = 43.
+- [x] Verificado en la web pública (Wild Dogs Sub-8) que el cuerpo
+  técnico se muestra ordenado Entrenador → Asistente → Delegado, y
+  que la nómina de jugadores aparece con formato Interligas
+  (Apellido, Nombre / Posición / Documento-VeloPro).
 
-- [ ] CSV de cuerpo técnico cargado — resumen mostrado: ______
-- [ ] CSV de jugadores por equipo cargado (uno por uno):
-  - [ ] Condors
-  - [ ] VRaptors
-  - [ ] Rinos Na-Palm
-  - [ ] Wild Dogs
-  - [ ] Dragones
-  - [ ] Graco
-- [ ] Verificado: cuántos jugadores se reutilizaron vs. se crearon
-  nuevos en total: ______
-- [ ] Verificado en la web pública que los equipos muestran jugadores
-  y cuerpo técnico correctamente.
+### Incidente durante la carga (resuelto)
+Una edición de `AdminUpload.tsx` se pegó incompleta en GitHub (el
+letrero se actualizó pero la lógica interna quedó en la versión
+vieja, sin `team_staff` ni deduplicación). Esto causó que el primer
+intento de cargar cuerpo técnico creara ~39 registros de "jugadores"
+fantasma sin `tournament_id`. Se limpiaron con:
+```sql
+DELETE FROM rosters WHERE tournament_id IS NULL;
+DELETE FROM players p WHERE NOT EXISTS (...) AND (nombre) IN (18 nombres del cuerpo técnico);
+```
+El DELETE de players fue demasiado amplio y borró también los 12
+jugadores legítimos sin roster (identificados el primer día). Se
+restauraron desde `backup_20260803_players` con sus `id` originales
+intactos. Estado final verificado: `players` = 329 antes de la
+recarga, luego 383 después de cargar los 54 nuevos legítimos.
+
+### Pendientes menores identificados durante la carga
+- Pablo Andrés Rodríguez Vivas (Graco) y Santiago Daza Quintana
+  (V-Raptors) quedaron sin dorsal — confirmar el número con los clubes.
+- Los nombres nuevos de cuerpo técnico sin precedente en el listado
+  del semestre pasado (Vicmar Azuaje, Carlos Darío Morales, Nicolás
+  Urrego, Joseph Páez, Nelly Rigueros Q.) — verificar ortografía si
+  hay dudas.
 
 ---
 
