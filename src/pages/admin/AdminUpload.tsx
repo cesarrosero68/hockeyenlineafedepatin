@@ -566,6 +566,7 @@ function RosterUpload() {
       let count = 0;
       let reused = 0;
       let created = 0;
+      let staffCount = 0;
 
       // Catálogo maestro de jugadores (global, todas las ediciones)
       const { data: allPlayers, error: apErr } = await supabase
@@ -597,6 +598,33 @@ function RosterUpload() {
         if (!cat) { errs.push(`Fila ${i + 2}: categoría "${catName}" no encontrada`); continue; }
         const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
         if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}" (edición activa)`); continue; }
+
+        // ── CUERPO TÉCNICO ──
+        const roleNorm = normalize(position ?? "");
+        if (["entrenador", "asistente", "delegado"].includes(roleNorm)) {
+          const roleValue = roleNorm.toUpperCase();
+          const { data: dupStaff } = await supabase
+            .from("team_staff")
+            .select("id")
+            .eq("team_id", team.id)
+            .eq("first_name", firstName)
+            .eq("last_name", lastName)
+            .eq("role", roleValue)
+            .maybeSingle();
+          if (dupStaff) {
+            errs.push(`Fila ${i + 2}: "${firstName} ${lastName}" ya está registrado como ${roleValue} en "${teamName}" — omitido`);
+            continue;
+          }
+          const { error: sErr } = await supabase.from("team_staff").insert({
+            team_id: team.id,
+            first_name: firstName,
+            last_name: lastName,
+            role: roleValue,
+          });
+          if (sErr) { errs.push(`Fila ${i + 2}: error insertando cuerpo técnico — ${sErr.message}`); continue; }
+          staffCount++;
+          continue;
+        }
 
         // ¿Ya existe este jugador? 1) por VeloPro  2) por nombre + fecha de nacimiento
         let existing: any = null;
@@ -681,13 +709,13 @@ function RosterUpload() {
         count++;
       }
 
-      const resumen = `${created} nuevos, ${reused} reutilizados`;
+      const resumen = `${created} nuevos, ${reused} reutilizados` + (staffCount > 0 ? `, ${staffCount} de cuerpo técnico` : "");
       if (errs.length > 0 && count === 0) throw new Error(errs.join("\n"));
       if (errs.length > 0) {
         toast({ title: `${count} jugadores cargados (${resumen}) con ${errs.length} errores`, variant: "destructive" });
         setErrors(errs);
       }
-      setSummary(count > 0 ? `${count} jugadores cargados — ${resumen}` : "");
+      setSummary(count > 0 || staffCount > 0 ? `${count} jugadores cargados — ${resumen}` : "");
       return count;
     },
     onSuccess: (count) => {
