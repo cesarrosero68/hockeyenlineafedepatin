@@ -218,6 +218,23 @@ function TeamCard({
     staleTime: 5 * 60_000,
   });
 
+  const { data: staffRows = [] } = useQuery({
+    queryKey: ["team-staff", team.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_staff" as any)
+        .select("id, first_name, last_name, role")
+        .eq("team_id", team.id);
+      if (error) throw error;
+      const order: Record<string, number> = { ENTRENADOR: 0, ASISTENTE: 1, DELEGADO: 2 };
+      return [...((data as any[]) ?? [])].sort(
+        (a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9)
+      );
+    },
+    enabled: expanded,
+    staleTime: 5 * 60_000,
+  });
+
   const rosterRows = rosterData?.rosters ?? [];
   const playersMap = rosterData?.playersMap ?? {};
 
@@ -289,6 +306,30 @@ function TeamCard({
               <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
           ) : (
+            <>
+            {staffRows.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                  Cuerpo técnico
+                </p>
+                <table className="w-full text-xs">
+                  <tbody>
+                    {staffRows.map((st: any) => (
+                      <tr key={st.id} className="border-b last:border-0">
+                        <td className="py-1.5 px-1 font-medium">
+                          {`${st.first_name ?? ""} ${st.last_name ?? ""}`.trim()}
+                        </td>
+                        <td className="py-1.5 px-1 text-right">
+                          <Badge variant="outline" className="text-[10px]">
+                            {st.role}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b text-muted-foreground">
@@ -313,6 +354,7 @@ function TeamCard({
                 ))}
               </tbody>
             </table>
+            </>
           )}
         </div>
       )}
