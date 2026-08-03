@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Palette, RotateCcw } from "lucide-react";
@@ -22,6 +23,15 @@ const FIELDS: { key: string; label: string; type: "color" | "text" }[] = [
 
 const FONTS = ["Inter", "Oswald", "Roboto", "Poppins", "Montserrat", "Lato", "Open Sans"];
 const SIZES = ["14px", "15px", "16px", "17px", "18px"];
+
+const TEXT_FIELDS: { key: string; label: string; placeholder: string; multiline?: boolean }[] = [
+  { key: "home_title", label: "Título principal", placeholder: "Fedepatin - Hockey en Línea" },
+  { key: "home_subtitle", label: "Subtítulo", placeholder: "Programación, resultados, posiciones y estadísticas en tiempo real", multiline: true },
+  { key: "home_card_schedule_label", label: "Etiqueta tarjeta Programación", placeholder: "Programación" },
+  { key: "home_card_standings_label", label: "Etiqueta tarjeta Posiciones", placeholder: "Posiciones" },
+  { key: "home_card_stats_label", label: "Etiqueta tarjeta Estadísticas", placeholder: "Estadísticas" },
+  { key: "footer_text", label: "Texto del pie de página", placeholder: "© 2026 Fedepatin - Hockey en Línea. Todos los derechos reservados." },
+];
 
 export default function AdminAppearance() {
   const { tournaments, currentId, setCurrentId } = useTournament();
@@ -41,8 +51,12 @@ export default function AdminAppearance() {
     v.font_size = t.font_size ?? "16px";
     v.background_style = (t as any).background_style ?? "default";
     v.background_url = (t as any).background_url ?? "";
+    TEXT_FIELDS.forEach(f => { v[f.key] = (t as any)[f.key] ?? ""; });
     setValues(v);
   }, [selectedId, tournaments]);
+
+  const selectedTournament = tournaments.find((x) => x.id === selectedId);
+  const textsEditable = selectedTournament?.status === "active";
 
   const save = async () => {
     if (!selectedId) return;
@@ -121,6 +135,42 @@ export default function AdminAppearance() {
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Textos de la Página de Inicio</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {!textsEditable && (
+            <p className="text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2">
+              Estos textos solo se pueden editar en la edición activa.
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {TEXT_FIELDS.map(f => (
+              <div key={f.key} className={f.multiline ? "sm:col-span-2" : undefined}>
+                <Label className="text-xs">{f.label}</Label>
+                {f.multiline ? (
+                  <Textarea
+                    className="mt-1"
+                    rows={2}
+                    disabled={!textsEditable}
+                    placeholder={f.placeholder}
+                    value={values[f.key] || ""}
+                    onChange={(e) => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  />
+                ) : (
+                  <Input
+                    className="mt-1"
+                    disabled={!textsEditable}
+                    placeholder={f.placeholder}
+                    value={values[f.key] || ""}
+                    onChange={(e) => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

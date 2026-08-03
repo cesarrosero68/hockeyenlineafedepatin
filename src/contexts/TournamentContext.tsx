@@ -20,6 +20,12 @@ export interface Tournament {
   font_size: string | null;
   background_url: string | null;
   background_style: string | null;
+  home_title?: string | null;
+  home_subtitle?: string | null;
+  home_card_schedule_label?: string | null;
+  home_card_standings_label?: string | null;
+  home_card_stats_label?: string | null;
+  footer_text?: string | null;
 }
 
 interface Ctx {
