@@ -367,6 +367,21 @@ export default function AdminPlayers() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateRosterPositionMutation = useMutation({
+    mutationFn: async ({ id, position }: { id: string; position: string }) => {
+      const { error } = await supabase
+        .from("rosters")
+        .update({ position: position || null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-rosters"] });
+      toast({ title: "Posición actualizada" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) {
     return <div className="flex justify-center py-8"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
   }
@@ -567,7 +582,25 @@ export default function AdminPlayers() {
                       <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
                       <TableCell>{r.teams?.name}</TableCell>
                       <TableCell>{r.jersey_number ?? "—"}</TableCell>
-                      <TableCell>{r.position ?? "—"}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={r.position ?? "NONE"}
+                          onValueChange={(v) =>
+                            updateRosterPositionMutation.mutate({ id: r.id, position: v === "NONE" ? "" : v })
+                          }
+                        >
+                          <SelectTrigger className="w-[130px] h-8 text-xs">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NONE">—</SelectItem>
+                            <SelectItem value="ARQUERO">Arquero</SelectItem>
+                            <SelectItem value="DEFENSA">Defensa</SelectItem>
+                            <SelectItem value="DELANTERO">Delantero</SelectItem>
+                            <SelectItem value="JUGADOR">Jugador</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell>
                         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteRosterMutation.mutate(r.id)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
