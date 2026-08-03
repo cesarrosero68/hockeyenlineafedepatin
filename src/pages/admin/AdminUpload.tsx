@@ -477,19 +477,12 @@ const ROSTER_HEADERS = ["nombre", "apellido", "dorsal", "equipo", "categoria", "
 const HEADER_ALIASES: Record<string, string> = {
   fecha_de_nacimiento: "fecha_nacimiento",
   observacion: "observacion",
-  numero_velopro: "velopro",
-  velopro_number: "velopro",
-  numero_unico_velopro: "velopro",
-  n_velopro: "velopro",
-  documento: "documento",
-  numero_documento: "documento",
 };
 
 function RosterUpload() {
   const [rows, setRows] = useState<string[][]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
-  const [summary, setSummary] = useState("");
 
   const { data: activeTournament } = useActiveTournament();
   const activeTournamentId = activeTournament?.id;
@@ -564,16 +557,6 @@ function RosterUpload() {
       const dataRows = rows.slice(1);
       const errs: string[] = [];
       let count = 0;
-      let reused = 0;
-      let created = 0;
-      let staffCount = 0;
-
-      // Catálogo maestro de jugadores (global, todas las ediciones)
-      const { data: allPlayers, error: apErr } = await supabase
-        .from("players")
-        .select("id, first_name, last_name, date_of_birth, velopro_number");
-      if (apErr) throw apErr;
-      const catalog: any[] = allPlayers ?? [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -587,8 +570,6 @@ function RosterUpload() {
         const position = header.includes("posicion") ? get("posicion") : null;
         const dobRaw = header.includes("fecha_nacimiento") ? get("fecha_nacimiento") : "";
         const dob = parseFlexDate(dobRaw);
-        const velopro = header.includes("velopro") ? get("velopro") : "";
-        const documento = header.includes("documento") ? get("documento") : "";
 
         if (!firstName || !lastName) { errs.push(`Fila ${i + 2}: nombre o apellido vacío`); continue; }
 
@@ -599,108 +580,39 @@ function RosterUpload() {
         const team = teams?.find((t) => normalize(t.name) === normalize(teamName) && t.category_id === cat.id);
         if (!team) { errs.push(`Fila ${i + 2}: equipo "${teamName}" no encontrado en categoría "${catName}" (edición activa)`); continue; }
 
-        // ── CUERPO TÉCNICO ──
-        const roleNorm = normalize(position ?? "");
-        if (["entrenador", "asistente", "delegado"].includes(roleNorm)) {
-          const roleValue = roleNorm.toUpperCase();
-          const { data: dupStaff } = await supabase
-            .from("team_staff")
-            .select("id")
-            .eq("team_id", team.id)
-            .eq("first_name", firstName)
-            .eq("last_name", lastName)
-            .eq("role", roleValue)
-            .maybeSingle();
-          if (dupStaff) {
-            errs.push(`Fila ${i + 2}: "${firstName} ${lastName}" ya está registrado como ${roleValue} en "${teamName}" — omitido`);
-            continue;
-          }
-          const { error: sErr } = await supabase.from("team_staff").insert({
-            team_id: team.id,
+        // Duplicate check scoped to this team's roster (already scoped to tournament via team)
+        const { data: existingRosters } = await supabase
+          .from("rosters")
+          .select("id, player_id, players!rosters_player_id_fkey(first_name, last_name)")
+          .eq("team_id", team.id);
+
+        const alreadyExists = existingRosters?.some((r: any) => {
+          const fn = r.players?.first_name ?? "";
+          const ln = r.players?.last_name ?? "";
+          return normalize(fn) === normalize(firstName) && normalize(ln) === normalize(lastName);
+        });
+
+        if (alreadyExists) {
+          errs.push(`Fila ${i + 2}: jugador "${firstName} ${lastName}" ya existe en el roster de "${teamName}" — omitido`);
+          continue;
+        }
+
+        const { data: player, error: pErr } = await supabase
+          .from("players")
+          .insert({
             first_name: firstName,
             last_name: lastName,
-            role: roleValue,
-          });
-          if (sErr) { errs.push(`Fila ${i + 2}: error insertando cuerpo técnico — ${sErr.message}`); continue; }
-          staffCount++;
-          continue;
-        }
-
-        // ¿Ya existe este jugador? 1) por VeloPro  2) por nombre + fecha de nacimiento
-        let existing: any = null;
-
-        if (velopro) {
-          existing = catalog.find(
-            (c: any) => (c.velopro_number ?? "").trim().toUpperCase() === velopro.toUpperCase()
-          ) ?? null;
-        }
-
-        if (!existing) {
-          const sameName = catalog.filter(
-            (c: any) =>
-              normalize(c.first_name ?? "") === normalize(firstName) &&
-              normalize(c.last_name ?? "") === normalize(lastName)
-          );
-          if (dob) {
-            existing = sameName.find((c: any) => c.date_of_birth === dob) ?? null;
-          } else if (sameName.length === 1) {
-            existing = sameName[0];
-          } else if (sameName.length > 1) {
-            errs.push(`Fila ${i + 2}: "${firstName} ${lastName}" existe ${sameName.length} veces y la fila no trae fecha de nacimiento — revisar manualmente`);
-            continue;
-          }
-        }
-
-        let playerId: string;
-
-        if (existing) {
-          playerId = existing.id;
-          // Completa datos que falten en la base con lo que traiga el CSV
-          const patch: any = {};
-          if (velopro && !existing.velopro_number) patch.velopro_number = velopro;
-          if (dob && !existing.date_of_birth) patch.date_of_birth = dob;
-          if (documento) patch.document_number = documento;
-          if (Object.keys(patch).length > 0) {
-            await supabase.from("players").update(patch).eq("id", playerId);
-            Object.assign(existing, patch);
-          }
-          reused++;
-        } else {
-          const { data: player, error: pErr } = await supabase
-            .from("players")
-            .insert({
-              first_name: firstName,
-              last_name: lastName,
-              jersey_number: jersey ? parseInt(jersey) || null : null,
-              date_of_birth: dob,
-              velopro_number: velopro || null,
-              document_number: documento || null,
-            })
-            .select("id, first_name, last_name, date_of_birth, velopro_number")
-            .single();
-          if (pErr) { errs.push(`Fila ${i + 2}: error insertando jugador — ${pErr.message}`); continue; }
-          playerId = player.id;
-          catalog.push(player);
-          created++;
-        }
-
-        // ¿Ya está en el roster de este equipo?
-        const { data: dupRoster } = await supabase
-          .from("rosters")
+            jersey_number: jersey ? parseInt(jersey) || null : null,
+            date_of_birth: dob,
+            tournament_id: activeTournamentId,
+          })
           .select("id")
-          .eq("team_id", team.id)
-          .eq("player_id", playerId)
-          .maybeSingle();
-
-        if (dupRoster) {
-          errs.push(`Fila ${i + 2}: "${firstName} ${lastName}" ya está en el roster de "${teamName}" — omitido`);
-          continue;
-        }
+          .single();
+        if (pErr) { errs.push(`Fila ${i + 2}: error insertando jugador — ${pErr.message}`); continue; }
 
         const { error: rErr } = await supabase.from("rosters").insert({
-          player_id: playerId,
+          player_id: player.id,
           team_id: team.id,
-          tournament_id: activeTournamentId,
           jersey_number: jersey ? parseInt(jersey) || null : null,
           position: position || null,
         });
@@ -709,13 +621,11 @@ function RosterUpload() {
         count++;
       }
 
-      const resumen = `${created} nuevos, ${reused} reutilizados` + (staffCount > 0 ? `, ${staffCount} de cuerpo técnico` : "");
       if (errs.length > 0 && count === 0) throw new Error(errs.join("\n"));
       if (errs.length > 0) {
-        toast({ title: `${count} jugadores cargados (${resumen}) con ${errs.length} errores`, variant: "destructive" });
+        toast({ title: `${count} jugadores cargados con ${errs.length} errores`, variant: "destructive" });
         setErrors(errs);
       }
-      setSummary(count > 0 || staffCount > 0 ? `${count} jugadores cargados — ${resumen}` : "");
       return count;
     },
     onSuccess: (count) => {
@@ -737,11 +647,6 @@ function RosterUpload() {
         <Badge variant="default" className="text-xs">
           Cargando a: {activeTournament.name}
         </Badge>
-      )}
-      {summary && (
-        <Card className="border-primary">
-          <CardContent className="p-4 text-sm font-medium">{summary}</CardContent>
-        </Card>
       )}
       {!activeTournamentId && (
         <Card className="border-destructive">
@@ -865,8 +770,10 @@ export default function AdminUpload() {
               <CardTitle className="text-lg">Cargar Jugadores y Roster</CardTitle>
               <CardDescription>
                 Suba un archivo .csv con las columnas: <code className="text-xs bg-muted px-1 rounded">nombre, apellido, dorsal, equipo, categoria, division</code>.
-                Columnas opcionales: <code className="text-xs bg-muted px-1 rounded">posicion, fecha_nacimiento</code>.
+                Columnas opcionales: <code className="text-xs bg-muted px-1 rounded">posicion, fecha_nacimiento, velopro, documento</code>.
                 Los equipos, categorías y divisiones deben existir previamente en la edición activa.
+                <br />
+                Para cargar <strong>cuerpo técnico</strong>, use el mismo archivo dejando <code className="text-xs bg-muted px-1 rounded">posicion</code> en ENTRENADOR, ASISTENTE o DELEGADO — esas filas se registran como cuerpo técnico del equipo en vez de como jugadores.
               </CardDescription>
             </CardHeader>
             <CardContent>
