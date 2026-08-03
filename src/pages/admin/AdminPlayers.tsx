@@ -515,7 +515,7 @@ export default function AdminPlayers() {
                           <TableCell>
                             <div className="flex gap-1">
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); }}><Pencil className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deletePlayerMutation.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${p.first_name} ${p.last_name}? Esta acción no se puede deshacer y también eliminará sus nóminas asociadas.`)) deletePlayerMutation.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
                         </>
@@ -602,7 +602,7 @@ export default function AdminPlayers() {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteRosterMutation.mutate(r.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Quitar a ${r.players?.first_name} ${r.players?.last_name} del equipo ${r.teams?.name}? Esta acción no se puede deshacer.`)) deleteRosterMutation.mutate(r.id); }}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -670,7 +670,7 @@ export default function AdminPlayers() {
                       <TableCell>{st.teams?.name}</TableCell>
                       <TableCell>{st.role}</TableCell>
                       <TableCell>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteStaffMutation.mutate(st.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${st.first_name} ${st.last_name} (${st.role}) de ${st.teams?.name}? Esta acción no se puede deshacer.`)) deleteStaffMutation.mutate(st.id); }}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
