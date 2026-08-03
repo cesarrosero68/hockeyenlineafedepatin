@@ -202,11 +202,11 @@ function TeamCard({
         .order("jersey_number");
       if (error) throw error;
       const playerIds = (rosters ?? []).map((r) => r.player_id).filter(Boolean);
-      let playersMap: Record<string, { first_name: string | null; last_name: string | null; jersey_number: number | null }> = {};
+      let playersMap: Record<string, { first_name: string | null; last_name: string | null; jersey_number: number | null; velopro_number: string | null }> = {};
       if (playerIds.length > 0) {
         const { data: players } = await supabase
           .from("players_public")
-          .select("id, first_name, last_name, jersey_number")
+          .select("id, first_name, last_name, jersey_number, velopro_number")
           .in("id", playerIds);
         for (const p of players ?? []) {
           if (p.id) playersMap[p.id] = p;
@@ -253,9 +253,9 @@ function TeamCard({
           const player = playersMap[r.player_id];
           return {
             jersey: r.jersey_number ?? player?.jersey_number ?? getRandomJersey(i),
-            name: player ? `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim() || "Sin nombre" : "Sin nombre",
+            name: player ? `${player.last_name ?? ""}, ${player.first_name ?? ""}`.trim() || "Sin nombre" : "Sin nombre",
             position: r.position ?? getRandomPosition(i),
-            category: categoryName,
+            document: player?.velopro_number ?? "",
           };
         });
     }
@@ -301,20 +301,24 @@ function TeamCard({
             <>
             {staffRows.length > 0 && (
               <div className="mb-4">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
-                  Cuerpo técnico
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">
+                  Cuerpo Técnico
                 </p>
                 <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">Nombre Completo</th>
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">Rol</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {staffRows.map((st: any) => (
                       <tr key={st.id} className="border-b last:border-0">
                         <td className="py-1.5 px-1 font-medium">
-                          {`${st.first_name ?? ""} ${st.last_name ?? ""}`.trim()}
+                          {`${st.last_name ?? ""}, ${st.first_name ?? ""}`.trim()}
                         </td>
-                        <td className="py-1.5 px-1 text-right">
-                          <Badge variant="outline" className="text-[10px]">
-                            {st.role}
-                          </Badge>
+                        <td className="py-1.5 px-1 text-primary">
+                          {st.role.charAt(0) + st.role.slice(1).toLowerCase()}
                         </td>
                       </tr>
                     ))}
@@ -323,30 +327,33 @@ function TeamCard({
               </div>
             )}
             {displayRoster.length > 0 ? (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b text-muted-foreground">
-                    <th className="text-left py-1.5 px-1">#</th>
-                    <th className="text-left py-1.5 px-1">Jugador</th>
-                    <th className="text-left py-1.5 px-1">Posición</th>
-                    <th className="text-left py-1.5 px-1">Categoría</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayRoster.map((p, i) => (
-                    <tr key={i} className="border-b last:border-0">
-                      <td className="py-1.5 px-1 font-mono">{p.jersey}</td>
-                      <td className="py-1.5 px-1 font-medium">{p.name}</td>
-                      <td className="py-1.5 px-1">
-                        <Badge variant="outline" className="text-[10px]">
-                          {p.position}
-                        </Badge>
-                      </td>
-                      <td className="py-1.5 px-1 text-muted-foreground">{p.category}</td>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">
+                  Jugadores
+                </p>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">#</th>
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">Nombre Completo</th>
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">Posición</th>
+                      <th className="text-left py-1.5 px-1 uppercase text-[10px]">Documento</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {displayRoster.map((p, i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="py-1.5 px-1 font-mono">{p.jersey}</td>
+                        <td className="py-1.5 px-1 font-medium">{p.name}</td>
+                        <td className="py-1.5 px-1 text-muted-foreground">
+                          {p.position === "ARQUERO" ? "Arquero" : "Jugador de Campo"}
+                        </td>
+                        <td className="py-1.5 px-1 text-muted-foreground">{p.document || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               !rostersLoading && (
                 <p className="text-xs text-muted-foreground text-center py-4">
