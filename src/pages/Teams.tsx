@@ -146,27 +146,39 @@ export default function TeamsPage() {
                             <div key={group} className="space-y-3">
                               <h4 className="font-display font-bold uppercase text-sm">Grupo {group}</h4>
                               <div className="grid sm:grid-cols-2 gap-3">
-                                {catTeams
-                                  .filter((t: any) => t.group_name === group)
-                                  .map((team: any) => (
-                                    <TeamCard
-                                      key={team.id}
-                                      team={team}
-                                      categoryName={cat.name}
-                                    />
-                                  ))}
+                                {(() => {
+                                  const groupTeams = catTeams.filter((t: any) => t.group_name === group);
+                                  return (
+                                    <>
+                                      {groupTeams.map((team: any) => (
+                                        <TeamCard
+                                          key={team.id}
+                                          team={team}
+                                          categoryName={cat.name}
+                                        />
+                                      ))}
+                                      {groupTeams.length % 2 !== 0 && (
+                                        <div className="hidden sm:block" aria-hidden="true" />
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 [&>*]:min-w-0">
                           {catTeams.map((team: any) => (
                             <TeamCard
                               key={team.id}
                               team={team}
                               categoryName={cat.name}
                             />
+                          ))}
+                          {/* Placeholders invisibles para que la última fila no quede descuadrada */}
+                          {Array.from({ length: (3 - (catTeams.length % 3)) % 3 }).map((_, i) => (
+                            <div key={`ph-${i}`} className="hidden lg:block" aria-hidden="true" />
                           ))}
                         </div>
                       )}
