@@ -220,7 +220,7 @@ export default function AdminTeams() {
                       <TableCell>
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(t.id); setEditName(t.name); setEditClubId(t.club_id); setEditCategoryId(t.category_id); setEditGroup(t.group_name ?? "none"); }}><Pencil className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteMutation.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar el equipo "${t.name}" de ${t.categories?.name}? Esta acción no se puede deshacer y también eliminará sus nóminas y cuerpo técnico asociados.`)) deleteMutation.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </>
