@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload, Palette, FileSpreadsheet, Database, Star, Megaphone } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ChevronRight, Upload, Palette, FileSpreadsheet, Database, Star, Megaphone, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 import PublicLayout from "@/components/PublicLayout";
@@ -70,7 +70,18 @@ export default function AdminDashboard() {
               </Link>
             );
           })}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-muted-foreground"
+            >
+              <a href="/" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Ver sitio
+              </a>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
