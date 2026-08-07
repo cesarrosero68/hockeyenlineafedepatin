@@ -146,39 +146,27 @@ export default function TeamsPage() {
                             <div key={group} className="space-y-3">
                               <h4 className="font-display font-bold uppercase text-sm">Grupo {group}</h4>
                               <div className="grid sm:grid-cols-2 gap-3">
-                                {(() => {
-                                  const groupTeams = catTeams.filter((t: any) => t.group_name === group);
-                                  return (
-                                    <>
-                                      {groupTeams.map((team: any) => (
-                                        <TeamCard
-                                          key={team.id}
-                                          team={team}
-                                          categoryName={cat.name}
-                                        />
-                                      ))}
-                                      {groupTeams.length % 2 !== 0 && (
-                                        <div className="hidden sm:block" aria-hidden="true" />
-                                      )}
-                                    </>
-                                  );
-                                })()}
+                                {catTeams
+                                  .filter((t: any) => t.group_name === group)
+                                  .map((team: any) => (
+                                    <TeamCard
+                                      key={team.id}
+                                      team={team}
+                                      categoryName={cat.name}
+                                    />
+                                  ))}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 [&>*]:min-w-0">
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {catTeams.map((team: any) => (
                             <TeamCard
                               key={team.id}
                               team={team}
                               categoryName={cat.name}
                             />
-                          ))}
-                          {/* Placeholders invisibles para que la última fila no quede descuadrada */}
-                          {Array.from({ length: (3 - (catTeams.length % 3)) % 3 }).map((_, i) => (
-                            <div key={`ph-${i}`} className="hidden lg:block" aria-hidden="true" />
                           ))}
                         </div>
                       )}
@@ -257,14 +245,14 @@ function TeamCard({
           const aGk = (a.position ?? "") === "ARQUERO" ? 0 : 1;
           const bGk = (b.position ?? "") === "ARQUERO" ? 0 : 1;
           if (aGk !== bGk) return aGk - bGk;
-          const aJersey = a.jersey_number ?? playersMap[a.player_id]?.jersey_number ?? 999;
-          const bJersey = b.jersey_number ?? playersMap[b.player_id]?.jersey_number ?? 999;
+          const aJersey = a.jersey_number ?? 999;
+          const bJersey = b.jersey_number ?? 999;
           return aJersey - bJersey;
         })
         .map((r: any, i: number) => {
           const player = playersMap[r.player_id];
           return {
-            jersey: r.jersey_number ?? player?.jersey_number ?? getRandomJersey(i),
+            jersey: r.jersey_number ?? null,
             name: player ? `${player.last_name ?? ""}, ${player.first_name ?? ""}`.trim() || "Sin nombre" : "Sin nombre",
             position: r.position ?? getRandomPosition(i),
             document: player?.velopro_number ?? "",
@@ -355,7 +343,7 @@ function TeamCard({
                   <tbody>
                     {displayRoster.map((p, i) => (
                       <tr key={i} className="border-b last:border-0">
-                        <td className="py-1.5 px-1 font-mono">{p.jersey}</td>
+                        <td className="py-1.5 px-1 font-mono">{p.jersey ?? ""}</td>
                         <td className="py-1.5 px-1 font-medium">{p.name}</td>
                         <td className="py-1.5 px-1 text-muted-foreground">
                           {p.position === "ARQUERO" ? "Arquero" : "Jugador"}
