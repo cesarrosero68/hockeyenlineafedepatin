@@ -121,7 +121,7 @@ export default function AdminDivisions() {
                   <TableCell>
                     <div className="flex gap-1">
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(d.id); setEditName(d.name); setEditLogo(d.logo_url || ""); }}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteMutation.mutate(d.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar la división "${d.name}"? Esta acción no se puede deshacer y afecta a todas las categorías, equipos y partidos asociados a ella.`)) deleteMutation.mutate(d.id); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
                 </>
