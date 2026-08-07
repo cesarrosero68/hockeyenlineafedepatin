@@ -96,8 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               "refreshSession",
             );
             if (error) {
-              console.warn("refreshSession failed", error);
-              nextSession = null;
+              // Un refresh fallido (red intermitente, token rotado en paralelo,
+              // timeout) NO debe cerrar la sesión: conservamos la almacenada.
+              console.warn("refreshSession failed, keeping stored session", error);
+              nextSession = storedSession;
             } else {
               nextSession = data.session ?? nextSession;
             }
@@ -105,8 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           await applyAuthState(nextSession);
         } catch (err) {
-          console.warn("restoreAuthState failed", err);
-          await applyAuthState(null);
+          // Ante un fallo inesperado, mantener el estado actual en vez de
+          // desloguear al usuario en medio de su trabajo.
+          console.warn("restoreAuthState failed, keeping current session", err);
         } finally {
           restoreInFlightRef.current = null;
           if (mountedRef.current) {
@@ -149,20 +152,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void restoreAuthState();
 
+    // Evita refrescos en ráfaga: al volver a la pestaña se dispara tanto
+    // "visibilitychange" como "focus". Refrescar el token dos veces casi
+    // simultáneamente hace que Supabase rechace el segundo intento (el
+    // refresh token ya fue rotado) y eso cerraba la sesión sin motivo.
+    let lastRefreshAt = 0;
+    const REFRESH_COOLDOWN_MS = 60_000;
+
+    const maybeRefresh = () => {
+      const now = Date.now();
+      if (now - lastRefreshAt < REFRESH_COOLDOWN_MS) return;
+      lastRefreshAt = now;
+      void restoreAuthState({ forceRefresh: true });
+    };
+
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void restoreAuthState({ forceRefresh: true });
-      }
+      if (document.visibilityState === "visible") maybeRefresh();
     };
 
     const handleFocus = () => {
-      if (document.visibilityState === "visible") {
-        void restoreAuthState({ forceRefresh: true });
-      }
+      if (document.visibilityState === "visible") maybeRefresh();
     };
 
     const handleOnline = () => {
-      void restoreAuthState({ forceRefresh: true });
+      maybeRefresh();
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
