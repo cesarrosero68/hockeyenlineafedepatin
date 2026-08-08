@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -321,6 +322,11 @@ export default function Stats() {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Estadísticas del torneo | Fedepatin"
+        description="Líderes en puntos, goles, asistencias y valla menos vencida del torneo de hockey en línea."
+        path="/stats"
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <Star className="h-7 w-7 text-secondary" />
         Estadísticas

@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -213,6 +214,12 @@ useMemo(() => {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Programación de partidos | Fedepatin"
+        description="Calendario completo de partidos de hockey en línea: fechas, horarios, sedes y resultados por categoría."
+        path="/schedule"
+        jsonLd={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Programación de partidos | Fedepatin", description: "Calendario completo de partidos de hockey en línea: fechas, horarios, sedes y resultados por categoría.", url: "https://hockeyenlineafedepatin.site/schedule" }}
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <CalendarIcon className="h-7 w-7 text-primary" />
         Programación y Resultados

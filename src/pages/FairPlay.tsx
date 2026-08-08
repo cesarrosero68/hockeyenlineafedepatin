@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +55,11 @@ export default function FairPlay() {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Ranking Fair Play | Fedepatin"
+        description="Clasificación de juego limpio por equipo según las sanciones registradas en el torneo."
+        path="/fair-play"
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <Shield className="h-7 w-7 text-accent" />
         Fair Play
