@@ -22,14 +22,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs);
     promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
+      .then((value) => { clearTimeout(timer); resolve(value); })
+      .catch((error) => { clearTimeout(timer); reject(error); });
   });
 }
 
@@ -44,15 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchRole = useCallback(async (userId: string): Promise<AppRole> => {
     try {
       const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
-      if (error) {
-        console.warn("fetchRole failed", error);
-        return null;
-      }
+      if (error) { console.warn("fetchRole failed", error); return null; }
       return (data?.role as AppRole) ?? null;
-    } catch (err) {
-      console.warn("fetchRole failed", err);
-      return null;
-    }
+    } catch (err) { console.warn("fetchRole failed", err); return null; }
   }, []);
 
   const applyAuthState = useCallback(
@@ -60,61 +48,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mountedRef.current) return;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
-      if (!nextSession?.user) {
-        setRole(null);
-        return;
-      }
+      if (!nextSession?.user) { setRole(null); return; }
       const nextRole = await fetchRole(nextSession.user.id);
-      if (mountedRef.current) {
-        setRole(nextRole);
-      }
+      if (mountedRef.current) setRole(nextRole);
     },
     [fetchRole],
   );
 
   const restoreAuthState = useCallback(
     async ({ forceRefresh = false }: RestoreSessionOptions = {}) => {
-      if (restoreInFlightRef.current) {
-        return restoreInFlightRef.current;
-      }
-      if (mountedRef.current) {
-        setLoading(true);
-      }
+      if (restoreInFlightRef.current) return restoreInFlightRef.current;
+      if (mountedRef.current) setLoading(true);
 
       const restorePromise = (async () => {
         try {
-          const {
-            data: { session: storedSession },
-          } = await withTimeout(supabase.auth.getSession(), AUTH_TIMEOUT_MS, "getSession");
-
+          const { data: { session: storedSession } } = await withTimeout(
+            supabase.auth.getSession(), AUTH_TIMEOUT_MS, "getSession"
+          );
           let nextSession = storedSession ?? null;
-
           if (forceRefresh && storedSession) {
             const { data, error } = await withTimeout(
-              supabase.auth.refreshSession(),
-              AUTH_TIMEOUT_MS,
-              "refreshSession",
+              supabase.auth.refreshSession(), AUTH_TIMEOUT_MS, "refreshSession"
             );
             if (error) {
-              // Un refresh fallido (red intermitente, token rotado en paralelo,
-              // timeout) NO debe cerrar la sesión: conservamos la almacenada.
               console.warn("refreshSession failed, keeping stored session", error);
               nextSession = storedSession;
             } else {
               nextSession = data.session ?? nextSession;
             }
           }
-
           await applyAuthState(nextSession);
         } catch (err) {
-          // Ante un fallo inesperado, mantener el estado actual en vez de
-          // desloguear al usuario en medio de su trabajo.
           console.warn("restoreAuthState failed, keeping current session", err);
         } finally {
           restoreInFlightRef.current = null;
-          if (mountedRef.current) {
-            setLoading(false);
-          }
+          if (mountedRef.current) setLoading(false);
         }
       })();
 
@@ -127,16 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mountedRef.current = true;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mountedRef.current) return;
 
-      // Avoid async Supabase calls directly in this callback to prevent client deadlocks.
-      if (!nextSession?.user) {
+      // SIGNED_OUT explícito: el usuario pidió salir — sí limpiamos.
+      if (event === "SIGNED_OUT") {
         setSession(null);
         setUser(null);
         setRole(null);
+        setLoading(false);
+        return;
+      }
+
+      // Si el evento no trae sesión pero ya teníamos una activa, ignoramos.
+      // Esto evita que un TOKEN_REFRESHED o USER_UPDATED con nextSession=null
+      // transitorio cierre la sesión mientras el admin está trabajando.
+      if (!nextSession?.user) {
         setLoading(false);
         return;
       }
@@ -146,16 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       window.setTimeout(() => {
-        void restoreAuthState({ forceRefresh: event !== "SIGNED_OUT" });
+        void restoreAuthState({ forceRefresh: false });
       }, 0);
     });
 
     void restoreAuthState();
 
-    // Evita refrescos en ráfaga: al volver a la pestaña se dispara tanto
-    // "visibilitychange" como "focus". Refrescar el token dos veces casi
-    // simultáneamente hace que Supabase rechace el segundo intento (el
-    // refresh token ya fue rotado) y eso cerraba la sesión sin motivo.
     let lastRefreshAt = 0;
     const REFRESH_COOLDOWN_MS = 60_000;
 
@@ -166,17 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void restoreAuthState({ forceRefresh: true });
     };
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") maybeRefresh();
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState === "visible") maybeRefresh();
-    };
-
-    const handleOnline = () => {
-      maybeRefresh();
-    };
+    const handleVisibility = () => { if (document.visibilityState === "visible") maybeRefresh(); };
+    const handleFocus = () => { if (document.visibilityState === "visible") maybeRefresh(); };
+    const handleOnline = () => { maybeRefresh(); };
 
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleFocus);
@@ -193,20 +155,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading) return;
-    const timeout = setTimeout(() => {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }, 10_000);
+    const timeout = setTimeout(() => { if (mountedRef.current) setLoading(false); }, 10_000);
     return () => clearTimeout(timeout);
   }, [loading]);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error && mountedRef.current) {
-      setLoading(false);
-    }
+    if (error && mountedRef.current) setLoading(false);
     return { error: error as Error | null };
   };
 
@@ -215,16 +171,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.warn("signOut failed", error);
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      if (mountedRef.current) setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider
-      value={{ session, user, role, loading, signIn, signOut, restoreSession: restoreAuthState }}
-    >
+    <AuthContext.Provider value={{ session, user, role, loading, signIn, signOut, restoreSession: restoreAuthState }}>
       {children}
     </AuthContext.Provider>
   );
