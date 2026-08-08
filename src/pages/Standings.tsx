@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,6 +158,12 @@ export default function Standings() {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Tabla de posiciones | Fedepatin"
+        description="Posiciones actualizadas por división y categoría: puntos, partidos jugados, goles y diferencia."
+        path="/standings"
+        jsonLd={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Tabla de posiciones | Fedepatin", description: "Posiciones actualizadas por división y categoría: puntos, partidos jugados, goles y diferencia.", url: "https://hockeyenlineafedepatin.site/standings" }}
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <BarChart3 className="h-7 w-7 text-primary" />
         Tabla de Posiciones

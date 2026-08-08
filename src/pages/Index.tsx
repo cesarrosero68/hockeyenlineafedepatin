@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trophy, Calendar, Star, TrendingUp, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTournament } from "@/contexts/TournamentContext";
+import Seo from "@/components/Seo";
 
 export default function Index() {
   const { viewedTournament } = useTournament();
@@ -36,6 +37,11 @@ export default function Index() {
 
   return (
     <div className="container py-8 space-y-10">
+      <Seo
+        title="Fedepatin | Torneo de Hockey en Línea en Colombia"
+        description="Sigue el torneo de hockey en línea de Fedepatin: programación, resultados, posiciones y estadísticas actualizadas por división y categoría."
+        path="/"
+      />
       <section className="text-center space-y-4 py-8">
         <h1 className="text-4xl md:text-5xl font-display font-bold uppercase tracking-tight">{viewedTournament?.home_title || "Fedepatin - Hockey en Línea"}</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">

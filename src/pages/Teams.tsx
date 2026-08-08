@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -91,6 +92,12 @@ export default function TeamsPage() {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Equipos y planteles | Fedepatin Hockey en Línea"
+        description="Consulta los equipos y planteles por división y categoría del torneo de hockey en línea de Fedepatin."
+        path="/teams"
+        jsonLd={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Equipos y planteles | Fedepatin Hockey en Línea", description: "Consulta los equipos y planteles por división y categoría del torneo de hockey en línea de Fedepatin.", url: "https://hockeyenlineafedepatin.site/teams" }}
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <Users className="h-7 w-7 text-primary" />
         Equipos Participantes
@@ -139,12 +146,12 @@ export default function TeamsPage() {
                     : [];
                   return (
                     <div key={cat.id} className="space-y-3">
-                      <h3 className="font-display font-bold uppercase text-sm text-muted-foreground">{cat.name}</h3>
+                      <h2 className="font-display font-bold uppercase text-sm text-muted-foreground">{cat.name}</h2>
                       {hasGroups ? (
                         <div className="grid lg:grid-cols-2 gap-6">
                           {groups.map((group: string) => (
                             <div key={group} className="space-y-3">
-                              <h4 className="font-display font-bold uppercase text-sm">Grupo {group}</h4>
+                              <h3 className="font-display font-bold uppercase text-sm">Grupo {group}</h3>
                               <div className="grid sm:grid-cols-2 gap-3">
                                 {catTeams
                                   .filter((t: any) => t.group_name === group)

@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,6 +148,11 @@ export default function Podium() {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Podio y campeones | Fedepatin"
+        description="Campeones, subcampeones y premios individuales por categoría del torneo de hockey en línea."
+        path="/podium"
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <Trophy className="h-7 w-7 text-secondary" />
         Podio del Torneo

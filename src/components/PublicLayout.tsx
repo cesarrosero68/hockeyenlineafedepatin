@@ -59,7 +59,7 @@ export default function PublicLayout() {
           <Link to="/" className="flex items-center gap-3 shrink-0 min-w-0">
             <img
               src="/logos/fedepatin-logo.png"
-              alt="Fedepatin Logo"
+              alt="Fedepatin — Federación de Hockey en Línea"
               className="h-14 w-auto object-contain shrink-0"
             />
             <span className="font-display text-lg font-bold uppercase tracking-tight hidden sm:inline whitespace-nowrap">

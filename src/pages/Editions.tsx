@@ -1,3 +1,4 @@
+import Seo from "@/components/Seo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,11 @@ export default function Editions() {
 
   return (
     <div className="container py-8 space-y-6">
+      <Seo
+        title="Ediciones del torneo | Fedepatin"
+        description="Consulta las ediciones actuales y anteriores del torneo de hockey en línea de Fedepatin."
+        path="/editions"
+      />
       <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
         <CalendarDays className="h-7 w-7 text-primary" />
         Ediciones del Torneo
