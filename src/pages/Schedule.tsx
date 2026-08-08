@@ -269,6 +269,7 @@ useMemo(() => {
               {/* Month navigation */}
               <div className="flex items-center justify-between mb-4">
                 <button
+                  aria-label="Mes anterior"
                   onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
                   className="p-1.5 rounded-md hover:bg-accent transition-colors"
                 >
@@ -278,6 +279,7 @@ useMemo(() => {
                   {format(currentMonth, "MMMM yyyy", { locale: es })}
                 </span>
                 <button
+                  aria-label="Mes siguiente"
                   onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
                   className="p-1.5 rounded-md hover:bg-accent transition-colors"
                 >

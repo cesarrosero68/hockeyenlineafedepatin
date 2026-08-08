@@ -139,12 +139,12 @@ export default function TeamsPage() {
                     : [];
                   return (
                     <div key={cat.id} className="space-y-3">
-                      <h3 className="font-display font-bold uppercase text-sm text-muted-foreground">{cat.name}</h3>
+                      <h2 className="font-display font-bold uppercase text-sm text-muted-foreground">{cat.name}</h2>
                       {hasGroups ? (
                         <div className="grid lg:grid-cols-2 gap-6">
                           {groups.map((group: string) => (
                             <div key={group} className="space-y-3">
-                              <h4 className="font-display font-bold uppercase text-sm">Grupo {group}</h4>
+                              <h3 className="font-display font-bold uppercase text-sm">Grupo {group}</h3>
                               <div className="grid sm:grid-cols-2 gap-3">
                                 {catTeams
                                   .filter((t: any) => t.group_name === group)
