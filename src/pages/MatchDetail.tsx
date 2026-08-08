@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin, Target, ShieldAlert, Users, ChevronLeft } from "lucide-react";
 import { formatBogota } from "@/lib/timezone";
+import Seo from "@/components/Seo";
 
 function penaltyMinutesToDisplay(mins: number): string {
   const totalSeconds = Math.round(mins * 60);
@@ -121,6 +122,13 @@ export default function MatchDetail() {
 
   const m = match as any;
 
+  const homeName = homeTeam?.teams?.name ?? "Por definir";
+  const awayName = awayTeam?.teams?.name ?? "Por definir";
+  const matchTitle = `${homeName} vs ${awayName}`;
+  const matchDesc = `${matchTitle} — ${m.categories?.name ?? ""} ${m.categories?.divisions?.name ?? ""}${
+    m.match_date ? `, ${formatBogota(m.match_date, "d 'de' MMMM yyyy 'a las' h:mm a")}` : ""
+  }${m.venue ? ` en ${m.venue}` : ""}. Marcador y eventos del partido.`;
+
   const getTeamName = (teamId: string) => {
     if (homeTeam?.teams?.id === teamId) return homeTeam.teams.name;
     if (awayTeam?.teams?.id === teamId) return awayTeam.teams.name;
@@ -129,7 +137,23 @@ export default function MatchDetail() {
 
   return (
     <div className="container py-8 space-y-6">
-      
+      <Seo
+        title={`${matchTitle} | Fedepatin`}
+        description={matchDesc.slice(0, 158)}
+        path={`/match/${m.id}`}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "SportsEvent",
+          name: matchTitle,
+          ...(m.match_date ? { startDate: m.match_date } : {}),
+          ...(m.venue ? { location: { "@type": "Place", name: m.venue } } : {}),
+          competitor: [
+            { "@type": "SportsTeam", name: homeName },
+            { "@type": "SportsTeam", name: awayName },
+          ],
+          url: `https://hockeyenlineafedepatin.site/match/${m.id}`,
+        }}
+      />
       <button
   onClick={() => navigate(-1)}
   className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
@@ -142,6 +166,9 @@ export default function MatchDetail() {
       
       {/* Header */}
       <div className="space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold uppercase tracking-tight">
+          {matchTitle}
+        </h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary">{m.categories?.name}</Badge>
           <span>{m.categories?.divisions?.name}</span>
