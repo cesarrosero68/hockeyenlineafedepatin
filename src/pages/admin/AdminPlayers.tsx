@@ -99,14 +99,15 @@ export default function AdminPlayers() {
     queryKey: ["admin-teams", activeTournamentId],
     enabled: !!activeTournamentId,
     queryFn: async () => {
+      if (!activeTournamentId) return [];
       const { data } = await supabase
         .from("teams")
-        .select("id, name, categories(name, divisions(name))")
+        .select("id, name, categories(id, name, divisions(name))")
         .eq("tournament_id", activeTournamentId as string)
         .order("name");
       return data ?? [];
     },
-    staleTime: 30_000,
+    staleTime: 0,
   });
 
   const { data: rosters = [] } = useQuery({
@@ -582,7 +583,7 @@ export default function AdminPlayers() {
                       <label className="text-xs font-medium">Equipo</label>
                       <Select value={rosterTeamId} onValueChange={setRosterTeamId}>
                         <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
-                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
@@ -659,7 +660,7 @@ export default function AdminPlayers() {
                       <label className="text-xs font-medium">Equipo</label>
                       <Select value={staffTeamId} onValueChange={setStaffTeamId}>
                         <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
-                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
