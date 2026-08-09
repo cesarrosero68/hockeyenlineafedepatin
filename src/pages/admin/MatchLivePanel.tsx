@@ -498,7 +498,19 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       clock_started_at: null,
       clock_offset_ms: 0,
     });
-  const resetClock = () =>     updateClock.mutate({       clock_started_at: null,       clock_offset_ms: 0,       current_period: 1,       home_timeouts_used: 0,       away_timeouts_used: 0,     });
+  const resetClock = () => updateClock.mutate({ clock_started_at: null, clock_offset_ms: 0 });
+
+  // Detener el reloj automaticamente al agotarse el periodo
+  useEffect(() => {
+    if (!open || !clockEnabled) return;
+    if (!clockMatch?.clock_started_at) return;
+    if (!isPeriodOver(clockMatch)) return;
+    updateClock.mutate({
+      clock_started_at: null,
+      clock_offset_ms: periodMs(clockMatch),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, clockEnabled, clockMatch, liveClock]);
 
   // Auto-fill the goal time from the running clock (only while untouched)
   useEffect(() => {
@@ -587,6 +599,37 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               <TimerReset className="h-4 w-4" /> Reiniciar
             </Button>
           </div>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <span className="text-xs text-muted-foreground">Duracion del periodo:</span>
+            {PERIOD_PRESETS.map((mins) => (
+              <Button
+                key={mins}
+                size="sm"
+                variant={(clockMatch?.period_minutes ?? 15) === mins ? "default" : "outline"}
+                className="h-7 px-2 text-xs"
+                onClick={() => updateClock.mutate({ period_minutes: mins })}
+                disabled={!clockEnabled || updateClock.isPending}
+              >
+                {mins}'
+              </Button>
+            ))}
+            <input
+              type="number"
+              min={1}
+              max={99}
+              className="h-7 w-16 rounded-md border bg-background px-2 text-xs"
+              placeholder="Manual"
+              defaultValue={clockMatch?.period_minutes ?? 15}
+              onBlur={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v) && v > 0 && v !== (clockMatch?.period_minutes ?? 15)) {
+                  updateClock.mutate({ period_minutes: v });
+                }
+              }}
+              disabled={!clockEnabled || updateClock.isPending}
+            />
+          </div>
+
           {!clockEnabled && (
             <p className="text-xs text-muted-foreground">
               El reloj está deshabilitado para este partido: los tiempos se registran manualmente y no se muestra reloj en vivo al público.
