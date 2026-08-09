@@ -106,6 +106,8 @@ export default function MatchDetail() {
     staleTime: 30_000,
   });
 
+  const liveClock = useMatchClock(match as any);
+
   if (isLoading) {
     return (
       <div className="container py-8 flex justify-center">
