@@ -495,7 +495,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       clock_started_at: null,
       clock_offset_ms: 0,
     });
-  const resetClock = () => updateClock.mutate({ clock_started_at: null, clock_offset_ms: 0 });
+  const resetClock = () =>     updateClock.mutate({       clock_started_at: null,       clock_offset_ms: 0,       current_period: 1,       home_timeouts_used: 0,       away_timeouts_used: 0,     });
 
   // Auto-fill the goal time from the running clock (only while untouched)
   useEffect(() => {
