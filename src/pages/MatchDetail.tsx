@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin, Target, ShieldAlert, Users, ChevronLeft } from "lucide-react";
 import { formatBogota } from "@/lib/timezone";
 import Seo from "@/components/Seo";
+import { useMatchClock, periodLabel, hasClockData } from "@/lib/matchClock";
 
 function penaltyMinutesToDisplay(mins: number): string {
   const totalSeconds = Math.round(mins * 60);
@@ -33,6 +34,7 @@ export default function MatchDetail() {
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, notes, extra_time,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period,
           categories!inner(name, divisions!inner(name)),
           match_teams(side, score_regular, score_extra, is_winner, is_forfeit, team_id, teams!inner(id, name, logo_url))
         `)

@@ -338,6 +338,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       setGoalScorerId("");
       setGoalAssistId("");
       setGoalTime("");
+      setGoalTimeTouched(false);
       toast({ title: "Gol registrado" });
     },
     onError: (e: Error) => {
