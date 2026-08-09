@@ -445,6 +445,59 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     onError: () => clearMutationTimeout("deletePenalty"),
   });
 
+  /* ---------------- Match clock ---------------- */
+  const clockMatch = matchData as any;
+  const clockEnabled = clockMatch ? clockMatch.clock_enabled !== false : true;
+  const clockRunning = isClockRunning(clockMatch);
+  const liveClock = useMatchClock(clockMatch);
+  const currentPeriod = clockMatch?.current_period ?? 1;
+
+  const updateClock = useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      if (!matchId) throw new Error("No match");
+      await restoreSession({ forceRefresh: true });
+      const { error } = await supabase.from("matches").update(patch as any).eq("id", matchId);
+      if (error) throw error;
+    },
+    onMutate: () => startMutationTimeout("clock", () => updateClock.reset()),
+    onSuccess: () => {
+      clearMutationTimeout("clock");
+      queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
+    },
+    onError: (e: any) => {
+      clearMutationTimeout("clock");
+      toast({ title: "No se pudo actualizar el reloj", description: e?.message, variant: "destructive" });
+    },
+  });
+
+  const startClock = () => updateClock.mutate({ clock_started_at: new Date().toISOString() });
+  const pauseClock = () =>
+    updateClock.mutate({
+      clock_started_at: null,
+      clock_offset_ms: Math.round(elapsedMs(clockMatch ?? {})),
+    });
+  const nextPeriod = () =>
+    updateClock.mutate({
+      current_period: Math.min(3, currentPeriod + 1),
+      clock_started_at: null,
+      clock_offset_ms: 0,
+    });
+  const resetClock = () => updateClock.mutate({ clock_started_at: null, clock_offset_ms: 0 });
+
+  // Auto-fill the goal time from the running clock (only while untouched)
+  useEffect(() => {
+    if (!open) return;
+    if (!clockEnabled || !clockMatch?.clock_started_at) return;
+    if (goalTimeTouched) return;
+    setGoalTime(formatClock(elapsedMs(clockMatch)));
+  }, [open, clockEnabled, clockMatch, goalTimeTouched, liveClock]);
+
+  // Keep the goal period aligned with the live period while the clock is on
+  useEffect(() => {
+    if (!open || !clockEnabled) return;
+    setGoalPeriod(String(currentPeriod));
+  }, [open, clockEnabled, currentPeriod]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
