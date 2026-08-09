@@ -34,7 +34,7 @@ export default function MatchDetail() {
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, notes, extra_time,
-          clock_enabled, clock_started_at, clock_offset_ms, current_period,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories!inner(name, divisions!inner(name)),
           match_teams(side, score_regular, score_extra, is_winner, is_forfeit, team_id, teams!inner(id, name, logo_url))
         `)
