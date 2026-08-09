@@ -701,7 +701,11 @@ export type Database = {
       matches: {
         Row: {
           category_id: string
+          clock_enabled: boolean
+          clock_offset_ms: number
+          clock_started_at: string | null
           created_at: string
+          current_period: number
           extra_time: Database["public"]["Enums"]["extra_time_type"]
           id: string
           match_date: string | null
@@ -715,7 +719,11 @@ export type Database = {
         }
         Insert: {
           category_id: string
+          clock_enabled?: boolean
+          clock_offset_ms?: number
+          clock_started_at?: string | null
           created_at?: string
+          current_period?: number
           extra_time?: Database["public"]["Enums"]["extra_time_type"]
           id?: string
           match_date?: string | null
@@ -729,7 +737,11 @@ export type Database = {
         }
         Update: {
           category_id?: string
+          clock_enabled?: boolean
+          clock_offset_ms?: number
+          clock_started_at?: string | null
           created_at?: string
+          current_period?: number
           extra_time?: Database["public"]["Enums"]["extra_time_type"]
           id?: string
           match_date?: string | null
