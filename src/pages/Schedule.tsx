@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useMatchClock, periodShort } from "@/lib/matchClock";
 
 interface MatchWithDetails {
   id: string;

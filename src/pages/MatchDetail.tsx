@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin, Target, ShieldAlert, Users, ChevronLeft } from "lucide-react";
 import { formatBogota } from "@/lib/timezone";
 import Seo from "@/components/Seo";
-import { useMatchClock, periodLabel, hasClockData } from "@/lib/matchClock";
+import { useMatchClock, periodLabel } from "@/lib/matchClock";
 
 function penaltyMinutesToDisplay(mins: number): string {
   const totalSeconds = Math.round(mins * 60);
