@@ -510,6 +510,53 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           </p>
         </SheetHeader>
 
+        {/* Clock panel */}
+        <div className="mt-4 rounded-lg border p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="clock-enabled"
+                checked={clockEnabled}
+                onCheckedChange={(checked) => updateClock.mutate({ clock_enabled: checked })}
+                disabled={!matchId || updateClock.isPending}
+              />
+              <label htmlFor="clock-enabled" className="text-sm font-medium">
+                {clockEnabled ? "Reloj habilitado" : "Reloj deshabilitado"}
+              </label>
+            </div>
+            <div className="text-right">
+              <p className="font-display text-2xl font-bold tabular-nums">
+                {clockEnabled ? (liveClock ?? formatClock(0)) : "--:--"}
+              </p>
+              <p className="text-xs text-muted-foreground">{periodLabel(currentPeriod)}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {clockRunning ? (
+              <Button size="sm" variant="outline" className="gap-1" onClick={pauseClock} disabled={!clockEnabled || updateClock.isPending}>
+                <Pause className="h-4 w-4" /> Pausar
+              </Button>
+            ) : (
+              <Button size="sm" className="gap-1" onClick={startClock} disabled={!clockEnabled || updateClock.isPending}>
+                <Play className="h-4 w-4" />
+                {(clockMatch?.clock_offset_ms ?? 0) > 0 ? "Reanudar" : "Iniciar"}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="gap-1" onClick={nextPeriod} disabled={!clockEnabled || updateClock.isPending}>
+              <SkipForward className="h-4 w-4" /> Siguiente período
+            </Button>
+            <Button size="sm" variant="ghost" className="gap-1" onClick={resetClock} disabled={!clockEnabled || updateClock.isPending}>
+              <TimerReset className="h-4 w-4" /> Reiniciar
+            </Button>
+          </div>
+          {!clockEnabled && (
+            <p className="text-xs text-muted-foreground">
+              El reloj está deshabilitado para este partido: los tiempos se registran manualmente y no se muestra reloj en vivo al público.
+            </p>
+          )}
+        </div>
+
         <Tabs defaultValue="goals" className="mt-4">
           <TabsList className="w-full">
             <TabsTrigger value="goals" className="flex-1">
@@ -589,7 +636,10 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 <label className="text-xs font-medium">Tiempo (mm:ss)</label>
                 <Input
                   value={goalTime}
-                  onChange={(e) => setGoalTime(e.target.value)}
+                  onChange={(e) => {
+                    setGoalTimeTouched(true);
+                    setGoalTime(e.target.value);
+                  }}
                   placeholder="00:00"
                   className="w-[100px]"
                 />
