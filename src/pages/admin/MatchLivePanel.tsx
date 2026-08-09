@@ -7,7 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Play, Pause, SkipForward, TimerReset } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import {
+  elapsedMs,
+  formatClock,
+  isClockRunning,
+  periodLabel,
+  useMatchClock,
+} from "@/lib/matchClock";
 import { toast } from "@/hooks/use-toast";
 
 const PENALTY_CODES = [
@@ -83,6 +91,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const [goalAssistId, setGoalAssistId] = useState("");
   const [goalTime, setGoalTime] = useState("");
   const [goalPeriod, setGoalPeriod] = useState("1");
+  const [goalTimeTouched, setGoalTimeTouched] = useState(false);
 
   // Penalty form state
   const [penTeamId, setPenTeamId] = useState("");
@@ -104,6 +113,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .select(
           `
           id, match_date, status, phase, category_id,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period,
           match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name))
         `,
         )
@@ -328,6 +338,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       setGoalScorerId("");
       setGoalAssistId("");
       setGoalTime("");
+      setGoalTimeTouched(false);
       toast({ title: "Gol registrado" });
     },
     onError: (e: Error) => {
@@ -435,6 +446,59 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     onError: () => clearMutationTimeout("deletePenalty"),
   });
 
+  /* ---------------- Match clock ---------------- */
+  const clockMatch = matchData as any;
+  const clockEnabled = clockMatch ? clockMatch.clock_enabled !== false : true;
+  const clockRunning = isClockRunning(clockMatch);
+  const liveClock = useMatchClock(clockMatch);
+  const currentPeriod = clockMatch?.current_period ?? 1;
+
+  const updateClock = useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      if (!matchId) throw new Error("No match");
+      await restoreSession({ forceRefresh: true });
+      const { error } = await supabase.from("matches").update(patch as any).eq("id", matchId);
+      if (error) throw error;
+    },
+    onMutate: () => startMutationTimeout("clock", () => updateClock.reset()),
+    onSuccess: () => {
+      clearMutationTimeout("clock");
+      queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
+    },
+    onError: (e: any) => {
+      clearMutationTimeout("clock");
+      toast({ title: "No se pudo actualizar el reloj", description: e?.message, variant: "destructive" });
+    },
+  });
+
+  const startClock = () => updateClock.mutate({ clock_started_at: new Date().toISOString() });
+  const pauseClock = () =>
+    updateClock.mutate({
+      clock_started_at: null,
+      clock_offset_ms: Math.round(elapsedMs(clockMatch ?? {})),
+    });
+  const nextPeriod = () =>
+    updateClock.mutate({
+      current_period: Math.min(3, currentPeriod + 1),
+      clock_started_at: null,
+      clock_offset_ms: 0,
+    });
+  const resetClock = () => updateClock.mutate({ clock_started_at: null, clock_offset_ms: 0 });
+
+  // Auto-fill the goal time from the running clock (only while untouched)
+  useEffect(() => {
+    if (!open) return;
+    if (!clockEnabled || !clockMatch?.clock_started_at) return;
+    if (goalTimeTouched) return;
+    setGoalTime(formatClock(elapsedMs(clockMatch)));
+  }, [open, clockEnabled, clockMatch, goalTimeTouched, liveClock]);
+
+  // Keep the goal period aligned with the live period while the clock is on
+  useEffect(() => {
+    if (!open || !clockEnabled) return;
+    setGoalPeriod(String(currentPeriod));
+  }, [open, clockEnabled, currentPeriod]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
@@ -446,6 +510,53 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             Marcador: {homeTeam?.score_regular ?? 0} - {awayTeam?.score_regular ?? 0}
           </p>
         </SheetHeader>
+
+        {/* Clock panel */}
+        <div className="mt-4 rounded-lg border p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="clock-enabled"
+                checked={clockEnabled}
+                onCheckedChange={(checked) => updateClock.mutate({ clock_enabled: checked })}
+                disabled={!matchId || updateClock.isPending}
+              />
+              <label htmlFor="clock-enabled" className="text-sm font-medium">
+                {clockEnabled ? "Reloj habilitado" : "Reloj deshabilitado"}
+              </label>
+            </div>
+            <div className="text-right">
+              <p className="font-display text-2xl font-bold tabular-nums">
+                {clockEnabled ? (liveClock ?? formatClock(0)) : "--:--"}
+              </p>
+              <p className="text-xs text-muted-foreground">{periodLabel(currentPeriod)}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {clockRunning ? (
+              <Button size="sm" variant="outline" className="gap-1" onClick={pauseClock} disabled={!clockEnabled || updateClock.isPending}>
+                <Pause className="h-4 w-4" /> Pausar
+              </Button>
+            ) : (
+              <Button size="sm" className="gap-1" onClick={startClock} disabled={!clockEnabled || updateClock.isPending}>
+                <Play className="h-4 w-4" />
+                {(clockMatch?.clock_offset_ms ?? 0) > 0 ? "Reanudar" : "Iniciar"}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="gap-1" onClick={nextPeriod} disabled={!clockEnabled || updateClock.isPending}>
+              <SkipForward className="h-4 w-4" /> Siguiente período
+            </Button>
+            <Button size="sm" variant="ghost" className="gap-1" onClick={resetClock} disabled={!clockEnabled || updateClock.isPending}>
+              <TimerReset className="h-4 w-4" /> Reiniciar
+            </Button>
+          </div>
+          {!clockEnabled && (
+            <p className="text-xs text-muted-foreground">
+              El reloj está deshabilitado para este partido: los tiempos se registran manualmente y no se muestra reloj en vivo al público.
+            </p>
+          )}
+        </div>
 
         <Tabs defaultValue="goals" className="mt-4">
           <TabsList className="w-full">
@@ -526,7 +637,10 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 <label className="text-xs font-medium">Tiempo (mm:ss)</label>
                 <Input
                   value={goalTime}
-                  onChange={(e) => setGoalTime(e.target.value)}
+                  onChange={(e) => {
+                    setGoalTimeTouched(true);
+                    setGoalTime(e.target.value);
+                  }}
                   placeholder="00:00"
                   className="w-[100px]"
                 />

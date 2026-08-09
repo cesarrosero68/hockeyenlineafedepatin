@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MapPin, Target, ShieldAlert, Users, ChevronLeft } from "lucide-react";
 import { formatBogota } from "@/lib/timezone";
 import Seo from "@/components/Seo";
+import { useMatchClock, periodLabel } from "@/lib/matchClock";
 
 function penaltyMinutesToDisplay(mins: number): string {
   const totalSeconds = Math.round(mins * 60);
@@ -33,6 +34,7 @@ export default function MatchDetail() {
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, notes, extra_time,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period,
           categories!inner(name, divisions!inner(name)),
           match_teams(side, score_regular, score_extra, is_winner, is_forfeit, team_id, teams!inner(id, name, logo_url))
         `)
@@ -103,6 +105,8 @@ export default function MatchDetail() {
     enabled: !!homeTeam || !!awayTeam,
     staleTime: 30_000,
   });
+
+  const liveClock = useMatchClock(match as any);
 
   if (isLoading) {
     return (
@@ -225,6 +229,21 @@ export default function MatchDetail() {
               <p className="text-xs text-muted-foreground">Visitante</p>
             </div>
           </div>
+
+          {(liveClock || m.status === "in_progress") && (
+            <div className="mt-6 flex justify-center">
+              {m.clock_enabled !== false && liveClock ? (
+                <div className="flex items-center gap-3 rounded-full border bg-muted/50 px-4 py-1.5">
+                  <span className="text-sm font-medium">{periodLabel(m.current_period)}</span>
+                  <span className="font-display text-xl font-bold tabular-nums">{liveClock}</span>
+                </div>
+              ) : m.status === "in_progress" ? (
+                <div className="rounded-full border bg-muted/50 px-4 py-1.5 text-sm font-medium">
+                  {periodLabel(m.current_period)}
+                </div>
+              ) : null}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useMatchClock, periodShort } from "@/lib/matchClock";
 
 interface MatchWithDetails {
   id: string;
@@ -30,6 +31,10 @@ interface MatchWithDetails {
   away_team_id: string | null;
   home_score: number | null;
   away_score: number | null;
+  clock_enabled?: boolean | null;
+  clock_started_at?: string | null;
+  clock_offset_ms?: number | null;
+  current_period?: number | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -103,6 +108,7 @@ export default function Schedule() {
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, category_id,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period,
           categories!inner(name, division_id, divisions!inner(id, name)),
           match_teams(side, score_regular, teams!inner(id, name))
         `)
@@ -130,6 +136,10 @@ export default function Schedule() {
           away_team_id: away?.teams?.id ?? null,
           home_score: home?.score_regular ?? null,
           away_score: away?.score_regular ?? null,
+          clock_enabled: m.clock_enabled,
+          clock_started_at: m.clock_started_at,
+          clock_offset_ms: m.clock_offset_ms,
+          current_period: m.current_period,
         } as MatchWithDetails;
       });
     },
@@ -371,6 +381,8 @@ useMemo(() => {
 
 function MatchCard({ match }: { match: MatchWithDetails }) {
   const time = match.match_date ? formatBogota(match.match_date, "h:mm a") : null;
+  const liveClock = useMatchClock(match);
+  const showLive = match.status === "in_progress";
 
   return (
     <Link to={`/match/${match.id}`}>
@@ -387,7 +399,9 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
               )}
             </div>
             <Badge variant={statusColors[match.status] as any} className="text-xs">
-              {statusLabels[match.status] ?? match.status}
+              {showLive && liveClock
+                ? `${statusLabels[match.status]} · ${periodShort(match.current_period)} · ${liveClock}`
+                : statusLabels[match.status] ?? match.status}
             </Badge>
           </div>
 
