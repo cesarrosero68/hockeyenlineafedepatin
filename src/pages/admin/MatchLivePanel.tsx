@@ -13,7 +13,10 @@ import {
   elapsedMs,
   formatClock,
   isClockRunning,
+  isPeriodOver,
   periodLabel,
+  periodMs,
+  PERIOD_PRESETS,
   useMatchClock,
 } from "@/lib/matchClock";
 import { toast } from "@/hooks/use-toast";
@@ -113,7 +116,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .select(
           `
           id, match_date, status, phase, category_id,
-          clock_enabled, clock_started_at, clock_offset_ms, current_period,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name, logo_url)),
           home_timeouts_used, away_timeouts_used
         `,
