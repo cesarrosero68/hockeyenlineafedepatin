@@ -44,7 +44,7 @@ export default function Index() {
       const { data, error } = await supabase
         .from("matches")
         .select(`
-          id, status, current_period,
+          id, status, current_period, period_minutes,
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
           match_teams(side, score_regular, teams!inner(id, name, logo_url))
@@ -63,6 +63,7 @@ export default function Index() {
           clock_enabled: m.clock_enabled,
           clock_started_at: m.clock_started_at,
           clock_offset_ms: m.clock_offset_ms,
+          period_minutes: m.period_minutes,
           category_name: m.categories?.name ?? "",
           home_team: home?.teams?.name ?? "Local",
           away_team: away?.teams?.name ?? "Visitante",
