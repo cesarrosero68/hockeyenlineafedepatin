@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Calendar, Star, TrendingUp, AlertTriangle } from "lucide-react";
+import { Trophy, Calendar, Star, TrendingUp, AlertTriangle, Radio } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTournament } from "@/contexts/TournamentContext";
 import Seo from "@/components/Seo";
+import { useMatchClock, periodShort } from "@/lib/matchClock";
 
 export default function Index() {
   const { viewedTournament } = useTournament();
@@ -35,6 +36,47 @@ export default function Index() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const viewedTournamentId = viewedTournament?.id;
+  const { data: liveMatches = [] } = useQuery({
+    queryKey: ["home-live-matches", viewedTournamentId],
+    enabled: !!viewedTournamentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("matches")
+        .select(`
+          id, status, current_period,
+          clock_enabled, clock_started_at, clock_offset_ms,
+          categories(name),
+          match_teams(side, score_regular, teams!inner(id, name, logo_url))
+        `)
+        .eq("tournament_id", viewedTournamentId as string)
+        .eq("status", "in_progress")
+        .order("match_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((m: any) => {
+        const home = m.match_teams?.find((mt: any) => mt.side === "home");
+        const away = m.match_teams?.find((mt: any) => mt.side === "away");
+        return {
+          id: m.id,
+          status: m.status,
+          current_period: m.current_period,
+          clock_enabled: m.clock_enabled,
+          clock_started_at: m.clock_started_at,
+          clock_offset_ms: m.clock_offset_ms,
+          category_name: m.categories?.name ?? "",
+          home_team: home?.teams?.name ?? "Local",
+          away_team: away?.teams?.name ?? "Visitante",
+          home_logo: home?.teams?.logo_url ?? null,
+          away_logo: away?.teams?.logo_url ?? null,
+          home_score: home?.score_regular ?? 0,
+          away_score: away?.score_regular ?? 0,
+        };
+      });
+    },
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
   return (
     <div className="container py-8 space-y-10">
       <Seo
@@ -48,6 +90,20 @@ export default function Index() {
           {viewedTournament?.home_subtitle || "Programación, resultados, posiciones y estadísticas en tiempo real"}
         </p>
       </section>
+
+      {liveMatches.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
+            <Radio className="h-6 w-6 text-primary animate-pulse" />
+            En Vivo
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {liveMatches.map((m) => (
+              <LiveMatchCard key={m.id} match={m} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-6">
         <h2 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
@@ -150,5 +206,39 @@ export default function Index() {
         </Link>
       </section>
     </div>
+  );
+}
+
+function LiveMatchCard({ match }: { match: any }) {
+  const liveClock = useMatchClock(match as any);
+  return (
+    <Link to={`/match/${match.id}`}>
+      <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer border-primary/40">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
+            <Badge variant="destructive" className="text-xs gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+              {match.clock_enabled && liveClock
+                ? `EN VIVO · ${periodShort(match.current_period)} · ${liveClock}`
+                : "EN VIVO"}
+            </Badge>
+          </div>
+          <div className="mt-3 flex items-center justify-center gap-3 text-center">
+            <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-sm truncate">
+              {match.home_team}
+              {match.home_logo && <img src={match.home_logo} alt="" className="h-6 w-6 rounded-full object-cover" />}
+            </span>
+            <div className="font-display font-bold text-lg min-w-[50px] text-center">
+              {match.home_score} - {match.away_score}
+            </div>
+            <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm truncate">
+              {match.away_logo && <img src={match.away_logo} alt="" className="h-6 w-6 rounded-full object-cover" />}
+              {match.away_team}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
