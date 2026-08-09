@@ -7,7 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Play, Pause, SkipForward, TimerReset } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import {
+  elapsedMs,
+  formatClock,
+  isClockRunning,
+  periodLabel,
+  useMatchClock,
+} from "@/lib/matchClock";
 import { toast } from "@/hooks/use-toast";
 
 const PENALTY_CODES = [
@@ -83,6 +91,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const [goalAssistId, setGoalAssistId] = useState("");
   const [goalTime, setGoalTime] = useState("");
   const [goalPeriod, setGoalPeriod] = useState("1");
+  const [goalTimeTouched, setGoalTimeTouched] = useState(false);
 
   // Penalty form state
   const [penTeamId, setPenTeamId] = useState("");
@@ -104,6 +113,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .select(
           `
           id, match_date, status, phase, category_id,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period,
           match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name))
         `,
         )
