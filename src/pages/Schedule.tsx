@@ -35,6 +35,7 @@ interface MatchWithDetails {
   clock_started_at?: string | null;
   clock_offset_ms?: number | null;
   current_period?: number | null;
+  period_minutes?: number | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -108,7 +109,7 @@ export default function Schedule() {
         .from("matches")
         .select(`
           id, match_date, status, phase, round_number, venue, category_id,
-          clock_enabled, clock_started_at, clock_offset_ms, current_period,
+          clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories!inner(name, division_id, divisions!inner(id, name)),
           match_teams(side, score_regular, teams!inner(id, name))
         `)
@@ -140,6 +141,7 @@ export default function Schedule() {
           clock_started_at: m.clock_started_at,
           clock_offset_ms: m.clock_offset_ms,
           current_period: m.current_period,
+          period_minutes: m.period_minutes,
         } as MatchWithDetails;
       });
     },
