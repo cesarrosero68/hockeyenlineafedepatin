@@ -114,7 +114,8 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           `
           id, match_date, status, phase, category_id,
           clock_enabled, clock_started_at, clock_offset_ms, current_period,
-          match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name))
+          match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name, logo_url)),
+          home_timeouts_used, away_timeouts_used
         `,
         )
         .eq("id", matchId!)
@@ -471,6 +472,17 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     },
   });
 
+  const useTimeout = (side: "home" | "away") => {
+    const used = side === "home" ? (clockMatch?.home_timeouts_used ?? 0) : (clockMatch?.away_timeouts_used ?? 0);
+    if (used >= 2) return;
+    const patch: Record<string, unknown> = {
+      clock_started_at: null,
+      clock_offset_ms: Math.round(elapsedMs(clockMatch ?? {})),
+    };
+    patch[side === "home" ? "home_timeouts_used" : "away_timeouts_used"] = used + 1;
+    updateClock.mutate(patch);
+  };
+
   const startClock = () => updateClock.mutate({ clock_started_at: new Date().toISOString() });
   const pauseClock = () =>
     updateClock.mutate({
@@ -503,10 +515,22 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="text-lg">
-            {homeTeam?.teams?.name ?? "Local"} vs {awayTeam?.teams?.name ?? "Visitante"}
+          <SheetTitle className="text-lg flex items-center justify-center gap-3">
+            <span className="flex items-center gap-2">
+              {homeTeam?.teams?.logo_url && (
+                <img src={homeTeam.teams.logo_url} alt="" className="h-8 w-8 rounded-full object-cover border" />
+              )}
+              {homeTeam?.teams?.name ?? "Local"}
+            </span>
+            <span className="text-muted-foreground font-normal">vs</span>
+            <span className="flex items-center gap-2">
+              {awayTeam?.teams?.logo_url && (
+                <img src={awayTeam.teams.logo_url} alt="" className="h-8 w-8 rounded-full object-cover border" />
+              )}
+              {awayTeam?.teams?.name ?? "Visitante"}
+            </span>
           </SheetTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground text-center">
             Marcador: {homeTeam?.score_regular ?? 0} - {awayTeam?.score_regular ?? 0}
           </p>
         </SheetHeader>
@@ -526,7 +550,16 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               </label>
             </div>
             <div className="text-right">
-              <p className="font-display text-2xl font-bold tabular-nums">
+              <p
+                className={
+                  "font-display text-2xl font-bold tabular-nums " +
+                  (!clockEnabled
+                    ? "text-muted-foreground"
+                    : clockRunning
+                    ? "text-green-600 dark:text-green-500"
+                    : "text-red-600 dark:text-red-500")
+                }
+              >
                 {clockEnabled ? (liveClock ?? formatClock(0)) : "--:--"}
               </p>
               <p className="text-xs text-muted-foreground">{periodLabel(currentPeriod)}</p>
@@ -556,6 +589,36 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               El reloj está deshabilitado para este partido: los tiempos se registran manualmente y no se muestra reloj en vivo al público.
             </p>
           )}
+
+          <div className="pt-2 border-t">
+            <p className="text-xs text-muted-foreground mb-2">Tiempos fuera (máx 2 por equipo)</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["home", "away"] as const).map((side) => {
+                const used = side === "home" ? (clockMatch?.home_timeouts_used ?? 0) : (clockMatch?.away_timeouts_used ?? 0);
+                const label = side === "home" ? (homeTeam?.teams?.name ?? "Local") : (awayTeam?.teams?.name ?? "Visitante");
+                return (
+                  <Button
+                    key={side}
+                    size="sm"
+                    variant="outline"
+                    className="justify-between gap-2"
+                    onClick={() => useTimeout(side)}
+                    disabled={!clockEnabled || used >= 2 || updateClock.isPending}
+                  >
+                    <span className="truncate">{label}</span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      {[0, 1].map((i) => (
+                        <span
+                          key={i}
+                          className={"h-2 w-3.5 rounded-sm " + (i < used ? "bg-primary" : "bg-muted")}
+                        />
+                      ))}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="goals" className="mt-4">
