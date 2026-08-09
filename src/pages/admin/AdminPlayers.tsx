@@ -46,6 +46,10 @@ export default function AdminPlayers() {
   const [editStaffVelopro, setEditStaffVelopro] = useState("");
   const [rosterJersey, setRosterJersey] = useState("");
   const [rosterPosition, setRosterPosition] = useState("");
+  const [editingRosterId, setEditingRosterId] = useState<string | null>(null);
+  const [editRosterTeamId, setEditRosterTeamId] = useState("");
+  const [editRosterJersey, setEditRosterJersey] = useState("");
+  const [editRosterPosition, setEditRosterPosition] = useState("NONE");
 
   // Active tournament being managed
   const { data: activeTournament } = useQuery({
@@ -411,6 +415,26 @@ export default function AdminPlayers() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateRosterMutation = useMutation({
+    mutationFn: async ({ id, team_id, jersey_number, position }: { id: string; team_id: string; jersey_number: string; position: string }) => {
+      const { error } = await supabase
+        .from("rosters")
+        .update({
+          team_id,
+          jersey_number: jersey_number ? parseInt(jersey_number) : null,
+          position: position === "NONE" ? null : position || null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-rosters"] });
+      setEditingRosterId(null);
+      toast({ title: "Nómina actualizada" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) {
     return <div className="flex justify-center py-8"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
   }
@@ -608,37 +632,94 @@ export default function AdminPlayers() {
                     <TableHead>Equipo</TableHead>
                     <TableHead>#</TableHead>
                     <TableHead>Posición</TableHead>
-                    <TableHead className="w-[60px]"></TableHead>
+                    <TableHead className="w-[90px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rosters.map((r: any) => (
                     <TableRow key={r.id}>
-                      <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
-                      <TableCell>{r.teams?.name}</TableCell>
-                      <TableCell>{r.jersey_number ?? "—"}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={r.position ?? "NONE"}
-                          onValueChange={(v) =>
-                            updateRosterPositionMutation.mutate({ id: r.id, position: v === "NONE" ? "" : v })
-                          }
-                        >
-                          <SelectTrigger className="w-[130px] h-8 text-xs">
-                            <SelectValue placeholder="—" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="NONE">—</SelectItem>
-                            <SelectItem value="ARQUERO">Arquero</SelectItem>
-                            <SelectItem value="DEFENSA">Defensa</SelectItem>
-                            <SelectItem value="DELANTERO">Delantero</SelectItem>
-                            <SelectItem value="JUGADOR">Jugador</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Quitar a ${r.players?.first_name} ${r.players?.last_name} del equipo ${r.teams?.name}? Esta acción no se puede deshacer.`)) deleteRosterMutation.mutate(r.id); }}><Trash2 className="h-4 w-4" /></Button>
-                      </TableCell>
+                      {editingRosterId === r.id ? (
+                        <>
+                          <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
+                          <TableCell>
+                            <Select value={editRosterTeamId} onValueChange={setEditRosterTeamId}>
+                              <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input value={editRosterJersey} onChange={e => setEditRosterJersey(e.target.value)} className="h-8 w-[60px]" type="number" />
+                          </TableCell>
+                          <TableCell>
+                            <Select value={editRosterPosition} onValueChange={setEditRosterPosition}>
+                              <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NONE">—</SelectItem>
+                                <SelectItem value="ARQUERO">Arquero</SelectItem>
+                                <SelectItem value="DEFENSA">Defensa</SelectItem>
+                                <SelectItem value="DELANTERO">Delantero</SelectItem>
+                                <SelectItem value="JUGADOR">Jugador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => updateRosterMutation.mutate({ id: r.id, team_id: editRosterTeamId, jersey_number: editRosterJersey, position: editRosterPosition })}
+                                disabled={!editRosterTeamId || updateRosterMutation.isPending}
+                              >
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingRosterId(null)}><X className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
+                          <TableCell>{r.teams?.name}</TableCell>
+                          <TableCell>{r.jersey_number ?? "—"}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={r.position ?? "NONE"}
+                              onValueChange={(v) =>
+                                updateRosterPositionMutation.mutate({ id: r.id, position: v === "NONE" ? "" : v })
+                              }
+                            >
+                              <SelectTrigger className="w-[130px] h-8 text-xs">
+                                <SelectValue placeholder="—" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NONE">—</SelectItem>
+                                <SelectItem value="ARQUERO">Arquero</SelectItem>
+                                <SelectItem value="DEFENSA">Defensa</SelectItem>
+                                <SelectItem value="DELANTERO">Delantero</SelectItem>
+                                <SelectItem value="JUGADOR">Jugador</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={() => {
+                                  setEditingRosterId(r.id);
+                                  setEditRosterTeamId(r.team_id ?? "");
+                                  setEditRosterJersey(String(r.jersey_number ?? ""));
+                                  setEditRosterPosition(r.position ?? "NONE");
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Quitar a ${r.players?.first_name} ${r.players?.last_name} del equipo ${r.teams?.name}? Esta acción no se puede deshacer.`)) deleteRosterMutation.mutate(r.id); }}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                   {rosters.length === 0 && (
