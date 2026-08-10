@@ -182,11 +182,19 @@ export default function AdminPlayers() {
         return;
       }
 
-      const { data: rostersData, error: rostersErr } = await supabase
-        .from("rosters")
-        .select("jersey_number, position, team_id, players!rosters_player_id_fkey(first_name, last_name, date_of_birth, document_number)")
-        .in("team_id", teamIds);
-      if (rostersErr) throw rostersErr;
+      // Paginado: Supabase corta en 1000 filas por defecto
+      const rostersData: any[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data: page, error: rostersErr } = await supabase
+          .from("rosters")
+          .select("jersey_number, position, team_id, players!rosters_player_id_fkey(first_name, last_name, date_of_birth, document_number, velopro_number)")
+          .in("team_id", teamIds)
+          .range(from, from + PAGE - 1);
+        if (rostersErr) throw rostersErr;
+        rostersData.push(...(page ?? []));
+        if (!page || page.length < PAGE) break;
+      }
 
       const teamById = new Map<string, any>((teamsData ?? []).map((t: any) => [t.id, t]));
 
@@ -215,6 +223,7 @@ export default function AdminPlayers() {
           Apellido: r.players?.last_name ?? "",
           Posicion: r.position ?? "",
           Nacimiento: r.players?.date_of_birth ?? "",
+          VeloPro: r.players?.velopro_number ?? "",
           Documento: r.players?.document_number ?? "",
         });
       });
@@ -251,6 +260,36 @@ export default function AdminPlayers() {
         usedNames.add(name);
         utils.book_append_sheet(wb, ws, name);
       });
+
+      // Hoja adicional con el cuerpo tecnico de los equipos exportados
+      const { data: staffData, error: staffErr } = await supabase
+        .from("team_staff")
+        .select("first_name, last_name, role, velopro_number, team_id")
+        .in("team_id", teamIds)
+        .range(0, 4999);
+      if (staffErr) throw staffErr;
+      const staffRows = (staffData ?? []).map((sfr: any) => {
+        const t = teamById.get(sfr.team_id);
+        const cat = t?.categories;
+        return {
+          Division: cat?.divisions?.name ?? "",
+          Categoria: cat?.name ?? "",
+          Equipo: t?.name ?? "",
+          Nombre: sfr.first_name ?? "",
+          Apellido: sfr.last_name ?? "",
+          Rol: sfr.role ?? "",
+          VeloPro: sfr.velopro_number ?? "",
+        };
+      });
+      if (staffRows.length > 0) {
+        staffRows.sort(
+          (a: any, b: any) =>
+            a.Categoria.localeCompare(b.Categoria) ||
+            a.Equipo.localeCompare(b.Equipo) ||
+            a.Rol.localeCompare(b.Rol),
+        );
+        utils.book_append_sheet(wb, utils.json_to_sheet(staffRows), "Cuerpo Tecnico");
+      }
 
       const today = new Date().toISOString().slice(0, 10);
       writeFile(wb, `jugadores_${today}.xlsx`);
