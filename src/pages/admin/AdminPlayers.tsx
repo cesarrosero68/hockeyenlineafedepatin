@@ -123,7 +123,7 @@ export default function AdminPlayers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("rosters")
-        .select("id, jersey_number, position, team_id, player_id, teams!inner(name, tournament_id), players!rosters_player_id_fkey(first_name, last_name)")
+        .select("id, jersey_number, position, team_id, player_id, teams!inner(name, tournament_id, categories(name)), players!rosters_player_id_fkey(first_name, last_name)")
         .eq("teams.tournament_id", activeTournamentId as string)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -386,7 +386,7 @@ export default function AdminPlayers() {
     const q = norm(searchRosters).trim();
     if (!q) return rosters;
     return (rosters as any[]).filter((r: any) =>
-      norm(`${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""} ${r.teams?.name ?? ""} ${r.jersey_number ?? ""} ${r.position ?? ""}`).includes(q),
+      norm(`${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""} ${r.teams?.name ?? ""} ${r.teams?.categories?.name ?? ""} ${r.jersey_number ?? ""} ${r.position ?? ""}`).includes(q),
     );
   }, [rosters, searchRosters]);
 
@@ -738,6 +738,7 @@ export default function AdminPlayers() {
                   <TableRow>
                     <TableHead>Jugador</TableHead>
                     <TableHead>Equipo</TableHead>
+                    <TableHead>Categoría</TableHead>
                     <TableHead>#</TableHead>
                     <TableHead>Posición</TableHead>
                     <TableHead className="w-[90px]"></TableHead>
@@ -755,6 +756,7 @@ export default function AdminPlayers() {
                               <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
                             </Select>
                           </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{(r.teams as any)?.categories?.name ?? "—"}</TableCell>
                           <TableCell>
                             <Input value={editRosterJersey} onChange={e => setEditRosterJersey(e.target.value)} className="h-8 w-[60px]" type="number" />
                           </TableCell>
@@ -788,6 +790,7 @@ export default function AdminPlayers() {
                         <>
                           <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
                           <TableCell>{r.teams?.name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{(r.teams as any)?.categories?.name ?? "—"}</TableCell>
                           <TableCell>{r.jersey_number ?? "—"}</TableCell>
                           <TableCell>
                             <Select
@@ -832,7 +835,7 @@ export default function AdminPlayers() {
                   ))}
                   {visibleRosters.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
+                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
                         {searchRosters ? `Sin resultados para "${searchRosters}".` : "Sin nóminas aún en esta edición."}
                       </TableCell>
                     </TableRow>
