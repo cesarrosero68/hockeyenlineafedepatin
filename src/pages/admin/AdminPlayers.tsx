@@ -33,6 +33,9 @@ export default function AdminPlayers() {
   const [editVelopro, setEditVelopro] = useState("");
 
   // Roster form
+  const [searchPlayers, setSearchPlayers] = useState("");
+  const [searchRosters, setSearchRosters] = useState("");
+  const [searchStaff, setSearchStaff] = useState("");
   const [rosterPlayerId, setRosterPlayerId] = useState("");
   const [rosterTeamId, setRosterTeamId] = useState("");
   const [staffTeamId, setStaffTeamId] = useState("");
@@ -154,6 +157,7 @@ export default function AdminPlayers() {
     () => (exportDivisionId === "all" ? categories : categories.filter((c: any) => c.division_id === exportDivisionId)),
     [categories, exportDivisionId],
   );
+
 
   const handleExportExcel = async () => {
     try {
@@ -362,6 +366,37 @@ export default function AdminPlayers() {
     },
     staleTime: 30_000,
   });
+
+  // Normaliza texto: minúsculas y sin tildes, para que "JERÓNIMO" y "jeronimo" coincidan
+  const norm = (s: any) =>
+    String(s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const visiblePlayers = useMemo(() => {
+    const q = norm(searchPlayers).trim();
+    if (!q) return players;
+    return (players as any[]).filter((p: any) =>
+      norm(`${p.first_name} ${p.last_name} ${p.velopro_number ?? ""} ${p.document_number ?? ""} ${p.jersey_number ?? ""} ${p.date_of_birth ?? ""}`).includes(q),
+    );
+  }, [players, searchPlayers]);
+
+  const visibleRosters = useMemo(() => {
+    const q = norm(searchRosters).trim();
+    if (!q) return rosters;
+    return (rosters as any[]).filter((r: any) =>
+      norm(`${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""} ${r.teams?.name ?? ""} ${r.jersey_number ?? ""} ${r.position ?? ""}`).includes(q),
+    );
+  }, [rosters, searchRosters]);
+
+  const visibleStaff = useMemo(() => {
+    const q = norm(searchStaff).trim();
+    if (!q) return staff;
+    return (staff as any[]).filter((st: any) =>
+      norm(`${st.first_name ?? ""} ${st.last_name ?? ""} ${st.teams?.name ?? ""} ${st.role ?? ""} ${st.velopro_number ?? ""}`).includes(q),
+    );
+  }, [staff, searchStaff]);
 
   const createStaffMutation = useMutation({
     mutationFn: async () => {
@@ -575,6 +610,23 @@ export default function AdminPlayers() {
                 </CardContent>
               </Card>
 
+              <div className="flex items-center gap-2">
+                <Input
+                  value={searchPlayers}
+                  onChange={e => setSearchPlayers(e.target.value)}
+                  placeholder="Buscar por nombre, apellido, VeloPro, documento, # o fecha…"
+                  className="max-w-[420px]"
+                />
+                {searchPlayers && (
+                  <Button variant="ghost" size="sm" onClick={() => setSearchPlayers("")} className="gap-1">
+                    <X className="h-4 w-4" /> Limpiar
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {visiblePlayers.length} de {players.length}
+                </span>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -587,7 +639,7 @@ export default function AdminPlayers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {players.map((p) => (
+                  {visiblePlayers.map((p: any) => (
                     <TableRow key={p.id}>
                       {editingId === p.id ? (
                         <>
@@ -620,10 +672,10 @@ export default function AdminPlayers() {
                       )}
                     </TableRow>
                   ))}
-                  {players.length === 0 && (
+                  {visiblePlayers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
-                        Sin jugadores aún en esta edición.
+                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
+                        {searchPlayers ? `Sin resultados para "${searchPlayers}".` : "Sin jugadores aún en esta edición."}
                       </TableCell>
                     </TableRow>
                   )}
@@ -664,6 +716,23 @@ export default function AdminPlayers() {
                 </CardContent>
               </Card>
 
+              <div className="flex items-center gap-2">
+                <Input
+                  value={searchRosters}
+                  onChange={e => setSearchRosters(e.target.value)}
+                  placeholder="Buscar por jugador, equipo, # o posición…"
+                  className="max-w-[420px]"
+                />
+                {searchRosters && (
+                  <Button variant="ghost" size="sm" onClick={() => setSearchRosters("")} className="gap-1">
+                    <X className="h-4 w-4" /> Limpiar
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {visibleRosters.length} de {rosters.length}
+                </span>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -675,7 +744,7 @@ export default function AdminPlayers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rosters.map((r: any) => (
+                  {visibleRosters.map((r: any) => (
                     <TableRow key={r.id}>
                       {editingRosterId === r.id ? (
                         <>
@@ -761,10 +830,10 @@ export default function AdminPlayers() {
                       )}
                     </TableRow>
                   ))}
-                  {rosters.length === 0 && (
+                  {visibleRosters.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
-                        Sin nóminas aún en esta edición.
+                        {searchRosters ? `Sin resultados para "${searchRosters}".` : "Sin nóminas aún en esta edición."}
                       </TableCell>
                     </TableRow>
                   )}
@@ -809,6 +878,23 @@ export default function AdminPlayers() {
                 </CardContent>
               </Card>
 
+              <div className="flex items-center gap-2">
+                <Input
+                  value={searchStaff}
+                  onChange={e => setSearchStaff(e.target.value)}
+                  placeholder="Buscar por nombre, apellido, equipo, rol o VeloPro…"
+                  className="max-w-[420px]"
+                />
+                {searchStaff && (
+                  <Button variant="ghost" size="sm" onClick={() => setSearchStaff("")} className="gap-1">
+                    <X className="h-4 w-4" /> Limpiar
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {visibleStaff.length} de {staff.length}
+                </span>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -820,7 +906,7 @@ export default function AdminPlayers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {staff.map((st: any) => (
+                  {visibleStaff.map((st: any) => (
                     <TableRow key={st.id}>
                       {editingStaffId === st.id ? (
                         <>
@@ -863,10 +949,10 @@ export default function AdminPlayers() {
                       )}
                     </TableRow>
                   ))}
-                  {staff.length === 0 && (
+                  {visibleStaff.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
-                        Sin cuerpo técnico aún en esta edición.
+                        {searchStaff ? `Sin resultados para "${searchStaff}".` : "Sin cuerpo técnico aún en esta edición."}
                       </TableCell>
                     </TableRow>
                   )}
