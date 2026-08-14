@@ -514,30 +514,17 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, clockEnabled, clockMatch, liveClock]);
 
-  // Auto-fill the goal time from the clock — while running AND while paused.
-  // Only condition to skip is: clock feature off, or the user already edited the field by hand.
-  useEffect(() => {
-    if (!open) return;
-    if (!clockEnabled || !clockMatch) return;
-    if (goalTimeTouched) return;
-    setGoalTime(formatClock(elapsedMs(clockMatch)));
-  }, [open, clockEnabled, clockMatch, goalTimeTouched, liveClock]);
-
-  // Auto-fill the penalty match-time the same way as the goal time.
-  useEffect(() => {
-    if (!open) return;
-    if (!clockEnabled || !clockMatch) return;
-    if (penMatchTimeTouched) return;
-    setPenMatchTime(formatClock(elapsedMs(clockMatch)));
-  }, [open, clockEnabled, clockMatch, penMatchTimeTouched, liveClock]);
-
   // Reset the "touched" flags whenever the panel opens for a (possibly new) match,
-  // so the auto-fill kicks back in instead of staying stuck on a manual edit
-  // from a previous session.
+  // so a fresh team selection triggers the time snapshot instead of staying stuck
+  // on a manual edit carried over from a previous session.
   useEffect(() => {
     if (!open) return;
     setGoalTimeTouched(false);
     setPenMatchTimeTouched(false);
+    setGoalTeamId("");
+    setPenTeamId("");
+    setGoalTime("");
+    setPenMatchTime("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, matchId]);
 
@@ -552,6 +539,33 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     if (!open || !clockEnabled) return;
     setPenPeriod(String(currentPeriod));
   }, [open, clockEnabled, currentPeriod]);
+
+  // Selecting a team is the trigger: the moment the "Equipo" field goes from
+  // empty to a real team, snapshot the clock's elapsed time into the field —
+  // once, not continuously. If the person picked a manual time before choosing
+  // the team (goalTimeTouched/penMatchTimeTouched), we respect that and don't
+  // overwrite it.
+  const handleGoalTeamChange = useCallback(
+    (teamId: string) => {
+      const wasEmpty = !goalTeamId;
+      setGoalTeamId(teamId);
+      if (wasEmpty && teamId && clockEnabled && clockMatch && !goalTimeTouched) {
+        setGoalTime(formatClock(elapsedMs(clockMatch)));
+      }
+    },
+    [goalTeamId, clockEnabled, clockMatch, goalTimeTouched],
+  );
+
+  const handlePenTeamChange = useCallback(
+    (teamId: string) => {
+      const wasEmpty = !penTeamId;
+      setPenTeamId(teamId);
+      if (wasEmpty && teamId && clockEnabled && clockMatch && !penMatchTimeTouched) {
+        setPenMatchTime(formatClock(elapsedMs(clockMatch)));
+      }
+    },
+    [penTeamId, clockEnabled, clockMatch, penMatchTimeTouched],
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -710,7 +724,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Equipo</label>
-                  <Select value={goalTeamId} onValueChange={setGoalTeamId}>
+                  <Select value={goalTeamId} onValueChange={handleGoalTeamChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Equipo" />
                     </SelectTrigger>
@@ -772,7 +786,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium">Tiempo (mm:ss)</label>
-                  {goalTimeTouched && clockEnabled && clockMatch && (
+                  {clockEnabled && clockMatch && (
                     <button
                       type="button"
                       className="text-[11px] text-primary underline underline-offset-2"
@@ -845,7 +859,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Equipo</label>
-                  <Select value={penTeamId} onValueChange={setPenTeamId}>
+                  <Select value={penTeamId} onValueChange={handlePenTeamChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Equipo" />
                     </SelectTrigger>
@@ -905,7 +919,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
-                  {penMatchTimeTouched && clockEnabled && clockMatch && (
+                  {clockEnabled && clockMatch && (
                     <button
                       type="button"
                       className="text-[11px] text-primary underline underline-offset-2"
