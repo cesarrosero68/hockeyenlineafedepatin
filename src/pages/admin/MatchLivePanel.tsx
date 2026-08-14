@@ -78,6 +78,23 @@ const PERIODS = [
   { value: "3", label: "OT" },
 ];
 
+/**
+ * Tiempo transcurrido en mm:ss, truncando (no redondeando) los milisegundos.
+ * formatClock() redondea hacia arriba (Math.ceil) porque está pensado para la
+ * cuenta regresiva en pantalla — ahí "queda menos de un segundo" se ve mejor
+ * mostrado como el segundo siguiente. Pero para anotar en qué momento del
+ * partido ocurrió un gol o sanción, ese mismo redondeo agrega un segundo de
+ * más que nunca se cumplió realmente (12.3s transcurridos deben anotarse
+ * como 00:12, no 00:13). Se usa esta función — no formatClock — en todo
+ * snapshot de tiempo transcurrido para goles y sanciones.
+ */
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
 interface MatchLivePanelProps {
   matchId: string | null;
   open: boolean;
@@ -550,7 +567,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const wasEmpty = !goalTeamId;
       setGoalTeamId(teamId);
       if (wasEmpty && teamId && clockEnabled && clockMatch && !goalTimeTouched) {
-        setGoalTime(formatClock(elapsedMs(clockMatch)));
+        setGoalTime(formatElapsed(elapsedMs(clockMatch)));
       }
     },
     [goalTeamId, clockEnabled, clockMatch, goalTimeTouched],
@@ -561,7 +578,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const wasEmpty = !penTeamId;
       setPenTeamId(teamId);
       if (wasEmpty && teamId && clockEnabled && clockMatch && !penMatchTimeTouched) {
-        setPenMatchTime(formatClock(elapsedMs(clockMatch)));
+        setPenMatchTime(formatElapsed(elapsedMs(clockMatch)));
       }
     },
     [penTeamId, clockEnabled, clockMatch, penMatchTimeTouched],
@@ -792,7 +809,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       className="text-[11px] text-primary underline underline-offset-2"
                       onClick={() => {
                         setGoalTimeTouched(false);
-                        setGoalTime(formatClock(elapsedMs(clockMatch)));
+                        setGoalTime(formatElapsed(elapsedMs(clockMatch)));
                       }}
                     >
                       Usar tiempo del reloj
@@ -925,7 +942,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       className="text-[11px] text-primary underline underline-offset-2"
                       onClick={() => {
                         setPenMatchTimeTouched(false);
-                        setPenMatchTime(formatClock(elapsedMs(clockMatch)));
+                        setPenMatchTime(formatElapsed(elapsedMs(clockMatch)));
                       }}
                     >
                       Usar tiempo del reloj
