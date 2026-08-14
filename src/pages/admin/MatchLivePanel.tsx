@@ -341,6 +341,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       clearMutationTimeout("addGoal");
       queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
       queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
+      setGoalTeamId("");
       setGoalScorerId("");
       setGoalAssistId("");
       setGoalTime("");
@@ -424,6 +425,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     onSuccess: () => {
       clearMutationTimeout("addPenalty");
       queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
+      setPenTeamId("");
       setPenPlayerId("");
       setPenCode("");
       setPenTimePreset("1:30");
