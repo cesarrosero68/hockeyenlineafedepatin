@@ -89,3 +89,69 @@ export function useMatchClock(match: MatchClockFields | null | undefined): strin
   if (!match || !hasClockData(match)) return null;
   return formatClock(remainingMs(match));
 }
+
+/** Parsea "mm:ss" a milisegundos. Devuelve null si el formato no es válido. */
+export function parseMmSsToMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const m = /^(\d{1,3}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const minutes = parseInt(m[1], 10);
+  const seconds = parseInt(m[2], 10);
+  if (seconds > 59) return null;
+  return (minutes * 60 + seconds) * 1000;
+}
+
+export interface PenaltyClockFields {
+  /** "mm:ss" restante del período en el momento en que se registró la sanción (columna penalty_time). */
+  penalty_time: string | null;
+  /** Duración de la sanción en minutos, p.ej. 1.5 para 1:30 (columna penalty_minutes). */
+  penalty_minutes: number;
+}
+
+/**
+ * Milisegundos restantes de una sanción, atada al reloj del partido (no a un
+ * reloj propio): se pausa y reanuda junto con el reloj principal, y sigue
+ * contando sin importar si cambia el período. Se ancla al elapsedMs() del
+ * partido en el instante en que se registró la sanción — reconstruido a
+ * partir de penalty_time, que guarda el tiempo restante del período en ese
+ * momento — y resta la diferencia contra el elapsedMs() actual.
+ * Devuelve null si no se puede calcular (falta penalty_time o el partido).
+ */
+export function penaltyRemainingMs(
+  match: MatchClockFields,
+  penalty: PenaltyClockFields,
+  now: number = Date.now(),
+): number | null {
+  const remainingAtPenaltyMs = parseMmSsToMs(penalty.penalty_time);
+  if (remainingAtPenaltyMs == null) return null;
+  const elapsedAtPenalty = periodMs(match) - remainingAtPenaltyMs;
+  const elapsedSincePenalty = elapsedMs(match, now) - elapsedAtPenalty;
+  const totalPenaltyMs = Math.max(0, penalty.penalty_minutes) * 60_000;
+  return Math.max(0, totalPenaltyMs - elapsedSincePenalty);
+}
+
+/**
+ * Cuenta regresiva mm:ss de una sanción activa, ligada al reloj del partido.
+ * Re-renderiza cada segundo solo mientras el reloj del partido está corriendo
+ * (mismo patrón liviano que useMatchClock) — se congela junto con el reloj
+ * si se pausa, y no agrega ninguna consulta de red. Devuelve null cuando la
+ * sanción ya se cumplió (debe dejar de mostrarse) o no se puede calcular.
+ */
+export function usePenaltyClock(
+  match: MatchClockFields | null | undefined,
+  penalty: PenaltyClockFields | null | undefined,
+): string | null {
+  const running = isClockRunning(match);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  if (!match || !penalty) return null;
+  const remaining = penaltyRemainingMs(match, penalty);
+  if (remaining == null || remaining <= 0) return null;
+  return formatClock(remaining);
+}
