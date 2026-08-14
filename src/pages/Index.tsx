@@ -6,7 +6,7 @@ import { Trophy, Calendar, Star, TrendingUp, AlertTriangle, Radio } from "lucide
 import { Link } from "react-router-dom";
 import { useTournament } from "@/contexts/TournamentContext";
 import Seo from "@/components/Seo";
-import { useMatchClock, periodShort } from "@/lib/matchClock";
+import { useMatchClock, periodShort, isClockRunning, usePenaltyClock } from "@/lib/matchClock";
 
 export default function Index() {
   const { viewedTournament } = useTournament();
@@ -47,7 +47,8 @@ export default function Index() {
           id, status, current_period, period_minutes,
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
-          match_teams(side, score_regular, teams!inner(id, name, logo_url))
+          match_teams(side, score_regular, teams!inner(id, name, logo_url)),
+          penalties(id, team_id, penalty_time, penalty_minutes, created_at)
         `)
         .eq("tournament_id", viewedTournamentId as string)
         .eq("status", "in_progress")
@@ -71,6 +72,14 @@ export default function Index() {
           away_logo: away?.teams?.logo_url ?? null,
           home_score: home?.score_regular ?? 0,
           away_score: away?.score_regular ?? 0,
+          home_team_id: home?.teams?.id ?? null,
+          away_team_id: away?.teams?.id ?? null,
+          penalties: (m.penalties ?? []) as {
+            id: string;
+            team_id: string;
+            penalty_time: string | null;
+            penalty_minutes: number;
+          }[],
         };
       });
     },
@@ -212,13 +221,25 @@ export default function Index() {
 
 function LiveMatchCard({ match }: { match: any }) {
   const liveClock = useMatchClock(match as any);
+  const clockRunning = isClockRunning(match as any);
+
+  const homePenalties = (match.penalties ?? []).filter((p: any) => p.team_id === match.home_team_id);
+  const awayPenalties = (match.penalties ?? []).filter((p: any) => p.team_id === match.away_team_id);
+
   return (
     <Link to={`/match/${match.id}`}>
       <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer border-primary/40">
         <CardContent className="p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
-            <Badge variant="destructive" className="text-xs gap-1">
+            <Badge
+              className={
+                "text-xs gap-1 border-transparent text-white " +
+                (match.clock_enabled && clockRunning
+                  ? "bg-green-600 hover:bg-green-600"
+                  : "bg-orange-500 hover:bg-orange-500")
+              }
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
               {match.clock_enabled && liveClock
                 ? `EN VIVO · ${periodShort(match.current_period)} · ${liveClock}`
@@ -238,8 +259,35 @@ function LiveMatchCard({ match }: { match: any }) {
               {match.away_team}
             </span>
           </div>
+          {(homePenalties.length > 0 || awayPenalties.length > 0) && (
+            <div className="mt-2 flex items-start justify-center gap-3">
+              <div className="flex-1 flex flex-col items-end gap-1">
+                {homePenalties.map((p: any) => (
+                  <PenaltyTimer key={p.id} match={match} penalty={p} />
+                ))}
+              </div>
+              <div className="min-w-[50px]" />
+              <div className="flex-1 flex flex-col items-start gap-1">
+                {awayPenalties.map((p: any) => (
+                  <PenaltyTimer key={p.id} match={match} penalty={p} />
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>
+  );
+}
+
+/** Chip de sanción activa con su cuenta regresiva, atada al reloj del partido. Desaparece sola al cumplirse. */
+function PenaltyTimer({ match, penalty }: { match: any; penalty: any }) {
+  const remaining = usePenaltyClock(match, penalty);
+  if (!remaining) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-600 dark:text-orange-400 tabular-nums">
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {remaining}
+    </span>
   );
 }
