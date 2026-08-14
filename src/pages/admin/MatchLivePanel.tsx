@@ -104,6 +104,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
   const [penTimeManual, setPenTimeManual] = useState("");
   const [penPeriod, setPenPeriod] = useState("1");
   const [penMatchTime, setPenMatchTime] = useState("");
+  const [penMatchTimeTouched, setPenMatchTimeTouched] = useState(false);
 
   const isValidMatchTime = useCallback((v: string) => /^\d{2}:\d{2}$/.test(v), []);
 
@@ -427,6 +428,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       setPenTimePreset("1:30");
       setPenTimeManual("");
       setPenMatchTime("");
+      setPenMatchTimeTouched(false);
       toast({ title: "Sanción registrada" });
     },
     onError: (e: Error) => {
@@ -512,18 +514,43 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, clockEnabled, clockMatch, liveClock]);
 
-  // Auto-fill the goal time from the running clock (only while untouched)
+  // Auto-fill the goal time from the clock — while running AND while paused.
+  // Only condition to skip is: clock feature off, or the user already edited the field by hand.
   useEffect(() => {
     if (!open) return;
-    if (!clockEnabled || !clockMatch?.clock_started_at) return;
+    if (!clockEnabled || !clockMatch) return;
     if (goalTimeTouched) return;
     setGoalTime(formatClock(elapsedMs(clockMatch)));
   }, [open, clockEnabled, clockMatch, goalTimeTouched, liveClock]);
+
+  // Auto-fill the penalty match-time the same way as the goal time.
+  useEffect(() => {
+    if (!open) return;
+    if (!clockEnabled || !clockMatch) return;
+    if (penMatchTimeTouched) return;
+    setPenMatchTime(formatClock(elapsedMs(clockMatch)));
+  }, [open, clockEnabled, clockMatch, penMatchTimeTouched, liveClock]);
+
+  // Reset the "touched" flags whenever the panel opens for a (possibly new) match,
+  // so the auto-fill kicks back in instead of staying stuck on a manual edit
+  // from a previous session.
+  useEffect(() => {
+    if (!open) return;
+    setGoalTimeTouched(false);
+    setPenMatchTimeTouched(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, matchId]);
 
   // Keep the goal period aligned with the live period while the clock is on
   useEffect(() => {
     if (!open || !clockEnabled) return;
     setGoalPeriod(String(currentPeriod));
+  }, [open, clockEnabled, currentPeriod]);
+
+  // Keep the penalty period aligned with the live period while the clock is on
+  useEffect(() => {
+    if (!open || !clockEnabled) return;
+    setPenPeriod(String(currentPeriod));
   }, [open, clockEnabled, currentPeriod]);
 
   return (
@@ -743,7 +770,21 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Tiempo (mm:ss)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium">Tiempo (mm:ss)</label>
+                  {goalTimeTouched && clockEnabled && clockMatch && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-primary underline underline-offset-2"
+                      onClick={() => {
+                        setGoalTimeTouched(false);
+                        setGoalTime(formatClock(elapsedMs(clockMatch)));
+                      }}
+                    >
+                      Usar tiempo del reloj
+                    </button>
+                  )}
+                </div>
                 <Input
                   value={goalTime}
                   onChange={(e) => {
@@ -862,10 +903,27 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
+                  {penMatchTimeTouched && clockEnabled && clockMatch && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-primary underline underline-offset-2"
+                      onClick={() => {
+                        setPenMatchTimeTouched(false);
+                        setPenMatchTime(formatClock(elapsedMs(clockMatch)));
+                      }}
+                    >
+                      Usar tiempo del reloj
+                    </button>
+                  )}
+                </div>
                 <Input
                   value={penMatchTime}
-                  onChange={(e) => setPenMatchTime(e.target.value)}
+                  onChange={(e) => {
+                    setPenMatchTimeTouched(true);
+                    setPenMatchTime(e.target.value);
+                  }}
                   placeholder="00:00"
                   className="w-[100px]"
                 />
