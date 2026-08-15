@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Play, Pause, SkipForward, TimerReset, ShieldOff } from "lucide-react";
+import { Trash2, Plus, Play, Pause, SkipForward, TimerReset } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   elapsedMs,
@@ -600,30 +600,30 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-xl lg:w-[75vw] lg:max-w-[75vw] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="text-lg flex items-center justify-center gap-3">
+          <SheetTitle className="text-lg lg:text-2xl flex items-center justify-center gap-3">
             <span className="flex items-center gap-2">
               {homeTeam?.teams?.logo_url && (
-                <img src={homeTeam.teams.logo_url} alt="" className="h-8 w-8 rounded-full object-cover border" />
+                <img src={homeTeam.teams.logo_url} alt="" className="h-8 w-8 lg:h-11 lg:w-11 rounded-full object-cover border" />
               )}
               {homeTeam?.teams?.name ?? "Local"}
             </span>
             <span className="text-muted-foreground font-normal">vs</span>
             <span className="flex items-center gap-2">
               {awayTeam?.teams?.logo_url && (
-                <img src={awayTeam.teams.logo_url} alt="" className="h-8 w-8 rounded-full object-cover border" />
+                <img src={awayTeam.teams.logo_url} alt="" className="h-8 w-8 lg:h-11 lg:w-11 rounded-full object-cover border" />
               )}
               {awayTeam?.teams?.name ?? "Visitante"}
             </span>
           </SheetTitle>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm lg:text-base text-muted-foreground text-center">
             Marcador: {homeTeam?.score_regular ?? 0} - {awayTeam?.score_regular ?? 0}
           </p>
         </SheetHeader>
 
         {/* Clock panel */}
-        <div className="mt-4 rounded-lg border p-3 space-y-3">
+        <div className="mt-4 rounded-lg border p-3 lg:p-5 space-y-3 lg:space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Switch
@@ -632,14 +632,14 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 onCheckedChange={(checked) => updateClock.mutate({ clock_enabled: checked })}
                 disabled={!matchId || updateClock.isPending}
               />
-              <label htmlFor="clock-enabled" className="text-sm font-medium">
+              <label htmlFor="clock-enabled" className="text-sm lg:text-base font-medium">
                 {clockEnabled ? "Reloj habilitado" : "Reloj deshabilitado"}
               </label>
             </div>
             <div className="text-right">
               <p
                 className={
-                  "font-display text-2xl font-bold tabular-nums " +
+                  "font-display text-2xl lg:text-5xl font-bold tabular-nums " +
                   (!clockEnabled
                     ? "text-muted-foreground"
                     : clockRunning
@@ -649,17 +649,35 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               >
                 {clockEnabled ? (liveClock ?? formatClock(0)) : "--:--"}
               </p>
-              <p className="text-xs text-muted-foreground">{periodLabel(currentPeriod)}</p>
+              <p className="text-xs lg:text-sm text-muted-foreground">{periodLabel(currentPeriod)}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          {/* Cajitas de sanción activa, estilo "penalty box": dorsal grande + timer,
+              atadas al reloj principal. No se borra el registro al terminar — solo
+              deja de mostrarse (ver penaltyRemainingMs / ended_early). */}
+          {penalties.length > 0 && (
+            <div className="flex flex-wrap gap-2 lg:gap-3 pt-1">
+              {penalties.map((p: any) => (
+                <PenaltyBox
+                  key={p.id}
+                  penalty={p}
+                  clockMatch={clockMatch}
+                  teamName={teamName}
+                  onEnd={(id) => endPenaltyMutation.mutate(id)}
+                  ending={endPenaltyMutation.isPending}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 lg:gap-3">
             {clockRunning ? (
-              <Button size="sm" variant="outline" className="gap-1" onClick={pauseClock} disabled={!clockEnabled || updateClock.isPending}>
+              <Button size="sm" variant="outline" className="gap-1 lg:h-11 lg:px-5 lg:text-base" onClick={pauseClock} disabled={!clockEnabled || updateClock.isPending}>
                 <Pause className="h-4 w-4" /> Pausar
               </Button>
             ) : (
-              <Button size="sm" className="gap-1" onClick={startClock} disabled={!clockEnabled || updateClock.isPending}>
+              <Button size="sm" className="gap-1 lg:h-11 lg:px-5 lg:text-base" onClick={startClock} disabled={!clockEnabled || updateClock.isPending}>
                 <Play className="h-4 w-4" />
                 {(clockMatch?.clock_offset_ms ?? 0) > 0 ? "Reanudar" : "Iniciar"}
               </Button>
@@ -739,20 +757,8 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           </div>
         </div>
 
-        {/* Sanciones activas ahora mismo — para terminarlas antes de tiempo (p.ej. gol en
-            power play). No borra el registro: lo marca ended_early=true. */}
-        {penalties.length > 0 && (
-          <ActivePenaltiesPanel
-            penalties={penalties}
-            clockMatch={clockMatch}
-            teamName={teamName}
-            onEnd={(id) => endPenaltyMutation.mutate(id)}
-            ending={endPenaltyMutation.isPending}
-          />
-        )}
-
         <Tabs defaultValue="goals" className="mt-4">
-          <TabsList className="w-full">
+          <TabsList className="w-full lg:hidden">
             <TabsTrigger value="goals" className="flex-1">
               Goles ({goals.length})
             </TabsTrigger>
@@ -761,12 +767,22 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             </TabsTrigger>
           </TabsList>
 
+          {/* En pantallas grandes (lg+) Goles y Sanciones se muestran en dos
+              columnas lado a lado en vez de pestañas — forceMount mantiene
+              ambos TabsContent montados y las clases data-[state] los ocultan
+              solo cuando corresponde en mobile, sin duplicar el formulario. */}
+          <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+
           {/* GOALS TAB */}
-          <TabsContent value="goals" className="space-y-4 mt-4">
-            <div className="space-y-3 p-3 border rounded-lg">
+          <TabsContent
+            value="goals"
+            forceMount
+            className="space-y-4 mt-4 lg:mt-0 data-[state=inactive]:hidden lg:data-[state=inactive]:block"
+          >
+            <div className="space-y-3 p-3 lg:p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Equipo</label>
+                  <label className="text-xs lg:text-sm font-medium">Equipo</label>
                   <Select value={goalTeamId} onValueChange={handleGoalTeamChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Equipo" />
@@ -778,7 +794,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Periodo</label>
+                  <label className="text-xs lg:text-sm font-medium">Periodo</label>
                   <Select value={goalPeriod} onValueChange={setGoalPeriod}>
                     <SelectTrigger>
                       <SelectValue />
@@ -794,7 +810,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Goleador</label>
+                <label className="text-xs lg:text-sm font-medium">Goleador</label>
                 <Select value={goalScorerId} onValueChange={setGoalScorerId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar jugador" />
@@ -810,7 +826,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Asistencia</label>
+                <label className="text-xs lg:text-sm font-medium">Asistencia</label>
                 <Select value={goalAssistId} onValueChange={setGoalAssistId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar jugador" />
@@ -858,7 +874,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   addGoalMutation.mutate();
                 }}
                 disabled={!goalTeamId || !goalScorerId}
-                className="w-full gap-1"
+                className="w-full gap-1 lg:h-11 lg:text-base"
               >
                 <Plus className="h-4 w-4" /> Registrar Gol
               </Button>
@@ -897,11 +913,15 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           </TabsContent>
 
           {/* PENALTIES TAB */}
-          <TabsContent value="penalties" className="space-y-4 mt-4">
-            <div className="space-y-3 p-3 border rounded-lg">
+          <TabsContent
+            value="penalties"
+            forceMount
+            className="space-y-4 mt-4 lg:mt-0 data-[state=inactive]:hidden lg:data-[state=inactive]:block"
+          >
+            <div className="space-y-3 p-3 lg:p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Equipo</label>
+                  <label className="text-xs lg:text-sm font-medium">Equipo</label>
                   <Select value={penTeamId} onValueChange={handlePenTeamChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Equipo" />
@@ -913,7 +933,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Periodo</label>
+                  <label className="text-xs lg:text-sm font-medium">Periodo</label>
                   <Select value={penPeriod} onValueChange={setPenPeriod}>
                     <SelectTrigger>
                       <SelectValue />
@@ -929,7 +949,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Jugador</label>
+                <label className="text-xs lg:text-sm font-medium">Jugador</label>
                 <Select value={penPlayerId} onValueChange={setPenPlayerId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar jugador" />
@@ -945,7 +965,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Tipo de Sanción</label>
+                <label className="text-xs lg:text-sm font-medium">Tipo de Sanción</label>
                 <Select value={penCode} onValueChange={setPenCode}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar sanción" />
@@ -987,7 +1007,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Duración Sanción</label>
+                  <label className="text-xs lg:text-sm font-medium">Duración Sanción</label>
                   <Select value={penTimePreset} onValueChange={setPenTimePreset}>
                     <SelectTrigger>
                       <SelectValue />
@@ -1013,10 +1033,20 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   </div>
                 )}
               </div>
+              {clockEnabled && clockRunning && (
+                <p className="text-xs text-destructive font-medium">
+                  Pausá el reloj para registrar la sanción — el timer de la penalidad arranca junto con el reloj principal.
+                </p>
+              )}
               <Button
                 onClick={() => addPenaltyMutation.mutate()}
-                disabled={!penTeamId || !penCode || addPenaltyMutation.isPending}
-                className="w-full gap-1"
+                disabled={
+                  !penTeamId ||
+                  !penCode ||
+                  addPenaltyMutation.isPending ||
+                  (clockEnabled && clockRunning)
+                }
+                className="w-full gap-1 lg:h-11 lg:text-base"
               >
                 <Plus className="h-4 w-4" /> Registrar Sanción
               </Button>
@@ -1047,6 +1077,8 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               ))}
             </div>
           </TabsContent>
+
+          </div>
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -1059,40 +1091,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
  * terminarlas antes de tiempo. Solo muestra las que todavía tienen tiempo
  * restante — una sanción que ya se cumplió sola desaparece de esta lista.
  */
-function ActivePenaltiesPanel({
-  penalties,
-  clockMatch,
-  teamName,
-  onEnd,
-  ending,
-}: {
-  penalties: any[];
-  clockMatch: any;
-  teamName: (teamId: string) => string;
-  onEnd: (id: string) => void;
-  ending: boolean;
-}) {
-  return (
-    <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
-      <p className="text-xs font-medium text-destructive">Sanciones activas ahora mismo</p>
-      <div className="space-y-1">
-        {penalties.map((p: any) => (
-          <ActivePenaltyRow
-            key={p.id}
-            penalty={p}
-            clockMatch={clockMatch}
-            teamName={teamName}
-            onEnd={onEnd}
-            ending={ending}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Una fila del panel de sanciones activas. No se muestra si ya se cumplió o ya fue terminada. */
-function ActivePenaltyRow({
+/**
+ * "Penalty box" estilo Legends: dorsal grande + timer corriendo, atada al
+ * reloj principal (se pausa/reanuda con él, cruza de período si hace falta).
+ * No se muestra si ya se cumplió o si un árbitro ya la terminó (ended_early).
+ */
+function PenaltyBox({
   penalty,
   clockMatch,
   teamName,
@@ -1108,23 +1112,25 @@ function ActivePenaltyRow({
   const remaining = usePenaltyClock(clockMatch, penalty);
   if (!remaining) return null;
   return (
-    <div className="flex items-center justify-between gap-2 text-sm bg-background rounded p-2">
-      <div className="min-w-0">
-        <span className="font-medium">{teamName(penalty.team_id)}</span>
-        {" — "}
-        {penalty.player?.jersey_number ? `#${penalty.player.jersey_number} ` : ""}
-        {penalty.player?.first_name} {penalty.player?.last_name}
-        <span className="ml-2 font-display font-bold tabular-nums text-destructive">{remaining}</span>
-      </div>
-      <Button
-        size="sm"
-        variant="outline"
-        className="gap-1 shrink-0 text-destructive border-destructive/40 hover:bg-destructive/10"
+    <div className="relative flex flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-destructive bg-destructive/10 px-3 py-2 lg:px-5 lg:py-4 min-w-[76px] lg:min-w-[110px]">
+      <button
+        type="button"
         onClick={() => onEnd(penalty.id)}
         disabled={ending}
+        title="Terminar sanción (p.ej. gol en power play)"
+        className="absolute -top-2 -right-2 flex h-5 w-5 lg:h-6 lg:w-6 items-center justify-center rounded-full bg-destructive text-white text-xs lg:text-sm leading-none shadow disabled:opacity-50"
       >
-        <ShieldOff className="h-3.5 w-3.5" /> Terminar
-      </Button>
+        ×
+      </button>
+      <span className="text-[10px] lg:text-xs font-medium text-destructive truncate max-w-[70px] lg:max-w-[100px]">
+        {teamName(penalty.team_id)}
+      </span>
+      <span className="font-display text-xl lg:text-3xl font-bold text-destructive leading-none">
+        {penalty.player?.jersey_number ? `#${penalty.player.jersey_number}` : "—"}
+      </span>
+      <span className="font-display text-sm lg:text-lg font-bold tabular-nums text-destructive leading-none">
+        {remaining}
+      </span>
     </div>
   );
 }
