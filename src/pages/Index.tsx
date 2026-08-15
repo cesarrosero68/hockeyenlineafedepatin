@@ -84,7 +84,7 @@ export default function Index() {
       });
     },
     staleTime: 10_000,
-    refetchInterval: 15_000,
+    refetchInterval: 3_000,
   });
 
   return (
@@ -285,9 +285,9 @@ function PenaltyTimer({ match, penalty }: { match: any; penalty: any }) {
   const remaining = usePenaltyClock(match, penalty);
   if (!remaining) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-orange-600 dark:text-orange-400 tabular-nums">
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-500 tabular-nums">
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {remaining}
+      Pen: {remaining}
     </span>
   );
 }
