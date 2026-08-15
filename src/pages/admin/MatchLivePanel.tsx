@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Play, Pause, SkipForward, TimerReset } from "lucide-react";
+import { Trash2, Plus, Play, Pause, SkipForward, TimerReset, ShieldOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   elapsedMs,
@@ -19,6 +19,7 @@ import {
   PERIOD_PRESETS,
   remainingMs,
   useMatchClock,
+  usePenaltyClock,
 } from "@/lib/matchClock";
 import { toast } from "@/hooks/use-toast";
 
@@ -455,6 +456,31 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     onError: () => clearMutationTimeout("deletePenalty"),
   });
 
+  // Terminar una sanción antes de tiempo (p.ej. gol en power play): no borra
+  // el registro — lo marca ended_early=true, que hace que penaltyRemainingMs
+  // devuelva null tanto acá como en la página pública, así el timer
+  // desaparece de inmediato en ambos lados sin perder el dato histórico.
+  const endPenaltyMutation = useMutation({
+    mutationFn: async (penId: string) => {
+      await restoreSession({ forceRefresh: true });
+      const { error } = await supabase
+        .from("penalties")
+        .update({ ended_early: true, ended_at: new Date().toISOString() } as any)
+        .eq("id", penId);
+      if (error) throw error;
+    },
+    onMutate: () => startMutationTimeout("endPenalty", () => endPenaltyMutation.reset()),
+    onSuccess: () => {
+      clearMutationTimeout("endPenalty");
+      queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
+      toast({ title: "Sanción terminada" });
+    },
+    onError: (e: Error) => {
+      clearMutationTimeout("endPenalty");
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
   /* ---------------- Match clock ---------------- */
   const clockMatch = matchData as any;
   const clockEnabled = clockMatch ? clockMatch.clock_enabled !== false : true;
@@ -712,6 +738,18 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             </div>
           </div>
         </div>
+
+        {/* Sanciones activas ahora mismo — para terminarlas antes de tiempo (p.ej. gol en
+            power play). No borra el registro: lo marca ended_early=true. */}
+        {penalties.length > 0 && (
+          <ActivePenaltiesPanel
+            penalties={penalties}
+            clockMatch={clockMatch}
+            teamName={teamName}
+            onEnd={(id) => endPenaltyMutation.mutate(id)}
+            ending={endPenaltyMutation.isPending}
+          />
+        )}
 
         <Tabs defaultValue="goals" className="mt-4">
           <TabsList className="w-full">
@@ -1012,5 +1050,81 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * Panel con las sanciones que están corriendo ahora mismo (según el mismo
+ * cálculo penaltyRemainingMs que usa la página pública), con un botón para
+ * terminarlas antes de tiempo. Solo muestra las que todavía tienen tiempo
+ * restante — una sanción que ya se cumplió sola desaparece de esta lista.
+ */
+function ActivePenaltiesPanel({
+  penalties,
+  clockMatch,
+  teamName,
+  onEnd,
+  ending,
+}: {
+  penalties: any[];
+  clockMatch: any;
+  teamName: (teamId: string) => string;
+  onEnd: (id: string) => void;
+  ending: boolean;
+}) {
+  return (
+    <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+      <p className="text-xs font-medium text-destructive">Sanciones activas ahora mismo</p>
+      <div className="space-y-1">
+        {penalties.map((p: any) => (
+          <ActivePenaltyRow
+            key={p.id}
+            penalty={p}
+            clockMatch={clockMatch}
+            teamName={teamName}
+            onEnd={onEnd}
+            ending={ending}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Una fila del panel de sanciones activas. No se muestra si ya se cumplió o ya fue terminada. */
+function ActivePenaltyRow({
+  penalty,
+  clockMatch,
+  teamName,
+  onEnd,
+  ending,
+}: {
+  penalty: any;
+  clockMatch: any;
+  teamName: (teamId: string) => string;
+  onEnd: (id: string) => void;
+  ending: boolean;
+}) {
+  const remaining = usePenaltyClock(clockMatch, penalty);
+  if (!remaining) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm bg-background rounded p-2">
+      <div className="min-w-0">
+        <span className="font-medium">{teamName(penalty.team_id)}</span>
+        {" — "}
+        {penalty.player?.jersey_number ? `#${penalty.player.jersey_number} ` : ""}
+        {penalty.player?.first_name} {penalty.player?.last_name}
+        <span className="ml-2 font-display font-bold tabular-nums text-destructive">{remaining}</span>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1 shrink-0 text-destructive border-destructive/40 hover:bg-destructive/10"
+        onClick={() => onEnd(penalty.id)}
+        disabled={ending}
+      >
+        <ShieldOff className="h-3.5 w-3.5" /> Terminar
+      </Button>
+    </div>
   );
 }
