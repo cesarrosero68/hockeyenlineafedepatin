@@ -108,6 +108,8 @@ export interface PenaltyClockFields {
   penalty_minutes: number;
   /** Período del partido en que se registró la sanción (columna period). */
   period: number;
+  /** True si un árbitro la dio por terminada antes de tiempo (p.ej. gol en power play). Columna ended_early. */
+  ended_early?: boolean | null;
 }
 
 /**
@@ -130,6 +132,7 @@ export function penaltyRemainingMs(
   penalty: PenaltyClockFields,
   now: number = Date.now(),
 ): number | null {
+  if (penalty.ended_early) return null;
   const remainingAtPenaltyMs = parseMmSsToMs(penalty.penalty_time);
   if (remainingAtPenaltyMs == null) return null;
   const totalPenaltyMs = Math.max(0, penalty.penalty_minutes) * 60_000;
