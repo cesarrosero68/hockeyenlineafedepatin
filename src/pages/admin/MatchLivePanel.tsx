@@ -664,6 +664,8 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   penalty={p}
                   clockMatch={clockMatch}
                   teamName={teamName}
+                  isHome={p.team_id === homeTeam?.team_id}
+                  clockRunning={clockRunning}
                   onEnd={(id) => endPenaltyMutation.mutate(id)}
                   ending={endPenaltyMutation.isPending}
                 />
@@ -779,6 +781,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             forceMount
             className="space-y-4 mt-4 lg:mt-0 data-[state=inactive]:hidden lg:data-[state=inactive]:block"
           >
+            <h3 className="hidden lg:block text-sm font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-2">
+              ⚽ Goles
+            </h3>
             <div className="space-y-3 p-3 lg:p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -918,6 +923,9 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             forceMount
             className="space-y-4 mt-4 lg:mt-0 data-[state=inactive]:hidden lg:data-[state=inactive]:block"
           >
+            <h3 className="hidden lg:block text-sm font-bold uppercase tracking-wide text-red-700 dark:text-red-400 mb-2">
+              🚫 Sanciones
+            </h3>
             <div className="space-y-3 p-3 lg:p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -1100,35 +1108,60 @@ function PenaltyBox({
   penalty,
   clockMatch,
   teamName,
+  isHome,
+  clockRunning,
   onEnd,
   ending,
 }: {
   penalty: any;
   clockMatch: any;
   teamName: (teamId: string) => string;
+  isHome: boolean;
+  clockRunning: boolean;
   onEnd: (id: string) => void;
   ending: boolean;
 }) {
   const remaining = usePenaltyClock(clockMatch, penalty);
   if (!remaining) return null;
+  // Local en amarillo/dorado, visitante en rojo oscuro — para distinguir de un
+  // vistazo de qué lado viene cada sanción cuando hay varias a la vez.
+  const palette = isHome
+    ? {
+        border: "border-amber-500",
+        bg: "bg-amber-50 dark:bg-amber-950/40",
+        text: "text-amber-700 dark:text-amber-400",
+        badge: "bg-amber-500",
+      }
+    : {
+        border: "border-red-800",
+        bg: "bg-red-50 dark:bg-red-950/40",
+        text: "text-red-800 dark:text-red-400",
+        badge: "bg-red-800",
+      };
+  // Terminar la sanción a mano exige el mismo estado que ya se necesita para
+  // registrar goles/sanciones: reloj pausado. Así el momento real ("hubo un
+  // gol, se pausa, se corrige lo que haga falta") es el único en que se puede tocar.
+  const canEnd = !clockRunning;
   return (
-    <div className="relative flex flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-destructive bg-destructive/10 px-3 py-2 lg:px-5 lg:py-4 min-w-[76px] lg:min-w-[110px]">
+    <div
+      className={`relative flex flex-col items-center justify-center gap-0.5 rounded-lg border-2 ${palette.border} ${palette.bg} px-3 py-2 lg:px-5 lg:py-4 min-w-[76px] lg:min-w-[110px]`}
+    >
       <button
         type="button"
-        onClick={() => onEnd(penalty.id)}
-        disabled={ending}
-        title="Terminar sanción (p.ej. gol en power play)"
-        className="absolute -top-2 -right-2 flex h-5 w-5 lg:h-6 lg:w-6 items-center justify-center rounded-full bg-destructive text-white text-xs lg:text-sm leading-none shadow disabled:opacity-50"
+        onClick={() => canEnd && onEnd(penalty.id)}
+        disabled={!canEnd || ending}
+        title={canEnd ? "Terminar sanción (p.ej. gol en power play)" : "Pausá el reloj para terminar la sanción"}
+        className={`absolute -top-2 -right-2 flex h-5 w-5 lg:h-6 lg:w-6 items-center justify-center rounded-full text-white text-xs lg:text-sm leading-none shadow disabled:opacity-40 disabled:cursor-not-allowed ${palette.badge}`}
       >
         ×
       </button>
-      <span className="text-[10px] lg:text-xs font-medium text-destructive truncate max-w-[70px] lg:max-w-[100px]">
+      <span className={`text-xs lg:text-sm font-semibold ${palette.text} truncate max-w-[70px] lg:max-w-[100px]`}>
         {teamName(penalty.team_id)}
       </span>
-      <span className="font-display text-xl lg:text-3xl font-bold text-destructive leading-none">
+      <span className={`font-display text-base lg:text-xl font-bold ${palette.text} leading-none`}>
         {penalty.player?.jersey_number ? `#${penalty.player.jersey_number}` : "—"}
       </span>
-      <span className="font-display text-sm lg:text-lg font-bold tabular-nums text-destructive leading-none">
+      <span className={`font-display text-sm lg:text-lg font-bold tabular-nums ${palette.text} leading-none`}>
         {remaining}
       </span>
     </div>
