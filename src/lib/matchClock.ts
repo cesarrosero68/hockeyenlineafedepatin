@@ -106,15 +106,23 @@ export interface PenaltyClockFields {
   penalty_time: string | null;
   /** Duración de la sanción en minutos, p.ej. 1.5 para 1:30 (columna penalty_minutes). */
   penalty_minutes: number;
+  /** Período del partido en que se registró la sanción (columna period). */
+  period: number;
 }
 
 /**
  * Milisegundos restantes de una sanción, atada al reloj del partido (no a un
- * reloj propio): se pausa y reanuda junto con el reloj principal, y sigue
- * contando sin importar si cambia el período. Se ancla al elapsedMs() del
- * partido en el instante en que se registró la sanción — reconstruido a
- * partir de penalty_time, que guarda el tiempo restante del período en ese
- * momento — y resta la diferencia contra el elapsedMs() actual.
+ * reloj propio): se pausa y reanuda junto con el reloj principal.
+ *
+ * Si la sanción se registró en el período que está corriendo ahora mismo, se
+ * ancla directamente contra elapsedMs() de ese período. Si ya se cambió de
+ * período (con "Siguiente período" en Admin, que reinicia elapsedMs a 0),
+ * el tiempo que le quedaba a la sanción se congela en el instante exacto en
+ * que terminó su período de origen, y desde ahí se sigue descontando con el
+ * elapsedMs() del período nuevo — así la sanción "cruza" el cambio de
+ * período con el tiempo correcto, en vez de recalcularse contra un reloj
+ * que ya no tiene relación con el momento en que se puso.
+ *
  * Devuelve null si no se puede calcular (falta penalty_time o el partido).
  */
 export function penaltyRemainingMs(
@@ -124,18 +132,40 @@ export function penaltyRemainingMs(
 ): number | null {
   const remainingAtPenaltyMs = parseMmSsToMs(penalty.penalty_time);
   if (remainingAtPenaltyMs == null) return null;
-  const elapsedAtPenalty = periodMs(match) - remainingAtPenaltyMs;
-  const elapsedSincePenalty = elapsedMs(match, now) - elapsedAtPenalty;
   const totalPenaltyMs = Math.max(0, penalty.penalty_minutes) * 60_000;
-  return Math.max(0, totalPenaltyMs - elapsedSincePenalty);
+  const currentPeriod = match.current_period ?? 1;
+
+  if (penalty.period === currentPeriod) {
+    // Mismo período: ancla directa contra el reloj actual.
+    const elapsedAtPenalty = periodMs(match) - remainingAtPenaltyMs;
+    const elapsedSincePenalty = elapsedMs(match, now) - elapsedAtPenalty;
+    return Math.max(0, totalPenaltyMs - elapsedSincePenalty);
+  }
+
+  if (penalty.period > currentPeriod) {
+    // La sanción es de un período que todavía no llegó (no debería pasar,
+    // pero por seguridad no se muestra).
+    return null;
+  }
+
+  // Ya se cambió de período desde que se puso la sanción. El período viejo
+  // terminó cuando su reloj llegó a 0 — y la sanción corrió en paralelo esa
+  // misma distancia de tiempo (remainingAtPenaltyMs) antes de que el período
+  // se acabara, topada por su propia duración si terminaba antes. Desde ahí
+  // se sigue descontando con el reloj del período actual.
+  const ranBeforePeriodEnded = Math.min(remainingAtPenaltyMs, totalPenaltyMs);
+  const remainingWhenPeriodEnded = Math.max(0, totalPenaltyMs - ranBeforePeriodEnded);
+  const elapsedInNewPeriod = elapsedMs(match, now);
+  return Math.max(0, remainingWhenPeriodEnded - elapsedInNewPeriod);
 }
 
 /**
  * Cuenta regresiva mm:ss de una sanción activa, ligada al reloj del partido.
  * Re-renderiza cada segundo solo mientras el reloj del partido está corriendo
  * (mismo patrón liviano que useMatchClock) — se congela junto con el reloj
- * si se pausa, y no agrega ninguna consulta de red. Devuelve null cuando la
- * sanción ya se cumplió (debe dejar de mostrarse) o no se puede calcular.
+ * si se pausa o si el partido está en el descanso entre períodos, y no
+ * agrega ninguna consulta de red. Devuelve null cuando la sanción ya se
+ * cumplió (debe dejar de mostrarse) o no se puede calcular.
  */
 export function usePenaltyClock(
   match: MatchClockFields | null | undefined,
