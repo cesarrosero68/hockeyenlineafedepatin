@@ -48,7 +48,7 @@ export default function Index() {
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
           match_teams(side, score_regular, teams!inner(id, name, logo_url)),
-          penalties(id, team_id, penalty_time, penalty_minutes, created_at)
+          penalties(id, team_id, penalty_time, penalty_minutes, period, created_at)
         `)
         .eq("tournament_id", viewedTournamentId as string)
         .eq("status", "in_progress")
@@ -79,6 +79,7 @@ export default function Index() {
             team_id: string;
             penalty_time: string | null;
             penalty_minutes: number;
+            period: number;
           }[],
         };
       });
@@ -241,7 +242,7 @@ function LiveMatchCard({ match }: { match: any }) {
               }
             >
               <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-              {match.clock_enabled && liveClock
+              {match.clock_enabled && clockRunning && liveClock
                 ? `EN VIVO · ${periodShort(match.current_period)} · ${liveClock}`
                 : "EN VIVO"}
             </Badge>
