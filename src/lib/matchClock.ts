@@ -72,7 +72,11 @@ export function isClockRunning(match: MatchClockFields | null | undefined): bool
 
 /** True when the clock feature is on and it has been started at least once. */
 export function hasClockData(match: MatchClockFields | null | undefined): boolean {
-  return !!match && match.clock_enabled !== false && (!!match.clock_started_at || (match.clock_offset_ms ?? 0) > 0);
+  // clock_enabled=true ya es suficiente: incluso con clock_offset_ms en 0 y
+  // clock_started_at en null (recién cambiado de período, todavía sin
+  // arrancar), el público debe ver el tiempo completo del período que viene
+  // ("P2 · 12:00") en vez de que el reloj desaparezca del badge.
+  return !!match && match.clock_enabled !== false;
 }
 
 /** Cuenta regresiva mm:ss del período. Devuelve null cuando no hay nada en vivo que mostrar. */
