@@ -242,7 +242,7 @@ function LiveMatchCard({ match }: { match: any }) {
               }
             >
               <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-              {match.clock_enabled && clockRunning && liveClock
+              {match.clock_enabled && liveClock
                 ? `EN VIVO · ${periodShort(match.current_period)} · ${liveClock}`
                 : "EN VIVO"}
             </Badge>
