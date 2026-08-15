@@ -48,7 +48,7 @@ export default function Index() {
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
           match_teams(side, score_regular, teams!inner(id, name, logo_url)),
-          penalties(id, team_id, penalty_time, penalty_minutes, period, created_at)
+          penalties(id, team_id, penalty_time, penalty_minutes, period, ended_early, created_at, player:players!penalties_player_id_fkey(jersey_number))
         `)
         .eq("tournament_id", viewedTournamentId as string)
         .eq("status", "in_progress")
@@ -80,6 +80,8 @@ export default function Index() {
             penalty_time: string | null;
             penalty_minutes: number;
             period: number;
+            ended_early?: boolean | null;
+            player?: { jersey_number: number | null } | null;
           }[],
         };
       });
@@ -108,7 +110,13 @@ export default function Index() {
             <Radio className="h-6 w-6 text-primary animate-pulse" />
             En Vivo
           </h2>
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div
+            className={
+              liveMatches.length === 1
+                ? "grid grid-cols-1 max-w-md mx-auto"
+                : "grid sm:grid-cols-2 gap-3"
+            }
+          >
             {liveMatches.map((m) => (
               <LiveMatchCard key={m.id} match={m} />
             ))}
@@ -288,7 +296,7 @@ function PenaltyTimer({ match, penalty }: { match: any; penalty: any }) {
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-500 tabular-nums">
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      Pen: {remaining}
+      Pen: {penalty.player?.jersey_number ? `#${penalty.player.jersey_number} · ` : ""}{remaining}
     </span>
   );
 }
