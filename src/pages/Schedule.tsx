@@ -113,7 +113,7 @@ export default function Schedule() {
           id, match_date, status, phase, round_number, venue, category_id,
           clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories!inner(name, division_id, divisions!inner(id, name)),
-          match_teams(side, score_regular, teams!inner(id, name))
+          match_teams(side, score_regular, teams!inner(id, name, logo_url, clubs(logo_url)))
         `)
         .order("match_date", { ascending: true });
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
@@ -139,6 +139,8 @@ export default function Schedule() {
           away_team_id: away?.teams?.id ?? null,
           home_score: home?.score_regular ?? null,
           away_score: away?.score_regular ?? null,
+          home_logo: home?.teams?.logo_url ?? home?.teams?.clubs?.logo_url ?? null,
+          away_logo: away?.teams?.logo_url ?? away?.teams?.clubs?.logo_url ?? null,
           clock_enabled: m.clock_enabled,
           clock_started_at: m.clock_started_at,
           clock_offset_ms: m.clock_offset_ms,
