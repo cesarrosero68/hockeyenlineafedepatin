@@ -31,6 +31,8 @@ interface MatchWithDetails {
   away_team_id: string | null;
   home_score: number | null;
   away_score: number | null;
+  home_logo: string | null;
+  away_logo: string | null;
   clock_enabled?: boolean | null;
   clock_started_at?: string | null;
   clock_offset_ms?: number | null;
