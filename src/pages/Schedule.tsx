@@ -414,7 +414,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
           <div className="mt-3 flex items-center justify-center gap-4 text-center">
             <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-sm sm:text-base min-w-0">
               {match.home_logo && (
-                <img src={match.home_logo} alt={match.home_team ?? "Equipo local"} loading="lazy" className="h-7 w-7 object-contain shrink-0" />
+                <img src={match.home_logo} alt={match.home_team ?? "Equipo local"} loading="lazy" className="h-10 w-10 object-contain shrink-0" />
               )}
               <span className="truncate">{match.home_team ?? "Por definir"}</span>
             </span>
@@ -432,7 +432,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
             <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm sm:text-base min-w-0">
               <span className="truncate">{match.away_team ?? "Por definir"}</span>
               {match.away_logo && (
-                <img src={match.away_logo} alt={match.away_team ?? "Equipo visitante"} loading="lazy" className="h-7 w-7 object-contain shrink-0" />
+                <img src={match.away_logo} alt={match.away_team ?? "Equipo visitante"} loading="lazy" className="h-10 w-10 object-contain shrink-0" />
               )}
             </span>
           </div>
