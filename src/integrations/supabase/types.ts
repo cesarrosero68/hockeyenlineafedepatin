@@ -143,6 +143,222 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_20260809_goal_events: {
+        Row: {
+          assist_player_id: string | null
+          created_at: string | null
+          game_time: string | null
+          id: string | null
+          is_overtime: boolean | null
+          is_shootout: boolean | null
+          match_id: string | null
+          period: number | null
+          scorer_player_id: string | null
+          team_id: string | null
+          tournament_id: string | null
+        }
+        Insert: {
+          assist_player_id?: string | null
+          created_at?: string | null
+          game_time?: string | null
+          id?: string | null
+          is_overtime?: boolean | null
+          is_shootout?: boolean | null
+          match_id?: string | null
+          period?: number | null
+          scorer_player_id?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Update: {
+          assist_player_id?: string | null
+          created_at?: string | null
+          game_time?: string | null
+          id?: string | null
+          is_overtime?: boolean | null
+          is_shootout?: boolean | null
+          match_id?: string | null
+          period?: number | null
+          scorer_player_id?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260809_players: {
+        Row: {
+          created_at: string | null
+          date_of_birth: string | null
+          document_number: string | null
+          first_name: string | null
+          id: string | null
+          jersey_number: number | null
+          last_name: string | null
+          tournament_id: string | null
+          velopro_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260809_rosters: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          jersey_number: number | null
+          player_id: string | null
+          position: string | null
+          season: string | null
+          team_id: string | null
+          tournament_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          player_id?: string | null
+          position?: string | null
+          season?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          player_id?: string | null
+          position?: string | null
+          season?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260809b_players: {
+        Row: {
+          created_at: string | null
+          date_of_birth: string | null
+          document_number: string | null
+          first_name: string | null
+          id: string | null
+          jersey_number: number | null
+          last_name: string | null
+          tournament_id: string | null
+          velopro_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260809b_rosters: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          jersey_number: number | null
+          player_id: string | null
+          position: string | null
+          season: string | null
+          team_id: string | null
+          tournament_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          player_id?: string | null
+          position?: string | null
+          season?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          player_id?: string | null
+          position?: string | null
+          season?: string | null
+          team_id?: string | null
+          tournament_id?: string | null
+        }
+        Relationships: []
+      }
+      backup_20260810_players: {
+        Row: {
+          created_at: string | null
+          date_of_birth: string | null
+          document_number: string | null
+          first_name: string | null
+          id: string | null
+          jersey_number: number | null
+          last_name: string | null
+          tournament_id: string | null
+          velopro_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date_of_birth?: string | null
+          document_number?: string | null
+          first_name?: string | null
+          id?: string | null
+          jersey_number?: number | null
+          last_name?: string | null
+          tournament_id?: string | null
+          velopro_number?: string | null
+        }
+        Relationships: []
+      }
       brackets: {
         Row: {
           category_id: string
@@ -700,6 +916,7 @@ export type Database = {
       }
       matches: {
         Row: {
+          away_timeouts_used: number
           category_id: string
           clock_enabled: boolean
           clock_offset_ms: number
@@ -707,9 +924,11 @@ export type Database = {
           created_at: string
           current_period: number
           extra_time: Database["public"]["Enums"]["extra_time_type"]
+          home_timeouts_used: number
           id: string
           match_date: string | null
           notes: string | null
+          period_minutes: number
           phase: Database["public"]["Enums"]["match_phase"]
           round_number: number | null
           status: Database["public"]["Enums"]["match_status"]
@@ -718,6 +937,7 @@ export type Database = {
           venue: string | null
         }
         Insert: {
+          away_timeouts_used?: number
           category_id: string
           clock_enabled?: boolean
           clock_offset_ms?: number
@@ -725,9 +945,11 @@ export type Database = {
           created_at?: string
           current_period?: number
           extra_time?: Database["public"]["Enums"]["extra_time_type"]
+          home_timeouts_used?: number
           id?: string
           match_date?: string | null
           notes?: string | null
+          period_minutes?: number
           phase?: Database["public"]["Enums"]["match_phase"]
           round_number?: number | null
           status?: Database["public"]["Enums"]["match_status"]
@@ -736,6 +958,7 @@ export type Database = {
           venue?: string | null
         }
         Update: {
+          away_timeouts_used?: number
           category_id?: string
           clock_enabled?: boolean
           clock_offset_ms?: number
@@ -743,9 +966,11 @@ export type Database = {
           created_at?: string
           current_period?: number
           extra_time?: Database["public"]["Enums"]["extra_time_type"]
+          home_timeouts_used?: number
           id?: string
           match_date?: string | null
           notes?: string | null
+          period_minutes?: number
           phase?: Database["public"]["Enums"]["match_phase"]
           round_number?: number | null
           status?: Database["public"]["Enums"]["match_status"]
@@ -811,6 +1036,8 @@ export type Database = {
       penalties: {
         Row: {
           created_at: string
+          ended_at: string | null
+          ended_early: boolean
           game_time: string | null
           id: string
           match_id: string
@@ -825,6 +1052,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          ended_at?: string | null
+          ended_early?: boolean
           game_time?: string | null
           id?: string
           match_id: string
@@ -839,6 +1068,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          ended_at?: string | null
+          ended_early?: boolean
           game_time?: string | null
           id?: string
           match_id?: string

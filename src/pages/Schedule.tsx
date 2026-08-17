@@ -31,6 +31,8 @@ interface MatchWithDetails {
   away_team_id: string | null;
   home_score: number | null;
   away_score: number | null;
+  home_logo: string | null;
+  away_logo: string | null;
   clock_enabled?: boolean | null;
   clock_started_at?: string | null;
   clock_offset_ms?: number | null;
@@ -111,7 +113,7 @@ export default function Schedule() {
           id, match_date, status, phase, round_number, venue, category_id,
           clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories!inner(name, division_id, divisions!inner(id, name)),
-          match_teams(side, score_regular, teams!inner(id, name))
+          match_teams(side, score_regular, teams!inner(id, name, logo_url, clubs(logo_url)))
         `)
         .order("match_date", { ascending: true });
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
@@ -137,6 +139,8 @@ export default function Schedule() {
           away_team_id: away?.teams?.id ?? null,
           home_score: home?.score_regular ?? null,
           away_score: away?.score_regular ?? null,
+          home_logo: home?.teams?.logo_url ?? home?.teams?.clubs?.logo_url ?? null,
+          away_logo: away?.teams?.logo_url ?? away?.teams?.clubs?.logo_url ?? null,
           clock_enabled: m.clock_enabled,
           clock_started_at: m.clock_started_at,
           clock_offset_ms: m.clock_offset_ms,
@@ -408,8 +412,11 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
           </div>
 
           <div className="mt-3 flex items-center justify-center gap-4 text-center">
-            <span className="flex-1 text-right font-semibold text-sm sm:text-base truncate">
-              {match.home_team ?? "Por definir"}
+            <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-sm sm:text-base min-w-0">
+              {match.home_logo && (
+                <img src={match.home_logo} alt={match.home_team ?? "Equipo local"} loading="lazy" className="h-7 w-7 object-contain shrink-0" />
+              )}
+              <span className="truncate">{match.home_team ?? "Por definir"}</span>
             </span>
             <div className="flex items-center gap-1 font-display font-bold text-lg min-w-[60px] justify-center">
               {match.status === "closed" || match.status === "in_progress" || match.status === "locked" ? (
@@ -422,8 +429,11 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
                 <span className="text-muted-foreground text-sm">vs</span>
               )}
             </div>
-            <span className="flex-1 text-left font-semibold text-sm sm:text-base truncate">
-              {match.away_team ?? "Por definir"}
+            <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm sm:text-base min-w-0">
+              <span className="truncate">{match.away_team ?? "Por definir"}</span>
+              {match.away_logo && (
+                <img src={match.away_logo} alt={match.away_team ?? "Equipo visitante"} loading="lazy" className="h-7 w-7 object-contain shrink-0" />
+              )}
             </span>
           </div>
 
