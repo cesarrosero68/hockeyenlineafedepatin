@@ -412,8 +412,11 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
           </div>
 
           <div className="mt-3 flex items-center justify-center gap-4 text-center">
-            <span className="flex-1 text-right font-semibold text-sm sm:text-base truncate">
-              {match.home_team ?? "Por definir"}
+            <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-sm sm:text-base min-w-0">
+              {match.home_logo && (
+                <img src={match.home_logo} alt={match.home_team ?? "Equipo local"} loading="lazy" className="h-7 w-7 object-contain shrink-0" />
+              )}
+              <span className="truncate">{match.home_team ?? "Por definir"}</span>
             </span>
             <div className="flex items-center gap-1 font-display font-bold text-lg min-w-[60px] justify-center">
               {match.status === "closed" || match.status === "in_progress" || match.status === "locked" ? (
@@ -426,8 +429,11 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
                 <span className="text-muted-foreground text-sm">vs</span>
               )}
             </div>
-            <span className="flex-1 text-left font-semibold text-sm sm:text-base truncate">
-              {match.away_team ?? "Por definir"}
+            <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm sm:text-base min-w-0">
+              <span className="truncate">{match.away_team ?? "Por definir"}</span>
+              {match.away_logo && (
+                <img src={match.away_logo} alt={match.away_team ?? "Equipo visitante"} loading="lazy" className="h-7 w-7 object-contain shrink-0" />
+              )}
             </span>
           </div>
 
