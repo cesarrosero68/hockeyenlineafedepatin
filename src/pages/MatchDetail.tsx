@@ -209,9 +209,18 @@ export default function MatchDetail() {
       <Card>
         <CardContent className="py-8">
           <div className="flex items-center justify-center gap-6 text-center">
-            <div className="flex-1 text-right space-y-1">
-              <p className="text-xl sm:text-2xl font-display font-bold">{homeTeam?.teams?.name ?? "Por definir"}</p>
-              <p className="text-xs text-muted-foreground">Local</p>
+            <div className="flex-1 flex items-center justify-end gap-3 space-y-1">
+              <div className="space-y-1">
+                <p className="text-xl sm:text-2xl font-display font-bold">{homeTeam?.teams?.name ?? "Por definir"}</p>
+                <p className="text-xs text-muted-foreground">Local</p>
+              </div>
+              {homeTeam?.teams?.logo_url && (
+                <img
+                  src={homeTeam.teams.logo_url}
+                  alt=""
+                  className="h-12 w-12 rounded-full object-cover border shrink-0"
+                />
+              )}
             </div>
             <div className="flex items-center gap-2 font-display font-bold text-4xl min-w-[100px] justify-center">
               {m.status === "closed" || m.status === "in_progress" || m.status === "locked" ? (
@@ -224,9 +233,18 @@ export default function MatchDetail() {
                 <span className="text-muted-foreground text-2xl">vs</span>
               )}
             </div>
-            <div className="flex-1 text-left space-y-1">
-              <p className="text-xl sm:text-2xl font-display font-bold">{awayTeam?.teams?.name ?? "Por definir"}</p>
-              <p className="text-xs text-muted-foreground">Visitante</p>
+            <div className="flex-1 flex items-center justify-start gap-3 space-y-1">
+              {awayTeam?.teams?.logo_url && (
+                <img
+                  src={awayTeam.teams.logo_url}
+                  alt=""
+                  className="h-12 w-12 rounded-full object-cover border shrink-0"
+                />
+              )}
+              <div className="space-y-1">
+                <p className="text-xl sm:text-2xl font-display font-bold">{awayTeam?.teams?.name ?? "Por definir"}</p>
+                <p className="text-xs text-muted-foreground">Visitante</p>
+              </div>
             </div>
           </div>
 
