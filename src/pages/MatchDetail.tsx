@@ -214,9 +214,9 @@ export default function MatchDetail() {
                 <p className="text-xl sm:text-2xl font-display font-bold">{homeTeam?.teams?.name ?? "Por definir"}</p>
                 <p className="text-xs text-muted-foreground">Local</p>
               </div>
-              {homeTeam?.teams?.logo_url && (
+              {(homeTeam?.teams?.logo_url || homeTeam?.teams?.clubs?.logo_url) && (
                 <img
-                  src={homeTeam.teams.logo_url}
+                  src={homeTeam?.teams?.logo_url || homeTeam?.teams?.clubs?.logo_url}
                   alt=""
                   className="h-12 w-12 rounded-full object-cover border shrink-0"
                 />
