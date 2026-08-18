@@ -36,7 +36,7 @@ export default function MatchDetail() {
           id, match_date, status, phase, round_number, venue, notes, extra_time,
           clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories!inner(name, divisions!inner(name)),
-          match_teams(side, score_regular, score_extra, is_winner, is_forfeit, team_id, teams!inner(id, name, logo_url))
+          match_teams(side, score_regular, score_extra, is_winner, is_forfeit, team_id, teams!inner(id, name, logo_url, clubs(logo_url)))
         `)
         .eq("id", id!)
         .single();
@@ -214,9 +214,9 @@ export default function MatchDetail() {
                 <p className="text-xl sm:text-2xl font-display font-bold">{homeTeam?.teams?.name ?? "Por definir"}</p>
                 <p className="text-xs text-muted-foreground">Local</p>
               </div>
-              {homeTeam?.teams?.logo_url && (
+              {(homeTeam?.teams?.logo_url || homeTeam?.teams?.clubs?.logo_url) && (
                 <img
-                  src={homeTeam.teams.logo_url}
+                  src={homeTeam?.teams?.logo_url || homeTeam?.teams?.clubs?.logo_url}
                   alt=""
                   className="h-12 w-12 rounded-full object-cover border shrink-0"
                 />
@@ -234,9 +234,9 @@ export default function MatchDetail() {
               )}
             </div>
             <div className="flex-1 flex items-center justify-start gap-3 space-y-1">
-              {awayTeam?.teams?.logo_url && (
+              {(awayTeam?.teams?.logo_url || awayTeam?.teams?.clubs?.logo_url) && (
                 <img
-                  src={awayTeam.teams.logo_url}
+                  src={awayTeam?.teams?.logo_url || awayTeam?.teams?.clubs?.logo_url}
                   alt=""
                   className="h-12 w-12 rounded-full object-cover border shrink-0"
                 />
