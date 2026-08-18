@@ -234,9 +234,9 @@ export default function MatchDetail() {
               )}
             </div>
             <div className="flex-1 flex items-center justify-start gap-3 space-y-1">
-              {awayTeam?.teams?.logo_url && (
+              {(awayTeam?.teams?.logo_url || awayTeam?.teams?.clubs?.logo_url) && (
                 <img
-                  src={awayTeam.teams.logo_url}
+                  src={awayTeam?.teams?.logo_url || awayTeam?.teams?.clubs?.logo_url}
                   alt=""
                   className="h-12 w-12 rounded-full object-cover border shrink-0"
                 />
