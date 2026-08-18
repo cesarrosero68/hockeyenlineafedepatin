@@ -230,18 +230,18 @@ export default function MatchDetail() {
             </div>
           </div>
 
-          {(liveClock || m.status === "in_progress") && (
+          {m.status === "in_progress" && (
             <div className="mt-6 flex justify-center">
               {m.clock_enabled !== false && liveClock ? (
                 <div className="flex items-center gap-3 rounded-full border bg-muted/50 px-4 py-1.5">
                   <span className="text-sm font-medium">{periodLabel(m.current_period)}</span>
                   <span className="font-display text-xl font-bold tabular-nums">{liveClock}</span>
                 </div>
-              ) : m.status === "in_progress" ? (
+              ) : (
                 <div className="rounded-full border bg-muted/50 px-4 py-1.5 text-sm font-medium">
                   {periodLabel(m.current_period)}
                 </div>
-              ) : null}
+              )}
             </div>
           )}
         </CardContent>
