@@ -675,8 +675,13 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
           <div className="flex flex-wrap gap-2 lg:gap-3">
             {clockRunning ? (
-              <Button size="sm" variant="outline" className="gap-1 lg:h-11 lg:px-5 lg:text-base" onClick={pauseClock} disabled={!clockEnabled || updateClock.isPending}>
-                <Pause className="h-4 w-4" /> Pausar
+              <Button
+                size="sm"
+                className="gap-1.5 lg:h-14 lg:px-8 lg:text-lg font-bold bg-orange-600 hover:bg-orange-700 text-white border-transparent"
+                onClick={pauseClock}
+                disabled={!clockEnabled || updateClock.isPending}
+              >
+                <Pause className="h-5 w-5 lg:h-6 lg:w-6" /> Pausar
               </Button>
             ) : (
               <Button size="sm" className="gap-1 lg:h-11 lg:px-5 lg:text-base" onClick={startClock} disabled={!clockEnabled || updateClock.isPending}>
@@ -739,11 +744,11 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                     key={side}
                     size="sm"
                     variant="outline"
-                    className="justify-between gap-2"
+                    className="justify-between gap-2 lg:h-11"
                     onClick={() => useTimeout(side)}
                     disabled={!clockEnabled || used >= 2 || updateClock.isPending}
                   >
-                    <span className="truncate">{label}</span>
+                    <span className="truncate text-sm lg:text-base font-semibold">{label}</span>
                     <span className="flex items-center gap-1 shrink-0">
                       {[0, 1].map((i) => (
                         <span
@@ -787,7 +792,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             <div className="space-y-3 p-3 lg:p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs lg:text-sm font-medium">Equipo</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Equipo</label>
                   <Select value={goalTeamId} onValueChange={handleGoalTeamChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Equipo" />
@@ -799,7 +804,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs lg:text-sm font-medium">Periodo</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Periodo</label>
                   <Select value={goalPeriod} onValueChange={setGoalPeriod}>
                     <SelectTrigger>
                       <SelectValue />
@@ -815,7 +820,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs lg:text-sm font-medium">Goleador</label>
+                <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Goleador</label>
                 <Select value={goalScorerId} onValueChange={setGoalScorerId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar jugador" />
@@ -831,7 +836,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs lg:text-sm font-medium">Asistencia</label>
+                <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Asistencia</label>
                 <Select value={goalAssistId} onValueChange={setGoalAssistId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar jugador" />
@@ -849,7 +854,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium">Tiempo (mm:ss)</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Tiempo (mm:ss)</label>
                   {clockEnabled && clockMatch && (
                     <button
                       type="button"
@@ -929,7 +934,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             <div className="space-y-3 p-3 lg:p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs lg:text-sm font-medium">Equipo</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Equipo</label>
                   <Select value={penTeamId} onValueChange={handlePenTeamChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Equipo" />
@@ -941,7 +946,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs lg:text-sm font-medium">Periodo</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Periodo</label>
                   <Select value={penPeriod} onValueChange={setPenPeriod}>
                     <SelectTrigger>
                       <SelectValue />
@@ -957,7 +962,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs lg:text-sm font-medium">Jugador</label>
+                <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Jugador</label>
                 <Select value={penPlayerId} onValueChange={setPenPlayerId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar jugador" />
@@ -973,7 +978,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs lg:text-sm font-medium">Tipo de Sanción</label>
+                <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Tipo de Sanción</label>
                 <Select value={penCode} onValueChange={setPenCode}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar sanción" />
@@ -989,7 +994,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium">Tiempo del partido (mm:ss)</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Tiempo del partido (mm:ss)</label>
                   {clockEnabled && clockMatch && (
                     <button
                       type="button"
@@ -1015,7 +1020,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs lg:text-sm font-medium">Duración Sanción</label>
+                  <label className="text-xs lg:text-base font-extrabold underline underline-offset-2">Duración Sanción</label>
                   <Select value={penTimePreset} onValueChange={setPenTimePreset}>
                     <SelectTrigger>
                       <SelectValue />
