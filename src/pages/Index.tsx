@@ -48,7 +48,7 @@ export default function Index() {
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
           match_teams(side, score_regular, teams!inner(id, name, logo_url)),
-          penalties(id, team_id, penalty_time, penalty_minutes, period, ended_early, created_at, player:players!penalties_player_id_fkey(jersey_number))
+          penalties(id, team_id, penalty_code, penalty_time, penalty_minutes, period, ended_early, created_at, player:players!penalties_player_id_fkey(jersey_number))
         `)
         .eq("tournament_id", viewedTournamentId as string)
         .eq("status", "in_progress")
@@ -77,6 +77,7 @@ export default function Index() {
           penalties: (m.penalties ?? []) as {
             id: string;
             team_id: string;
+            penalty_code: string | null;
             penalty_time: string | null;
             penalty_minutes: number;
             period: number;
@@ -113,7 +114,7 @@ export default function Index() {
           <div
             className={
               liveMatches.length === 1
-                ? "grid grid-cols-1 max-w-md mx-auto"
+                ? "grid grid-cols-1 max-w-xl mx-auto"
                 : "grid sm:grid-cols-2 gap-3"
             }
           >
@@ -238,44 +239,44 @@ function LiveMatchCard({ match }: { match: any }) {
   return (
     <Link to={`/match/${match.id}`}>
       <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer border-primary/40">
-        <CardContent className="p-3 sm:p-4">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-center justify-between gap-2">
-            <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
+            <Badge variant="secondary" className="text-sm px-2.5 py-1">{match.category_name}</Badge>
             <Badge
               className={
-                "text-xs gap-1 border-transparent text-white " +
+                "text-sm px-2.5 py-1 gap-1.5 border-transparent text-white " +
                 (match.clock_enabled && clockRunning
                   ? "bg-green-600 hover:bg-green-600"
                   : "bg-orange-500 hover:bg-orange-500")
               }
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-current animate-pulse" />
               {match.clock_enabled && liveClock
                 ? `EN VIVO · ${periodShort(match.current_period)} · ${liveClock}`
                 : "EN VIVO"}
             </Badge>
           </div>
-          <div className="mt-3 flex items-center justify-center gap-3 text-center">
-            <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-sm truncate">
+          <div className="mt-4 flex items-center justify-center gap-4 text-center">
+            <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-lg truncate">
               {match.home_team}
-              {match.home_logo && <img src={match.home_logo} alt="" className="h-6 w-6 rounded-full object-cover" />}
+              {match.home_logo && <img src={match.home_logo} alt="" className="h-9 w-9 rounded-full object-cover" />}
             </span>
-            <div className="font-display font-bold text-lg min-w-[50px] text-center">
+            <div className="font-display font-bold text-3xl min-w-[70px] text-center">
               {match.home_score} - {match.away_score}
             </div>
-            <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm truncate">
-              {match.away_logo && <img src={match.away_logo} alt="" className="h-6 w-6 rounded-full object-cover" />}
+            <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-lg truncate">
+              {match.away_logo && <img src={match.away_logo} alt="" className="h-9 w-9 rounded-full object-cover" />}
               {match.away_team}
             </span>
           </div>
           {(homePenalties.length > 0 || awayPenalties.length > 0) && (
-            <div className="mt-2 flex items-start justify-center gap-3">
+            <div className="mt-3 flex items-start justify-center gap-4">
               <div className="flex-1 flex flex-col items-end gap-1">
                 {homePenalties.map((p: any) => (
                   <PenaltyTimer key={p.id} match={match} penalty={p} />
                 ))}
               </div>
-              <div className="min-w-[50px]" />
+              <div className="min-w-[70px]" />
               <div className="flex-1 flex flex-col items-start gap-1">
                 {awayPenalties.map((p: any) => (
                   <PenaltyTimer key={p.id} match={match} penalty={p} />
@@ -293,10 +294,12 @@ function LiveMatchCard({ match }: { match: any }) {
 function PenaltyTimer({ match, penalty }: { match: any; penalty: any }) {
   const remaining = usePenaltyClock(match, penalty);
   if (!remaining) return null;
+  const jersey = penalty.player?.jersey_number ? `#${penalty.player.jersey_number}` : "";
+  const code = penalty.penalty_code ? ` - ${penalty.penalty_code}` : "";
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-500 tabular-nums">
+    <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-600 dark:text-red-500 tabular-nums">
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      Pen: {penalty.player?.jersey_number ? `#${penalty.player.jersey_number} · ` : ""}{remaining}
+      Pen {jersey}{code}: {remaining}
     </span>
   );
 }
