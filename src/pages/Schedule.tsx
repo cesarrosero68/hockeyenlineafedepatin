@@ -57,11 +57,9 @@ export default function Schedule() {
 
   // Fetch divisions, categories, teams for filters
   const { data: divisions = [] } = useQuery({
-    queryKey: ["filter-divisions", viewedTournamentId],
+    queryKey: ["filter-divisions"],
     queryFn: async () => {
-      let q: any = supabase.from("divisions").select("id, name").order("name");
-      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
-      const { data } = await q;
+      const { data } = await supabase.from("divisions").select("id, name").order("name");
       return data ?? [];
     },
     staleTime: 300_000,
