@@ -265,16 +265,18 @@ useMemo(() => {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-full sm:w-auto min-w-[180px]">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipo</label>
-          <Select value={filterTeam} onValueChange={(v) => { setFilterTeam(v); setSelectedDate(null); }}>
-            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los equipos</SelectItem>
-              {filteredTeams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+        {filterCategory !== "all" && (
+          <div className="w-full sm:w-auto min-w-[180px]">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipo</label>
+            <Select value={filterTeam} onValueChange={(v) => { setFilterTeam(v); setSelectedDate(null); }}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los equipos</SelectItem>
+                {filteredTeams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {filteredMatches.length === 0 ? (
