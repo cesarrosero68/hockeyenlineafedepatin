@@ -68,11 +68,9 @@ export default function Schedule() {
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["filter-categories", viewedTournamentId],
+    queryKey: ["filter-categories"],
     queryFn: async () => {
-      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
-      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
-      const { data } = await q;
+      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
       return data ?? [];
     },
     staleTime: 300_000,
