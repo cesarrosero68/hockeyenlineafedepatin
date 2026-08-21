@@ -517,6 +517,12 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     updateClock.mutate(patch);
   };
 
+  const resetTimeouts = (side: "home" | "away") => {
+    const patch: Record<string, unknown> = {};
+    patch[side === "home" ? "home_timeouts_used" : "away_timeouts_used"] = 0;
+    updateClock.mutate(patch);
+  };
+
   const startClock = () => updateClock.mutate({ clock_started_at: new Date().toISOString() });
   const pauseClock = () =>
     updateClock.mutate({
@@ -740,24 +746,35 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                 const used = side === "home" ? (clockMatch?.home_timeouts_used ?? 0) : (clockMatch?.away_timeouts_used ?? 0);
                 const label = side === "home" ? (homeTeam?.teams?.name ?? "Local") : (awayTeam?.teams?.name ?? "Visitante");
                 return (
-                  <Button
-                    key={side}
-                    size="sm"
-                    variant="outline"
-                    className="justify-between gap-2 lg:h-11"
-                    onClick={() => useTimeout(side)}
-                    disabled={!clockEnabled || used >= 2 || updateClock.isPending}
-                  >
-                    <span className="truncate text-sm lg:text-base font-semibold">{label}</span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      {[0, 1].map((i) => (
-                        <span
-                          key={i}
-                          className={"h-2 w-3.5 rounded-sm " + (i < used ? "bg-primary" : "bg-muted")}
-                        />
-                      ))}
-                    </span>
-                  </Button>
+                  <div key={side} className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="justify-between gap-2 lg:h-11 flex-1 min-w-0"
+                      onClick={() => useTimeout(side)}
+                      disabled={!clockEnabled || used >= 2 || updateClock.isPending}
+                    >
+                      <span className="truncate text-sm lg:text-base font-semibold">{label}</span>
+                      <span className="flex items-center gap-1 shrink-0">
+                        {[0, 1].map((i) => (
+                          <span
+                            key={i}
+                            className={"h-2 w-3.5 rounded-sm " + (i < used ? "bg-primary" : "bg-muted")}
+                          />
+                        ))}
+                      </span>
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 h-8 w-8 lg:h-11 lg:w-11 text-muted-foreground"
+                      onClick={() => resetTimeouts(side)}
+                      disabled={used === 0 || updateClock.isPending}
+                      title={`Restablecer tiempos fuera de ${label}`}
+                    >
+                      <TimerReset className="h-4 w-4" />
+                    </Button>
+                  </div>
                 );
               })}
             </div>
