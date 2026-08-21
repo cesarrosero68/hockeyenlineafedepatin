@@ -48,7 +48,7 @@ export default function Index() {
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
           match_teams(side, score_regular, teams!inner(id, name, logo_url)),
-          penalties(id, team_id, penalty_code, penalty_time, penalty_minutes, period, ended_early, created_at, player:players!penalties_player_id_fkey(jersey_number))
+          penalties(id, team_id, penalty_code, penalty_time, penalty_minutes, period, ended_early, created_at, player:players_public!penalties_player_id_fkey(jersey_number))
         `)
         .eq("tournament_id", viewedTournamentId as string)
         .eq("status", "in_progress")
