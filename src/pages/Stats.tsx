@@ -51,50 +51,56 @@ export default function Stats() {
     staleTime: 5 * 60_000,
   });
 
-  // Fetch all goal_events with match category info for the active division
+  // Fetch all goal_events with match category info for the active division AND active tournament
   const { data: goalEvents = [], isLoading } = useQuery({
-    queryKey: ["goal-events-stats", activeDivisionId],
+    queryKey: ["goal-events-stats", activeDivisionId, viewedTournamentId],
     queryFn: async () => {
       const categoryIds = categories.map((c) => c.id);
       if (categoryIds.length === 0) return [];
 
-      const { data } = await supabase
+      let q: any = supabase
         .from("goal_events")
-        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id, status)")
+        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id, status, tournament_id)")
         .in("matches.category_id", categoryIds);
+      if (viewedTournamentId) q = q.eq("matches.tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     enabled: categories.length > 0,
     staleTime: 2 * 60_000,
   });
 
-  // Fetch match_teams for closed/locked matches in active division to compute goals against
+  // Fetch match_teams for closed/locked matches in active division AND active tournament to compute goals against
   const { data: matchTeamsData = [] } = useQuery({
-    queryKey: ["valla-match-teams", activeDivisionId],
+    queryKey: ["valla-match-teams", activeDivisionId, viewedTournamentId],
     queryFn: async () => {
       const categoryIds = categories.map((c) => c.id);
       if (categoryIds.length === 0) return [];
-      const { data } = await supabase
+      let q: any = supabase
         .from("match_teams")
-        .select("match_id, team_id, matches!inner(category_id, status)")
+        .select("match_id, team_id, matches!inner(category_id, status, tournament_id)")
         .in("matches.category_id", categoryIds)
         .in("matches.status", ["closed", "locked"]);
+      if (viewedTournamentId) q = q.eq("matches.tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     enabled: categories.length > 0,
     staleTime: 2 * 60_000,
   });
 
-  // Fetch teams (with club) for the active division's categories
+  // Fetch teams (with club) for the active division's categories AND active tournament
   const { data: divisionTeams = [] } = useQuery({
-    queryKey: ["valla-teams", activeDivisionId],
+    queryKey: ["valla-teams", activeDivisionId, viewedTournamentId],
     queryFn: async () => {
       const categoryIds = categories.map((c) => c.id);
       if (categoryIds.length === 0) return [];
-      const { data } = await supabase
+      let q: any = supabase
         .from("teams")
         .select("id, name, category_id, clubs(name)")
         .in("category_id", categoryIds);
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     enabled: categories.length > 0,
