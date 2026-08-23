@@ -56,9 +56,9 @@ export default function MatchDetail() {
       const { data } = await supabase
         .from("goal_events")
         .select(`
-          id, period, game_time, is_overtime, is_shootout, team_id,
-          scorer:players_public!goal_events_scorer_player_id_fkey(first_name, last_name, jersey_number),
-          assist:players_public!goal_events_assist_player_id_fkey(first_name, last_name, jersey_number)
+          id, period, game_time, is_overtime, is_shootout, team_id, scorer_player_id, assist_player_id,
+          scorer:players_public!goal_events_scorer_player_id_fkey(first_name, last_name),
+          assist:players_public!goal_events_assist_player_id_fkey(first_name, last_name)
         `)
         .eq("match_id", id!)
         .order("period")
@@ -75,8 +75,8 @@ export default function MatchDetail() {
       const { data } = await supabase
         .from("penalties")
         .select(`
-          id, period, game_time, penalty_code, penalty_description, penalty_minutes, penalty_time, team_id,
-          player:players_public!penalties_player_id_fkey(first_name, last_name, jersey_number)
+          id, period, game_time, penalty_code, penalty_description, penalty_minutes, penalty_time, team_id, player_id,
+          player:players_public!penalties_player_id_fkey(first_name, last_name)
         `)
         .eq("match_id", id!)
         .order("period")
@@ -95,7 +95,7 @@ export default function MatchDetail() {
       const { data } = await supabase
         .from("rosters")
         .select(`
-          id, jersey_number, position, team_id,
+          id, jersey_number, position, team_id, player_id,
           player:players_public!rosters_player_id_fkey(first_name, last_name)
         `)
         .in("team_id", teamIds)
@@ -105,6 +105,15 @@ export default function MatchDetail() {
     enabled: !!homeTeam || !!awayTeam,
     staleTime: 30_000,
   });
+
+  // Edition-correct jersey number: look it up in this match's rosters (team-specific),
+  // never from the global players catalog which can be stale across editions.
+  const jerseyByPlayerTeam = (playerId: string | null | undefined, teamId: string | null | undefined) => {
+    if (!playerId || !rosters) return null;
+    const r = rosters.find((r: any) => r.player_id === playerId && (!teamId || r.team_id === teamId));
+    return r?.jersey_number ?? null;
+  };
+
 
   const liveClock = useMatchClock(match as any);
 
@@ -290,7 +299,7 @@ export default function MatchDetail() {
                     <Badge variant="outline" className="text-xs">{getTeamName(g.team_id)}</Badge>
                     <div>
                       <p className="font-semibold text-sm">
-                        {g.scorer?.jersey_number ? `#${g.scorer.jersey_number} ` : ""}
+                        {jerseyByPlayerTeam(g.scorer_player_id, g.team_id) ? `#${jerseyByPlayerTeam(g.scorer_player_id, g.team_id)} ` : ""}
                         {g.scorer?.first_name} {g.scorer?.last_name}
                       </p>
                       {g.assist && (
@@ -321,7 +330,7 @@ export default function MatchDetail() {
                     <Badge variant="outline" className="text-xs">{getTeamName(p.team_id)}</Badge>
                     <div>
                       <p className="font-semibold text-sm">
-                        {p.player?.jersey_number ? `#${p.player.jersey_number} ` : ""}
+                        {jerseyByPlayerTeam(p.player_id, p.team_id) ? `#${jerseyByPlayerTeam(p.player_id, p.team_id)} ` : ""}
                         {p.player?.first_name} {p.player?.last_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
