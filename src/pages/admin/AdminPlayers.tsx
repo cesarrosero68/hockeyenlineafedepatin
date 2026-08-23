@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Pencil, Trash2, Save, X, Download } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Save, X, Download, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { utils, writeFile } from "xlsx";
 
@@ -37,6 +39,7 @@ export default function AdminPlayers() {
   const [searchRosters, setSearchRosters] = useState("");
   const [searchStaff, setSearchStaff] = useState("");
   const [rosterPlayerId, setRosterPlayerId] = useState("");
+  const [rosterPlayerOpen, setRosterPlayerOpen] = useState(false);
   const [rosterTeamId, setRosterTeamId] = useState("");
   const [staffTeamId, setStaffTeamId] = useState("");
   const [staffFirst, setStaffFirst] = useState("");
@@ -689,10 +692,57 @@ export default function AdminPlayers() {
                   <div className="flex gap-2 items-end flex-wrap">
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Jugador</label>
-                      <Select value={rosterPlayerId} onValueChange={setRosterPlayerId}>
-                        <SelectTrigger className="w-[200px]"><SelectValue placeholder="Seleccionar jugador" /></SelectTrigger>
-                        <SelectContent>{players.map(p => <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <Popover open={rosterPlayerOpen} onOpenChange={setRosterPlayerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={rosterPlayerOpen}
+                            className="w-[220px] justify-between font-normal"
+                          >
+                            <span className="truncate">
+                              {rosterPlayerId
+                                ? (() => {
+                                    const sel = players.find((p: any) => p.id === rosterPlayerId);
+                                    return sel ? `${sel.first_name} ${sel.last_name}` : "Seleccionar jugador";
+                                  })()
+                                : "Seleccionar jugador"}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0">
+                          <Command
+                            filter={(value, search) => {
+                              const target = norm(value);
+                              const query = norm(search);
+                              return target.includes(query) ? 1 : 0;
+                            }}
+                          >
+                            <CommandInput placeholder="Buscar jugador…" />
+                            <CommandList>
+                              <CommandEmpty>Sin resultados.</CommandEmpty>
+                              <CommandGroup>
+                                {players.map((p: any) => (
+                                  <CommandItem
+                                    key={p.id}
+                                    value={`${p.first_name} ${p.last_name} ${p.velopro_number ?? ""} ${p.document_number ?? ""}`}
+                                    onSelect={() => {
+                                      setRosterPlayerId(p.id);
+                                      setRosterPlayerOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 ${rosterPlayerId === p.id ? "opacity-100" : "opacity-0"}`}
+                                    />
+                                    {p.first_name} {p.last_name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Equipo</label>
