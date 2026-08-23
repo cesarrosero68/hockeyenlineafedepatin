@@ -48,7 +48,7 @@ export default function Index() {
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
           match_teams(side, score_regular, teams!inner(id, name, logo_url)),
-          penalties(id, team_id, penalty_code, penalty_time, penalty_minutes, period, ended_early, created_at, player:players_public!penalties_player_id_fkey(jersey_number))
+          penalties(id, team_id, penalty_code, penalty_time, penalty_minutes, period, ended_early, created_at, player_id)
         `)
         .eq("tournament_id", viewedTournamentId as string)
         .eq("status", "in_progress")
@@ -82,7 +82,7 @@ export default function Index() {
             penalty_minutes: number;
             period: number;
             ended_early?: boolean | null;
-            player?: { jersey_number: number | null } | null;
+            player_id?: string | null;
           }[],
         };
       });
@@ -90,6 +90,30 @@ export default function Index() {
     staleTime: 10_000,
     refetchInterval: 3_000,
   });
+
+  // Rosters of teams currently playing live, used to resolve the edition-correct
+  // jersey number for penalty boxes (never from the global players catalog).
+  const liveTeamIds = Array.from(
+    new Set(liveMatches.flatMap((m: any) => [m.home_team_id, m.away_team_id]).filter(Boolean)),
+  ) as string[];
+  const { data: liveRosters = [] } = useQuery({
+    queryKey: ["home-live-rosters", liveTeamIds.join(",")],
+    enabled: liveTeamIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rosters")
+        .select("player_id, team_id, jersey_number")
+        .in("team_id", liveTeamIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 10_000,
+  });
+  const jerseyByPlayerTeam = (playerId: string | null | undefined, teamId: string | null | undefined) => {
+    if (!playerId) return null;
+    const r = liveRosters.find((r: any) => r.player_id === playerId && (!teamId || r.team_id === teamId));
+    return r?.jersey_number ?? null;
+  };
 
   return (
     <div className="container py-8 space-y-10">
@@ -119,7 +143,7 @@ export default function Index() {
             }
           >
             {liveMatches.map((m) => (
-              <LiveMatchCard key={m.id} match={m} />
+              <LiveMatchCard key={m.id} match={m} rosters={liveRosters} />
             ))}
           </div>
         </section>
@@ -229,7 +253,7 @@ export default function Index() {
   );
 }
 
-function LiveMatchCard({ match }: { match: any }) {
+function LiveMatchCard({ match, rosters }: { match: any; rosters: any[] }) {
   const liveClock = useMatchClock(match as any);
   const clockRunning = isClockRunning(match as any);
 
@@ -273,13 +297,13 @@ function LiveMatchCard({ match }: { match: any }) {
             <div className="mt-3 flex items-start justify-center gap-4">
               <div className="flex-1 flex flex-col items-end gap-1">
                 {homePenalties.map((p: any) => (
-                  <PenaltyTimer key={p.id} match={match} penalty={p} />
+                  <PenaltyTimer key={p.id} match={match} penalty={p} rosters={rosters} />
                 ))}
               </div>
               <div className="min-w-[70px]" />
               <div className="flex-1 flex flex-col items-start gap-1">
                 {awayPenalties.map((p: any) => (
-                  <PenaltyTimer key={p.id} match={match} penalty={p} />
+                  <PenaltyTimer key={p.id} match={match} penalty={p} rosters={rosters} />
                 ))}
               </div>
             </div>
@@ -291,10 +315,13 @@ function LiveMatchCard({ match }: { match: any }) {
 }
 
 /** Chip de sanción activa con su cuenta regresiva, atada al reloj del partido. Desaparece sola al cumplirse. */
-function PenaltyTimer({ match, penalty }: { match: any; penalty: any }) {
+function PenaltyTimer({ match, penalty, rosters }: { match: any; penalty: any; rosters: any[] }) {
   const remaining = usePenaltyClock(match, penalty);
   if (!remaining) return null;
-  const jersey = penalty.player?.jersey_number ? `#${penalty.player.jersey_number}` : "";
+  const rosterMatch = (rosters ?? []).find(
+    (r: any) => r.player_id === penalty.player_id && r.team_id === penalty.team_id,
+  );
+  const jersey = rosterMatch?.jersey_number ? `#${rosterMatch.jersey_number}` : "";
   const code = penalty.penalty_code ? ` - ${penalty.penalty_code}` : "";
   return (
     <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-600 dark:text-red-500 tabular-nums">
