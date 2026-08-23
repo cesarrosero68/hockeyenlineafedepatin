@@ -24,6 +24,7 @@ import {
 const statusLabels: Record<string, string> = {
   scheduled: "Programado",
   in_progress: "En juego",
+  postponed: "Aplazado",
   closed: "Finalizado",
   locked: "Bloqueado",
 };
@@ -421,7 +422,8 @@ export default function AdminMatches() {
                             <span className={`text-xs px-2 py-0.5 rounded ${
                               match.status === "locked" ? "bg-destructive text-destructive-foreground" :
                               match.status === "closed" ? "border" :
-                              match.status === "in_progress" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                              match.status === "in_progress" ? "bg-primary text-primary-foreground" :
+                              match.status === "postponed" ? "bg-amber-500 text-white" : "bg-secondary text-secondary-foreground"
                             }`}>
                               {statusLabels[match.status]}
                             </span>
