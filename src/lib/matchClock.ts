@@ -13,6 +13,19 @@ export const DEFAULT_PERIOD_MINUTES = 15;
 /** Duraciones sugeridas para el selector del panel de admin. */
 export const PERIOD_PRESETS = [10, 12, 15, 18, 20];
 
+/**
+ * Duración de período por norma, según categoría:
+ * 10' Sub-8 | 12' Sub-10 y Sub-12 | 15' Sub-14, Sub-16 Mixto, Juvenil, Femenino
+ * Si la categoría no coincide con ninguna regla conocida, devuelve 15 por defecto.
+ */
+export function defaultPeriodMinutesForCategory(categoryName?: string | null): number {
+  const name = (categoryName ?? "").trim().toLowerCase();
+  if (name === "sub-8") return 10;
+  if (name === "sub-10" || name === "sub-12") return 12;
+  if (["sub-14", "sub-16 mixto", "juvenil", "femenino"].includes(name)) return 15;
+  return 15;
+}
+
 export const PERIOD_LABELS: Record<number, string> = {
   1: "1er Período",
   2: "2do Período",
