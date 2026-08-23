@@ -41,10 +41,10 @@ interface MatchWithDetails {
 }
 
 const statusLabels: Record<string, string> = {
-  scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Finalizado",
+  scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Finalizado", postponed: "Aplazado",
 };
 const statusColors: Record<string, string> = {
-  scheduled: "secondary", in_progress: "default", closed: "outline", locked: "destructive",
+  scheduled: "secondary", in_progress: "default", closed: "outline", locked: "destructive", postponed: "outline",
 };
 
 export default function Schedule() {
