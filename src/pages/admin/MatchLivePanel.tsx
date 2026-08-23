@@ -211,7 +211,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { data, error } = await supabase
         .from("goal_events")
         .select(
-          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name, jersey_number), assist:players!goal_events_assist_player_id_fkey(first_name, last_name, jersey_number)",
+          "*, scorer:players!goal_events_scorer_player_id_fkey(first_name, last_name), assist:players!goal_events_assist_player_id_fkey(first_name, last_name)",
         )
         .eq("match_id", matchId)
         .order("created_at");
@@ -230,7 +230,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       if (!matchId) return [];
       const { data, error } = await supabase
         .from("penalties")
-        .select("*, player:players!penalties_player_id_fkey(first_name, last_name, jersey_number)")
+        .select("*, player:players!penalties_player_id_fkey(first_name, last_name)")
         .eq("match_id", matchId)
         .order("created_at");
       if (error) throw error;
@@ -240,6 +240,19 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     staleTime: 10_000,
     retry: 2,
   });
+
+  // Resolve the correct edition-specific jersey number from rosters (not from the
+  // global players catalog, which can be stale across editions — see Muñetón case)
+  const jerseyByPlayerTeam = useCallback(
+    (playerId: string | null | undefined, teamId: string | null | undefined) => {
+      if (!playerId) return null;
+      const r = rosters.find(
+        (r: any) => r.player_id === playerId && (!teamId || r.team_id === teamId),
+      );
+      return r?.jersey_number ?? null;
+    },
+    [rosters],
+  );
 
   const playersForTeam = useCallback(
     (teamId: string) =>
@@ -667,7 +680,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               {penalties.map((p: any) => (
                 <PenaltyBox
                   key={p.id}
-                  penalty={p}
+                  penalty={{ ...p, resolvedJersey: jerseyByPlayerTeam(p.player_id, p.team_id) }}
                   clockMatch={clockMatch}
                   teamName={teamName}
                   isHome={p.team_id === homeTeam?.team_id}
@@ -914,11 +927,11 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   <div>
                     <span className="font-medium">{teamName(g.team_id)}</span>
                     {" — "}
-                    {g.scorer?.jersey_number ? `#${g.scorer.jersey_number} ` : ""}{g.scorer?.first_name} {g.scorer?.last_name}
+                    {jerseyByPlayerTeam(g.scorer_player_id, g.team_id) ? `#${jerseyByPlayerTeam(g.scorer_player_id, g.team_id)} ` : ""}{g.scorer?.first_name} {g.scorer?.last_name}
                     {g.assist && (
                       <span className="text-muted-foreground">
                         {" "}
-                        (Asist: {g.assist.jersey_number ? `#${g.assist.jersey_number} ` : ""}{g.assist.first_name} {g.assist.last_name})
+                        (Asist: {jerseyByPlayerTeam(g.assist_player_id, g.team_id) ? `#${jerseyByPlayerTeam(g.assist_player_id, g.team_id)} ` : ""}{g.assist.first_name} {g.assist.last_name})
                       </span>
                     )}
                     <span className="text-muted-foreground ml-2">
@@ -1089,7 +1102,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                   <div>
                     <span className="font-medium">{teamName(p.team_id)}</span>
                     {" — "}
-                    {p.player?.jersey_number ? `#${p.player.jersey_number} ` : ""}{p.player?.first_name} {p.player?.last_name}
+                    {jerseyByPlayerTeam(p.player_id, p.team_id) ? `#${jerseyByPlayerTeam(p.player_id, p.team_id)} ` : ""}{p.player?.first_name} {p.player?.last_name}
                     <span className="text-muted-foreground ml-2">
                       {p.penalty_code} · P{p.period}{p.penalty_time ? ` · ${p.penalty_time}` : ""}
                     </span>
@@ -1181,7 +1194,7 @@ function PenaltyBox({
         {teamName(penalty.team_id)}
       </span>
       <span className={`font-display text-base lg:text-xl font-bold ${palette.text} leading-none`}>
-        {penalty.player?.jersey_number ? `#${penalty.player.jersey_number}` : "—"}
+        {penalty.resolvedJersey ? `#${penalty.resolvedJersey}` : "—"}
       </span>
       <span className={`font-display text-sm lg:text-lg font-bold tabular-nums ${palette.text} leading-none`}>
         {remaining}
