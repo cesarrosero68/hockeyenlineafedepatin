@@ -30,6 +30,7 @@ const statusLabels: Record<string, string> = {
   scheduled: "Programado",
   in_progress: "En juego",
   closed: "Finalizado",
+  postponed: "Aplazado",
 };
 
 export default function CreateMatchDialog({ open, onOpenChange }: Props) {
@@ -249,7 +250,7 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["scheduled", "in_progress", "closed"].map((s) => (
+                    {["scheduled", "in_progress", "postponed", "closed"].map((s) => (
                       <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
                     ))}
                   </SelectContent>
