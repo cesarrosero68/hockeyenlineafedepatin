@@ -21,6 +21,7 @@ const statusLabels: Record<string, string> = {
   in_progress: "En juego",
   closed: "Finalizado",
   locked: "Finalizado",
+  postponed: "Aplazado",
 };
 
 export default function MatchDetail() {
