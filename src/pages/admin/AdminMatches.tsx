@@ -421,9 +421,10 @@ export default function AdminMatches() {
                             <span className="text-xs border px-2 py-0.5 rounded">{match.categories?.divisions?.name}</span>
                             <span className={`text-xs px-2 py-0.5 rounded ${
                               match.status === "locked" ? "bg-destructive text-destructive-foreground" :
-                              match.status === "closed" ? "border" :
-                              match.status === "in_progress" ? "bg-primary text-primary-foreground" :
-                              match.status === "postponed" ? "bg-amber-500 text-white" : "bg-secondary text-secondary-foreground"
+                              match.status === "closed" ? "bg-blue-100 text-blue-800" :
+                              match.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
+                              match.status === "postponed" ? "bg-orange-100 text-orange-800" :
+                              match.status === "scheduled" ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-secondary-foreground"
                             }`}>
                               {statusLabels[match.status]}
                             </span>
