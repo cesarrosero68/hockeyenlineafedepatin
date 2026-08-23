@@ -23,6 +23,13 @@ const statusLabels: Record<string, string> = {
   locked: "Finalizado",
   postponed: "Aplazado",
 };
+const statusBadgeClasses: Record<string, string> = {
+  scheduled: "border-transparent bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+  in_progress: "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
+  closed: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100",
+  locked: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100",
+  postponed: "border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100",
+};
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
@@ -191,7 +198,7 @@ export default function MatchDetail() {
               {m.phase === "semifinal" ? "Semifinal" : m.phase === "playoff" ? "Playoff" : m.phase === "final" ? "Final" : m.phase === "third_place" ? "Tercer Puesto" : m.phase}
             </Badge>
           )}
-          <Badge variant={m.status === "closed" ? "outline" : m.status === "in_progress" ? "default" : "secondary"}>
+          <Badge variant="outline" className={statusBadgeClasses[m.status] ?? ""}>
             {statusLabels[m.status] ?? m.status}
           </Badge>
         </div>
