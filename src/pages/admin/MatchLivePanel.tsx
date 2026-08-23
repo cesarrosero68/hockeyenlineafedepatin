@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, Play, Pause, SkipForward, TimerReset } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
+  defaultPeriodMinutesForCategory,
   elapsedMs,
   formatClock,
   isClockRunning,
@@ -60,6 +61,7 @@ const PENALTY_CODES = [
 ];
 
 const PENALTY_TIMES = [
+  { label: "1:00", minutes: 1 },
   { label: "1:30", minutes: 1.5 },
   { label: "4:00", minutes: 4 },
   { label: "10:00", minutes: 10 },
@@ -120,6 +122,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           `
           id, match_date, status, phase, category_id,
           clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
+          categories(name),
           match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name, logo_url)),
           home_timeouts_used, away_timeouts_used
         `,
@@ -562,6 +565,19 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, clockEnabled, clockMatch, liveClock]);
 
+  // Al abrir un partido que nunca tuvo duración de período configurada,
+  // fijar automáticamente el valor de norma según su categoría:
+  // 10' Sub-8 | 12' Sub-10/Sub-12 | 15' Sub-14, Sub-16 Mixto, Juvenil, Femenino
+  useEffect(() => {
+    if (!open || !clockMatch) return;
+    if (clockMatch.period_minutes != null) return;
+    if (clockMatch.clock_started_at) return; // no tocar un reloj ya corriendo
+    const categoryName = clockMatch.categories?.name as string | undefined;
+    const defaultMinutes = defaultPeriodMinutesForCategory(categoryName);
+    updateClock.mutate({ period_minutes: defaultMinutes });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, clockMatch?.id, clockMatch?.period_minutes]);
+
   // Reset the "touched" flags whenever the panel opens for a (possibly new) match,
   // so a fresh team selection triggers the time snapshot instead of staying stuck
   // on a manual edit carried over from a previous session.
@@ -721,7 +737,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               <Button
                 key={mins}
                 size="sm"
-                variant={(clockMatch?.period_minutes ?? 15) === mins ? "default" : "outline"}
+                variant={(clockMatch?.period_minutes ?? defaultPeriodMinutesForCategory(clockMatch?.categories?.name)) === mins ? "default" : "outline"}
                 className="h-7 px-2 text-xs"
                 onClick={() => updateClock.mutate({ period_minutes: mins })}
                 disabled={!clockEnabled || updateClock.isPending}
@@ -735,10 +751,11 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               max={99}
               className="h-7 w-16 rounded-md border bg-background px-2 text-xs"
               placeholder="Manual"
-              defaultValue={clockMatch?.period_minutes ?? 15}
+              defaultValue={clockMatch?.period_minutes ?? defaultPeriodMinutesForCategory(clockMatch?.categories?.name)}
               onBlur={(e) => {
                 const v = parseInt(e.target.value, 10);
-                if (!isNaN(v) && v > 0 && v !== (clockMatch?.period_minutes ?? 15)) {
+                const current = clockMatch?.period_minutes ?? defaultPeriodMinutesForCategory(clockMatch?.categories?.name);
+                if (!isNaN(v) && v > 0 && v !== current) {
                   updateClock.mutate({ period_minutes: v });
                 }
               }}
