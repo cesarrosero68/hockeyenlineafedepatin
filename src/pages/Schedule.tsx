@@ -43,8 +43,12 @@ interface MatchWithDetails {
 const statusLabels: Record<string, string> = {
   scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Finalizado", postponed: "Aplazado",
 };
-const statusColors: Record<string, string> = {
-  scheduled: "secondary", in_progress: "default", closed: "outline", locked: "destructive", postponed: "outline",
+const statusBadgeClasses: Record<string, string> = {
+  scheduled: "border-transparent bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+  in_progress: "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
+  closed: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100",
+  locked: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100",
+  postponed: "border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100",
 };
 
 export default function Schedule() {
@@ -402,7 +406,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
                 </Badge>
               )}
             </div>
-            <Badge variant={statusColors[match.status] as any} className="text-xs">
+            <Badge variant="outline" className={`text-xs ${statusBadgeClasses[match.status] ?? ""}`}>
               {showLive && liveClock
                 ? `${statusLabels[match.status]} · ${periodShort(match.current_period)} · ${liveClock}`
                 : statusLabels[match.status] ?? match.status}
