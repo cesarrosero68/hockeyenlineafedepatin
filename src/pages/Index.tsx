@@ -10,14 +10,17 @@ import { useMatchClock, periodShort, isClockRunning, usePenaltyClock } from "@/l
 
 export default function Index() {
   const { viewedTournament } = useTournament();
+  const viewedTournamentId = viewedTournament?.id ?? null;
   const {
     data: divisions = [],
     isLoading: isLoadingDivisions,
     isError: isErrorDivisions,
   } = useQuery({
-    queryKey: ["divisions"],
+    queryKey: ["divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("divisions").select("id, name, logo_url").order("name");
+      let q: any = supabase.from("divisions").select("id, name, logo_url").order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -27,16 +30,17 @@ export default function Index() {
   });
 
   const { data: categories = [], isError: isErrorCategories } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const viewedTournamentId = viewedTournament?.id;
   const { data: liveMatches = [] } = useQuery({
     queryKey: ["home-live-matches", viewedTournamentId],
     enabled: !!viewedTournamentId,
