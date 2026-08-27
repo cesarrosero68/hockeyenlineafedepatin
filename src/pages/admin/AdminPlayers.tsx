@@ -136,21 +136,25 @@ export default function AdminPlayers() {
   });
 
   const { data: divisions = [] } = useQuery({
-    queryKey: ["admin-divisions-export"],
+    queryKey: ["admin-divisions-export", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      let q: any = supabase.from("divisions").select("id, name").order("name");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 60_000,
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["admin-categories-export"],
+    queryKey: ["admin-categories-export", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase
+      let q: any = supabase
         .from("categories")
         .select("id, name, division_id, sort_order")
         .order("sort_order");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 60_000,
