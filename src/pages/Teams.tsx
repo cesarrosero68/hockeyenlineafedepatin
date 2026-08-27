@@ -25,15 +25,16 @@ export default function TeamsPage() {
   const requestedDivision = searchParams.get("division");
   const [activeDivision, setActiveDivision] = useState<string>("");
 
-  // Divisions and categories are shared structure across editions — never filtered by tournament_id
   const {
     data: divisions = [],
     isLoading: loadingDivisions,
     isError: errorDivisions,
   } = useQuery({
-    queryKey: ["divisions"],
+    queryKey: ["divisions", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("divisions").select("id, name, logo_url").order("name");
+      let q: any = supabase.from("divisions").select("id, name, logo_url").order("name");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -41,9 +42,11 @@ export default function TeamsPage() {
   });
 
   const { data: categories = [], isLoading: loadingCategories, isError: errorCategories } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", viewedTournamentId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
