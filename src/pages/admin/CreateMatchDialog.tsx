@@ -61,18 +61,22 @@ export default function CreateMatchDialog({ open, onOpenChange }: Props) {
   const activeTournamentId = activeTournament?.id;
 
   const { data: divisions = [] } = useQuery({
-    queryKey: ["admin-divisions"],
+    queryKey: ["admin-divisions", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name").order("name");
+      let q: any = supabase.from("divisions").select("id, name").order("name");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["admin-categories"],
+    queryKey: ["admin-categories", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id").order("sort_order");
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
     staleTime: 5 * 60 * 1000,
