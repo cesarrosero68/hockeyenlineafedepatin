@@ -135,16 +135,20 @@ function ScheduleUpload() {
   const activeTournamentId = activeTournament?.id;
 
   const { data: divisions } = useQuery({
-    queryKey: ["upload-divisions"],
+    queryKey: ["upload-divisions", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
+      let q: any = supabase.from("divisions").select("id, name");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });
   const { data: categories } = useQuery({
-    queryKey: ["upload-categories"],
+    queryKey: ["upload-categories", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id");
+      let q: any = supabase.from("categories").select("id, name, division_id");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });
@@ -495,16 +499,20 @@ function RosterUpload() {
   const activeTournamentId = activeTournament?.id;
 
   const { data: divisions } = useQuery({
-    queryKey: ["upload-divisions"],
+    queryKey: ["upload-divisions", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("divisions").select("id, name");
+      let q: any = supabase.from("divisions").select("id, name");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });
   const { data: categories } = useQuery({
-    queryKey: ["upload-categories"],
+    queryKey: ["upload-categories", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, division_id");
+      let q: any = supabase.from("categories").select("id, name, division_id");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });
