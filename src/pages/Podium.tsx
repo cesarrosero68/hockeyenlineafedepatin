@@ -10,13 +10,21 @@ export default function Podium() {
   const { currentId } = useTournament();
 
   const { data: divisions = [] } = useQuery({
-    queryKey: ["podium-divisions"],
-    queryFn: async () => (await supabase.from("divisions").select("id, name")).data ?? [],
+    queryKey: ["podium-divisions", currentId],
+    queryFn: async () => {
+      let q: any = supabase.from("divisions").select("id, name");
+      if (currentId) q = q.eq("tournament_id", currentId);
+      return (await q).data ?? [];
+    },
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["podium-categories"],
-    queryFn: async () => (await supabase.from("categories").select("id, name, division_id").order("sort_order")).data ?? [],
+    queryKey: ["podium-categories", currentId],
+    queryFn: async () => {
+      let q: any = supabase.from("categories").select("id, name, division_id").order("sort_order");
+      if (currentId) q = q.eq("tournament_id", currentId);
+      return (await q).data ?? [];
+    },
   });
 
   const { data: matches = [] } = useQuery({
