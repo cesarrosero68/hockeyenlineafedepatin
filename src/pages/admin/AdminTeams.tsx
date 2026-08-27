@@ -44,9 +44,11 @@ export default function AdminTeams() {
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["admin-categories-list"],
+    queryKey: ["admin-categories-list", activeTournamentId],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name, divisions!inner(name)").order("name");
+      let q: any = supabase.from("categories").select("id, name, divisions!inner(name)").order("name");
+      if (activeTournamentId) q = q.eq("tournament_id", activeTournamentId);
+      const { data } = await q;
       return data ?? [];
     },
   });
