@@ -231,18 +231,43 @@ export default function AdminMatches() {
 
     const { data: goalsData } = await supabase
       .from("goal_events")
-      .select(`id, period, game_time, match_id, team_id,
-        scorer:players_public!goal_events_scorer_player_id_fkey(first_name, last_name, jersey_number),
-        assist:players_public!goal_events_assist_player_id_fkey(first_name, last_name, jersey_number)`)
+      .select(`id, period, game_time, match_id, team_id, scorer_player_id, assist_player_id,
+        scorer:players_public!goal_events_scorer_player_id_fkey(first_name, last_name),
+        assist:players_public!goal_events_assist_player_id_fkey(first_name, last_name)`)
       .in("match_id", matchIds)
       .order("match_id").order("period").order("game_time");
 
     const { data: penaltiesData } = await supabase
       .from("penalties")
-      .select(`id, period, game_time, penalty_code, penalty_description, penalty_minutes, penalty_time, match_id, team_id,
-        player:players_public!penalties_player_id_fkey(first_name, last_name, jersey_number)`)
+      .select(`id, period, game_time, penalty_code, penalty_description, penalty_minutes, penalty_time, match_id, team_id, player_id,
+        player:players_public!penalties_player_id_fkey(first_name, last_name)`)
       .in("match_id", matchIds)
       .order("match_id").order("period").order("game_time");
+
+    // Dorsal correcto POR EDICIÓN: se busca en rosters (jugador + equipo de esta edición),
+    // nunca en el catálogo global de players, que puede traer el número de otro torneo.
+    const exportTeamIds = Array.from(
+      new Set(
+        filteredMatches.flatMap((m: any) =>
+          (m.match_teams ?? []).map((mt: any) => mt.team_id).filter(Boolean),
+        ),
+      ),
+    );
+
+    const { data: rostersData } = exportTeamIds.length
+      ? await supabase
+          .from("rosters")
+          .select("player_id, team_id, jersey_number")
+          .in("team_id", exportTeamIds)
+      : { data: [] as any[] };
+
+    const jerseyByPlayerTeam = (playerId: string | null | undefined, teamId: string | null | undefined) => {
+      if (!playerId || !rostersData) return "";
+      const r = (rostersData as any[]).find(
+        (x) => x.player_id === playerId && (!teamId || x.team_id === teamId),
+      );
+      return r?.jersey_number ?? "";
+    };
 
     const getMatchLabel = (matchId: string) => {
       const m = filteredMatches.find((x: any) => x.id === matchId);
@@ -270,9 +295,9 @@ export default function AdminMatches() {
         División: matchInfo?.categories?.divisions?.name ?? "",
         Categoría: matchInfo?.categories?.name ?? "",
         Equipo: getTeamName(g.match_id, g.team_id),
-        "# Goleador": g.scorer?.jersey_number ?? "",
+        "# Goleador": jerseyByPlayerTeam(g.scorer_player_id, g.team_id),
         Goleador: `${g.scorer?.first_name ?? ""} ${g.scorer?.last_name ?? ""}`.trim(),
-        "# Asistente": g.assist?.jersey_number ?? "",
+        "# Asistente": jerseyByPlayerTeam(g.assist_player_id, g.team_id),
         Asistente: g.assist ? `${g.assist.first_name ?? ""} ${g.assist.last_name ?? ""}`.trim() : "",
         Periodo: g.period,
         Tiempo: g.game_time ?? "",
@@ -286,7 +311,7 @@ export default function AdminMatches() {
         División: matchInfo?.categories?.divisions?.name ?? "",
         Categoría: matchInfo?.categories?.name ?? "",
         Equipo: getTeamName(p.match_id, p.team_id),
-        "# Jugador": p.player?.jersey_number ?? "",
+        "# Jugador": jerseyByPlayerTeam(p.player_id, p.team_id),
         Jugador: `${p.player?.first_name ?? ""} ${p.player?.last_name ?? ""}`.trim(),
         Código: p.penalty_code,
         Descripción: p.penalty_description ?? "",
