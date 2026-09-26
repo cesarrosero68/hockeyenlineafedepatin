@@ -452,8 +452,10 @@ export default function AdminPlayers() {
 
   const createRosterMutation = useMutation({
     mutationFn: async () => {
+      if (!activeTournamentId) throw new Error("No hay edición activa seleccionada");
       const { error } = await supabase.from("rosters").insert({
         player_id: rosterPlayerId, team_id: rosterTeamId,
+        tournament_id: activeTournamentId,
         jersey_number: rosterJersey ? parseInt(rosterJersey) : null,
         position: rosterPosition || null,
       });
