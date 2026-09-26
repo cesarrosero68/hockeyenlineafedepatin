@@ -366,7 +366,7 @@ export default function AdminPlayers() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("team_staff")
-        .select("id, first_name, last_name, role, velopro_number, team_id, teams!inner(name, tournament_id)")
+        .select("id, first_name, last_name, role, velopro_number, team_id, teams!inner(name, tournament_id, categories(name, divisions(name)))")
         .eq("teams.tournament_id", activeTournamentId as string);
       if (error) throw error;
       return (data as any[]) ?? [];
@@ -399,9 +399,18 @@ export default function AdminPlayers() {
 
   const visibleStaff = useMemo(() => {
     const q = norm(searchStaff).trim();
-    if (!q) return staff;
-    return (staff as any[]).filter((st: any) =>
-      norm(`${st.first_name ?? ""} ${st.last_name ?? ""} ${st.teams?.name ?? ""} ${st.role ?? ""} ${st.velopro_number ?? ""}`).includes(q),
+    const base = !q
+      ? (staff as any[])
+      : (staff as any[]).filter((st: any) =>
+          norm(`${st.first_name ?? ""} ${st.last_name ?? ""} ${st.teams?.name ?? ""} ${st.teams?.categories?.name ?? ""} ${st.teams?.categories?.divisions?.name ?? ""} ${st.role ?? ""} ${st.velopro_number ?? ""}`).includes(q),
+        );
+    // Ordena por categoría > equipo > rol > apellido, para que los homónimos
+    // de distintas categorías no queden mezclados en la lista.
+    return [...base].sort((a: any, b: any) =>
+      String(a.teams?.categories?.name ?? "").localeCompare(String(b.teams?.categories?.name ?? "")) ||
+      String(a.teams?.name ?? "").localeCompare(String(b.teams?.name ?? "")) ||
+      String(a.role ?? "").localeCompare(String(b.role ?? "")) ||
+      String(a.last_name ?? "").localeCompare(String(b.last_name ?? "")),
     );
   }, [staff, searchStaff]);
 
@@ -907,7 +916,7 @@ export default function AdminPlayers() {
                     <div className="space-y-1">
                       <label className="text-xs font-medium">Equipo</label>
                       <Select value={staffTeamId} onValueChange={setStaffTeamId}>
-                        <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                        <SelectTrigger className="w-[320px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
                         <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
@@ -958,6 +967,7 @@ export default function AdminPlayers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nombre</TableHead>
+                    <TableHead>Categoría</TableHead>
                     <TableHead>Equipo</TableHead>
                     <TableHead>Rol</TableHead>
                     <TableHead>VeloPro</TableHead>
@@ -972,6 +982,10 @@ export default function AdminPlayers() {
                           <TableCell className="flex gap-1">
                             <Input value={editStaffFirst} onChange={e => setEditStaffFirst(e.target.value)} className="h-8 w-[110px]" placeholder="Nombre" />
                             <Input value={editStaffLast} onChange={e => setEditStaffLast(e.target.value)} className="h-8 w-[110px]" placeholder="Apellido" />
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{st.teams?.categories?.name ?? "—"}</span>
+                            <span className="block text-xs text-muted-foreground">{st.teams?.categories?.divisions?.name ?? ""}</span>
                           </TableCell>
                           <TableCell>{st.teams?.name}</TableCell>
                           <TableCell>
@@ -995,6 +1009,10 @@ export default function AdminPlayers() {
                       ) : (
                         <>
                           <TableCell>{st.first_name} {st.last_name}</TableCell>
+                          <TableCell>
+                            <span className="font-medium">{st.teams?.categories?.name ?? "—"}</span>
+                            <span className="block text-xs text-muted-foreground">{st.teams?.categories?.divisions?.name ?? ""}</span>
+                          </TableCell>
                           <TableCell>{st.teams?.name}</TableCell>
                           <TableCell>{st.role}</TableCell>
                           <TableCell>{st.velopro_number ?? "—"}</TableCell>
