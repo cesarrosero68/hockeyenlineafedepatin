@@ -120,7 +120,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .from("matches")
         .select(
           `
-          id, match_date, status, phase, category_id,
+          id, match_date, status, phase, category_id, tournament_id,
           clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories(name),
           match_teams(side, score_regular, score_extra, team_id, teams!inner(id, name, logo_url)),
@@ -315,6 +315,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       }
       const { error } = await supabase.from("goal_events").insert({
         match_id: matchId,
+        tournament_id: (matchData as any)?.tournament_id ?? null,
         team_id: goalTeamId,
         scorer_player_id: goalScorerId,
         assist_player_id: goalAssistId === "na" ? null : goalAssistId || null,
@@ -427,6 +428,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       }
       const { error } = await supabase.from("penalties").insert({
         match_id: matchId,
+        tournament_id: (matchData as any)?.tournament_id ?? null,
         team_id: penTeamId,
         player_id: penPlayerId || null,
         penalty_code: penCode,
