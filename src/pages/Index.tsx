@@ -92,7 +92,15 @@ export default function Index() {
       });
     },
     staleTime: 10_000,
-    refetchInterval: 3_000,
+    // Sondeo adaptativo (antes: 3s fijos, siempre, hubiera o no partidos).
+    // Realtime ya invalida "home-live-matches" cuando cambia un partido, un
+    // marcador o una sanción, y el reloj se calcula en el navegador a partir de
+    // clock_started_at. Por eso el sondeo solo es una red de seguridad:
+    //   - con partidos en vivo -> cada 20 s
+    //   - sin partidos en vivo -> cada 5 min (lo normal entre semana)
+    refetchInterval: (query) =>
+      ((query.state.data as unknown[] | undefined)?.length ?? 0) > 0 ? 20_000 : 300_000,
+    refetchIntervalInBackground: false,
   });
 
   // Rosters of teams currently playing live, used to resolve the edition-correct
