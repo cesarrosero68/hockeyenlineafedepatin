@@ -6,10 +6,10 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 // Removed "live-match-detail" from match_teams and goal_events to avoid
 // competing with MatchLivePanel's own refetch logic
 const TABLE_QUERY_KEYS: Record<string, string[]> = {
-  matches: ["schedule-matches", "match-detail", "admin-matches", "admin-counts"],
-  match_teams: ["schedule-matches", "match-detail", "standings", "fair-play", "admin-matches", "admin-counts"],
-  goal_events: ["match-detail", "match-goals", "player-stats"],
-  penalties: ["match-detail", "match-penalties", "fair-play"],
+  matches: ["schedule-matches", "match-detail", "admin-matches", "admin-counts", "home-live-matches"],
+  match_teams: ["schedule-matches", "match-detail", "standings", "fair-play", "admin-matches", "admin-counts", "home-live-matches"],
+  goal_events: ["match-detail", "match-goals", "player-stats", "home-live-matches"],
+  penalties: ["match-detail", "match-penalties", "fair-play", "home-live-matches"],
   standings_aggregate: ["standings"],
   fair_play_aggregate: ["fair-play"],
 };
