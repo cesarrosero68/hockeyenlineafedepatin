@@ -1856,7 +1856,7 @@ export type Database = {
         | "third_place"
         | "ranking"
         | "semifinal"
-      match_status: "scheduled" | "in_progress" | "closed" | "locked" | "postponed"
+      match_status: "scheduled" | "in_progress" | "closed" | "locked" | "postponed" | "to_be_defined"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1994,7 +1994,7 @@ export const Constants = {
         "ranking",
         "semifinal",
       ],
-      match_status: ["scheduled", "in_progress", "closed", "locked", "postponed"],
+      match_status: ["scheduled", "in_progress", "closed", "locked", "postponed", "to_be_defined"],
     },
   },
 } as const
