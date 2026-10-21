@@ -41,7 +41,7 @@ interface MatchWithDetails {
 }
 
 const statusLabels: Record<string, string> = {
-  scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Finalizado", postponed: "Aplazado",
+  scheduled: "Programado", in_progress: "En juego", closed: "Finalizado", locked: "Finalizado", postponed: "Aplazado", to_be_defined: "Por definir",
 };
 const statusBadgeClasses: Record<string, string> = {
   scheduled: "border-transparent bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
@@ -49,6 +49,7 @@ const statusBadgeClasses: Record<string, string> = {
   closed: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100",
   locked: "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100",
   postponed: "border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100",
+  to_be_defined: "border-transparent bg-red-100 text-black hover:bg-red-100",
 };
 
 export default function Schedule() {
