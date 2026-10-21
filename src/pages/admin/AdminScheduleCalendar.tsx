@@ -135,6 +135,7 @@ export default function AdminScheduleCalendar({ matches }: Props) {
                         m.status === "in_progress" ? "bg-primary/20 text-primary" :
                         m.status === "closed" || m.status === "locked" ? "bg-muted text-muted-foreground" :
                         m.status === "postponed" ? "bg-amber-200 text-amber-900" :
+                        m.status === "to_be_defined" ? "bg-red-200 text-black" :
                         "bg-secondary text-secondary-foreground"
                       } ${dragMatchId === m.id ? "opacity-50" : ""} ${isLocked ? "cursor-not-allowed" : ""}`}
                       title={`${home?.teams?.name ?? "TBD"} vs ${away?.teams?.name ?? "TBD"}`}
