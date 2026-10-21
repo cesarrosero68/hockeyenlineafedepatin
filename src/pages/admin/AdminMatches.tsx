@@ -27,6 +27,7 @@ const statusLabels: Record<string, string> = {
   postponed: "Aplazado",
   closed: "Finalizado",
   locked: "Bloqueado",
+  to_be_defined: "Por definir",
 };
 
 export default function AdminMatches() {
@@ -451,6 +452,7 @@ export default function AdminMatches() {
                               match.status === "closed" ? "bg-blue-100 text-blue-800" :
                               match.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
                               match.status === "postponed" ? "bg-orange-100 text-orange-800" :
+                              match.status === "to_be_defined" ? "bg-red-100 text-black" :
                               match.status === "scheduled" ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-secondary-foreground"
                             }`}>
                               {statusLabels[match.status]}
