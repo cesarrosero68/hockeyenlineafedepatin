@@ -15,6 +15,7 @@ import {
   formatClock,
   isClockRunning,
   isPeriodOver,
+  parseMmSsToMs,
   periodLabel,
   periodMs,
   PERIOD_PRESETS,
@@ -555,6 +556,37 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     });
   const resetClock = () => updateClock.mutate({ clock_started_at: null, clock_offset_ms: 0 });
 
+  // Ajuste manual del reloj para cuadrarlo con el de la mesa.
+  // Trabaja sobre lo que ven los espectadores (cuenta regresiva):
+  // "+" suma segundos al reloj mostrado, "-" los resta.
+  // Si el reloj está corriendo, se re-ancla a "ahora" para no dejar offsets negativos.
+  const setRemainingClock = (targetRemainingMs: number) => {
+    const total = periodMs(clockMatch ?? {});
+    const remaining = Math.min(total, Math.max(0, Math.round(targetRemainingMs)));
+    const elapsed = total - remaining;
+    if (clockRunning) {
+      updateClock.mutate({ clock_started_at: new Date().toISOString(), clock_offset_ms: elapsed });
+    } else {
+      updateClock.mutate({ clock_offset_ms: elapsed });
+    }
+  };
+  const adjustClockSeconds = (deltaSeconds: number) =>
+    setRemainingClock(remainingMs(clockMatch ?? {}) + deltaSeconds * 1000);
+  const [manualClockValue, setManualClockValue] = useState("");
+  const applyManualClock = () => {
+    const ms = parseMmSsToMs(manualClockValue);
+    if (ms === null) {
+      toast({ title: "Formato inválido", description: "Escribe el tiempo como mm:ss, por ejemplo 08:30", variant: "destructive" });
+      return;
+    }
+    if (ms > periodMs(clockMatch ?? {})) {
+      toast({ title: "Tiempo mayor a la duración del período", description: "Cambia primero la duración del período o escribe un tiempo menor.", variant: "destructive" });
+      return;
+    }
+    setRemainingClock(ms);
+    setManualClockValue("");
+  };
+
   // Detener el reloj automaticamente al agotarse el periodo
   useEffect(() => {
     if (!open || !clockEnabled) return;
@@ -763,6 +795,41 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
               }}
               disabled={!clockEnabled || updateClock.isPending}
             />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <span className="text-xs text-muted-foreground">Ajustar reloj:</span>
+            {[-10, -1, 1, 10].map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant="outline"
+                className="h-8 px-3 text-sm font-bold"
+                onClick={() => adjustClockSeconds(d)}
+                disabled={!clockEnabled || updateClock.isPending}
+              >
+                {d > 0 ? `+${d}s` : `${d}s`}
+              </Button>
+            ))}
+            <span className="text-xs text-muted-foreground pl-2">Fijar tiempo (mm:ss):</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="08:30"
+              className="h-8 w-20 rounded-md border bg-background px-2 text-sm"
+              value={manualClockValue}
+              onChange={(e) => setManualClockValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") applyManualClock(); }}
+              disabled={!clockEnabled || updateClock.isPending}
+            />
+            <Button
+              size="sm"
+              className="h-8 px-3 text-sm"
+              onClick={applyManualClock}
+              disabled={!clockEnabled || updateClock.isPending || !manualClockValue}
+            >
+              Fijar
+            </Button>
           </div>
 
           {!clockEnabled && (
