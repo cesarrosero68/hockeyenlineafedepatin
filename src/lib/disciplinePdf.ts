@@ -110,7 +110,7 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
 
   // ── Encabezado del partido ──
   const hdrTop = y;
-  const rowH = 6.2;
+  const rowH = 5.6;
   // Fila 1: Fecha / Hora / Liga / División
   text("Fecha:", M + 1, y + rowH / 2, { size: 8.5, bold: true });
   text(d.dateText, M + 20, y + rowH / 2, { size: 9, bold: true, align: "center", maxW: 24 });
@@ -167,7 +167,7 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
     text("Registro #:", M + 156, c, { size: 8.5, bold: true });
     hline(M + 173, y + 5.2, 16);
     text(ref?.registry ?? "", M + 174, c, { size: 9, maxW: 14 });
-    y += 6.2;
+    y += 5.6;
   });
   cell(M, refTop, W, y - refTop);
 
@@ -201,11 +201,11 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
       ? [titleCase(s.player), s.jersey === null || s.jersey === "" ? "" : String(s.jersey), s.side, s.period, s.time, s.sanction, s.rule, "SÍ", ""]
       : ["", "", "", "", "", "", "", "", ""];
     vals.forEach((v, i) => {
-      cell(x, y, cols[i], 6.2);
+      cell(x, y, cols[i], 5.4);
       if (v) text(v, x + cols[i] / 2, y + 3.1, { size: 8, align: "center", maxW: cols[i] - 1.5 });
       x += cols[i];
     });
-    y += 6.2;
+    y += 5.4;
   }
   y += 1.5;
 
@@ -222,13 +222,26 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
   if (d.injuries?.trim()) note += `${note ? "\n" : ""}Lesiones: ${d.injuries.trim()}`;
 
   const pageBottom = 287;
-  const signH = 5.5 + 11;
+  const signH = 5.5 + 10;
   const fieldH = 52;
   const PAD = 2;
-  const blocks = note
-    .split("\n")
-    .map((t) => t.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+  // Une los renglones que quedaron cortados a la mitad (típico al pegar texto copiado de un PDF o chat):
+  // un renglón sigue al anterior mientras el anterior no termine en punto, signo de cierre o ":".
+  // Una numeración (1., 2.) o un renglón después de un punto final empiezan párrafo nuevo.
+  const blocks: string[] = [];
+  let openPara = false; // el último bloque quedó "abierto" (sin punto final) y admite continuación
+  note.split("\n").forEach((raw) => {
+    const t = raw.replace(/\s+/g, " ").trim();
+    if (!t) return; // renglón vacío: no corta una frase que quedó a medias (openPara se conserva)
+    const isNum = /^\d{1,2}[.)]\s/.test(t);
+    if (openPara && !isNum && blocks.length) {
+      blocks[blocks.length - 1] += " " + t;
+    } else {
+      blocks.push(t);
+    }
+    const last = blocks[blocks.length - 1];
+    openPara = last.length > 60 && !/[.!?:»”")]$/.test(last);
+  });
 
   type RLine = { text: string; x: number; w: number; bold: boolean; justify: boolean; before: number };
   const layout = (size: number): { lines: RLine[]; lh: number } => {
@@ -286,7 +299,7 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
   // Elige la letra más grande (10 → 8) con la que todo el informe + firmas cabe en la hoja 1.
   let size_ = 9;
   let chosen: { lines: RLine[]; lh: number } | null = null;
-  for (const sz of [10, 9.5, 9, 8.5, 8]) {
+  for (const sz of [10, 9.5, 9, 8.5, 8, 7.5]) {
     const L = layout(sz);
     if (Math.max(heightOf(L), MIN_BOX) + signH + 2 <= pageBottom - y) {
       size_ = sz;
@@ -336,9 +349,9 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
   text("FIRMA REFEREE #1:", M + 1, y + 2.75, { size: 8.5, bold: true });
   text("FIRMA REFEREE #2:", M + 128, y + 2.75, { size: 8.5, bold: true });
   y += 5.5;
-  cell(M, y, W, 11);
-  doc.line(M + W / 2, y, M + W / 2, y + 11);
-  y += 11 + 3;
+  cell(M, y, W, 10);
+  doc.line(M + W / 2, y, M + W / 2, y + 10);
+  y += 10 + 3;
 
   // ── Cancha (si hay espacio) ──
   const avail = pageBottom - y;
