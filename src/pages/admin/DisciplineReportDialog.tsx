@@ -9,6 +9,8 @@ import { FileText, Loader2, AlertTriangle } from "lucide-react";
 
 interface Props {
   matchId: string | null;
+  /** Texto actual de la casilla Notas (aunque no se haya guardado todavía). */
+  notesOverride?: string;
   onClose: () => void;
 }
 
@@ -24,7 +26,7 @@ const EMPTY_REFS = [
  * no está en la plataforma (referees, lesiones, staff faltante, notas) y genera el PDF.
  * Lo que se escribe aquí NO se guarda en la base de datos: solo sale en el PDF.
  */
-export default function DisciplineReportDialog({ matchId, onClose }: Props) {
+export default function DisciplineReportDialog({ matchId, notesOverride, onClose }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [refs, setRefs] = useState(EMPTY_REFS);
@@ -39,7 +41,7 @@ export default function DisciplineReportDialog({ matchId, onClose }: Props) {
     setLoading(true);
     import("@/lib/disciplineReport")
       .then((m) => m.loadDisciplineData(matchId))
-      .then((d) => !cancelled && setData(d))
+      .then((d) => !cancelled && setData(notesOverride !== undefined ? { ...d, notes: notesOverride } : d))
       .catch((e) => {
         toast({ title: "No se pudieron cargar los datos", description: e?.message ?? String(e), variant: "destructive" });
         onClose();
