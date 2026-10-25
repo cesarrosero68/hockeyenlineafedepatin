@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { sortChronological } from "@/lib/matchEvents";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -7,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Play, Pause, SkipForward, TimerReset } from "lucide-react";
+import { Trash2, Plus, Play, Pause, SkipForward, TimerReset, Pencil } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   defaultPeriodMinutesForCategory,
@@ -220,7 +221,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .eq("match_id", matchId)
         .order("created_at");
       if (error) throw error;
-      return data;
+      return sortChronological(data, "game_time");
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
@@ -238,7 +239,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         .eq("match_id", matchId)
         .order("created_at");
       if (error) throw error;
-      return data;
+      return sortChronological(data, "penalty_time");
     },
     enabled: open && !!matchId,
     staleTime: 10_000,
@@ -413,6 +414,48 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       toast({ title: "Gol eliminado" });
     },
     onError: () => clearMutationTimeout("deleteGoal"),
+  });
+
+  // Edición de goles y sanciones (el equipo no se edita: para cambiarlo, eliminar y registrar de nuevo)
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editingPenId, setEditingPenId] = useState<string | null>(null);
+
+  const updateGoalMutation = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, unknown> }) => {
+      await restoreSession({ forceRefresh: true });
+      const { error } = await supabase.from("goal_events").update(patch as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: () => startMutationTimeout("updateGoal", () => updateGoalMutation.reset()),
+    onSuccess: () => {
+      clearMutationTimeout("updateGoal");
+      queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
+      setEditingGoalId(null);
+      toast({ title: "Gol actualizado" });
+    },
+    onError: (e: Error) => {
+      clearMutationTimeout("updateGoal");
+      toast({ title: "No se pudo actualizar el gol", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const updatePenaltyMutation = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, unknown> }) => {
+      await restoreSession({ forceRefresh: true });
+      const { error } = await supabase.from("penalties").update(patch as any).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: () => startMutationTimeout("updatePenalty", () => updatePenaltyMutation.reset()),
+    onSuccess: () => {
+      clearMutationTimeout("updatePenalty");
+      queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] });
+      setEditingPenId(null);
+      toast({ title: "Sanción actualizada" });
+    },
+    onError: (e: Error) => {
+      clearMutationTimeout("updatePenalty");
+      toast({ title: "No se pudo actualizar la sanción", description: e.message, variant: "destructive" });
+    },
   });
 
   // Add penalty mutation
@@ -798,6 +841,25 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-2">
+            <span className="text-xs text-muted-foreground">Período actual (corregir):</span>
+            {PERIODS.map((p) => (
+              <Button
+                key={p.value}
+                size="sm"
+                variant={String(currentPeriod) === p.value ? "default" : "outline"}
+                className="h-8 px-4 text-sm font-bold"
+                onClick={() => {
+                  if (String(currentPeriod) !== p.value) updateClock.mutate({ current_period: parseInt(p.value, 10) });
+                }}
+                disabled={!clockEnabled || updateClock.isPending}
+              >
+                {p.label}
+              </Button>
+            ))}
+            <span className="text-[11px] text-muted-foreground">Solo cambia el período; el reloj no se toca.</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <span className="text-xs text-muted-foreground">Ajustar reloj:</span>
             {[-10, -1, 1, 10].map((d) => (
               <Button
@@ -1008,7 +1070,18 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
             {/* Listed goals */}
             <div className="space-y-2">
-              {goals.map((g: any) => (
+              {goals.map((g: any) =>
+                editingGoalId === g.id ? (
+                  <GoalEditRow
+                    key={g.id}
+                    goal={g}
+                    teamLabel={teamName(g.team_id)}
+                    players={playersForTeam(g.team_id)}
+                    saving={updateGoalMutation.isPending}
+                    onCancel={() => setEditingGoalId(null)}
+                    onSave={(patch) => updateGoalMutation.mutate({ id: g.id, patch })}
+                  />
+                ) : (
                 <div key={g.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
                   <div>
                     <span className="font-medium">{teamName(g.team_id)}</span>
@@ -1024,17 +1097,29 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       {PERIODS.find((p) => p.value === String(g.period))?.label} {g.game_time ?? ""}
                     </span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0 text-destructive"
-                    onClick={() => deleteGoalMutation.mutate(g.id)}
-                    disabled={deleteGoalMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setEditingGoalId(g.id)}
+                      title="Editar gol"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive"
+                      onClick={() => deleteGoalMutation.mutate(g.id)}
+                      disabled={deleteGoalMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
-              ))}
+                ),
+              )}
             </div>
           </TabsContent>
 
@@ -1183,7 +1268,18 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
 
             {/* Listed penalties */}
             <div className="space-y-2">
-              {penalties.map((p: any) => (
+              {penalties.map((p: any) =>
+                editingPenId === p.id ? (
+                  <PenaltyEditRow
+                    key={p.id}
+                    penalty={p}
+                    teamLabel={teamName(p.team_id)}
+                    players={playersForTeam(p.team_id)}
+                    saving={updatePenaltyMutation.isPending}
+                    onCancel={() => setEditingPenId(null)}
+                    onSave={(patch) => updatePenaltyMutation.mutate({ id: p.id, patch })}
+                  />
+                ) : (
                 <div key={p.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
                   <div>
                     <span className="font-medium">{teamName(p.team_id)}</span>
@@ -1193,17 +1289,29 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       {p.penalty_code} · P{p.period}{p.penalty_time ? ` · ${p.penalty_time}` : ""}
                     </span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0 text-destructive"
-                    onClick={() => deletePenaltyMutation.mutate(p.id)}
-                    disabled={deletePenaltyMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setEditingPenId(p.id)}
+                      title="Editar sanción"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive"
+                      onClick={() => deletePenaltyMutation.mutate(p.id)}
+                      disabled={deletePenaltyMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
-              ))}
+                ),
+              )}
             </div>
           </TabsContent>
 
@@ -1211,6 +1319,203 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+type EditablePlayer = { id: string; label: string };
+
+const MM_SS = /^\d{2}:\d{2}$/;
+
+/** Fila de edición de un gol (el equipo no se cambia: si se registró en el equipo equivocado, eliminar y registrar de nuevo). */
+function GoalEditRow({
+  goal,
+  teamLabel,
+  players,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  goal: any;
+  teamLabel: string;
+  players: EditablePlayer[];
+  saving: boolean;
+  onSave: (patch: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const [scorer, setScorer] = useState<string>(goal.scorer_player_id ?? "");
+  const [assist, setAssist] = useState<string>(goal.assist_player_id ?? "na");
+  const [period, setPeriod] = useState<string>(String(goal.period ?? 1));
+  const [time, setTime] = useState<string>(goal.game_time ?? "");
+
+  const save = () => {
+    if (!scorer) {
+      toast({ title: "Falta el goleador", variant: "destructive" });
+      return;
+    }
+    if (time && !MM_SS.test(time)) {
+      toast({ title: "Tiempo inválido", description: "Usa el formato mm:ss, por ejemplo 05:32", variant: "destructive" });
+      return;
+    }
+    onSave({
+      scorer_player_id: scorer,
+      assist_player_id: assist === "na" ? null : assist,
+      period: parseInt(period, 10),
+      game_time: time || null,
+      is_overtime: period === "3",
+    });
+  };
+
+  return (
+    <div className="space-y-2 p-3 border-2 border-primary/40 rounded bg-muted/30 text-sm">
+      <p className="font-semibold">Editando gol — {teamLabel}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Goleador</label>
+          <Select value={scorer} onValueChange={setScorer}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+            <SelectContent>
+              {players.map((p) => (<SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Asistencia</label>
+          <Select value={assist} onValueChange={setAssist}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="na">N/A</SelectItem>
+              {players.map((p) => (<SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Periodo</label>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PERIODS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Tiempo (mm:ss)</label>
+          <Input value={time} onChange={(e) => setTime(e.target.value)} placeholder="00:00" className="w-[100px]" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={save} disabled={saving}>Guardar</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>Cancelar</Button>
+      </div>
+    </div>
+  );
+}
+
+/** Fila de edición de una sanción (el equipo no se cambia). */
+function PenaltyEditRow({
+  penalty,
+  teamLabel,
+  players,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  penalty: any;
+  teamLabel: string;
+  players: EditablePlayer[];
+  saving: boolean;
+  onSave: (patch: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const presetMatch = PENALTY_TIMES.find((t) => t.label !== "Manual" && t.minutes === Number(penalty.penalty_minutes));
+  const [player, setPlayer] = useState<string>(penalty.player_id ?? "none");
+  const [code, setCode] = useState<string>(penalty.penalty_code ?? "");
+  const [preset, setPreset] = useState<string>(presetMatch ? presetMatch.label : "Manual");
+  const [manual, setManual] = useState<string>(presetMatch ? "" : String(penalty.penalty_minutes ?? ""));
+  const [period, setPeriod] = useState<string>(String(penalty.period ?? 1));
+  const [time, setTime] = useState<string>(penalty.penalty_time ?? "");
+
+  const save = () => {
+    if (!code) {
+      toast({ title: "Falta el tipo de sanción", variant: "destructive" });
+      return;
+    }
+    if (time && !MM_SS.test(time)) {
+      toast({ title: "Tiempo inválido", description: "Usa el formato mm:ss, por ejemplo 10:15", variant: "destructive" });
+      return;
+    }
+    const selected = PENALTY_CODES.find((p) => p.code === code);
+    const minutes =
+      preset === "Manual"
+        ? parseFloat(manual) || 2
+        : (PENALTY_TIMES.find((t) => t.label === preset)?.minutes ?? 2);
+    onSave({
+      player_id: player === "none" ? null : player,
+      penalty_code: code,
+      penalty_description: selected?.desc ?? penalty.penalty_description ?? code,
+      penalty_minutes: minutes,
+      period: parseInt(period, 10),
+      game_time: preset === "Manual" ? manual : preset,
+      penalty_time: time || null,
+    });
+  };
+
+  return (
+    <div className="space-y-2 p-3 border-2 border-primary/40 rounded bg-muted/30 text-sm">
+      <p className="font-semibold">Editando sanción — {teamLabel}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Jugador</label>
+          <Select value={player} onValueChange={setPlayer}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sin jugador</SelectItem>
+              {players.map((p) => (<SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Tipo de sanción</label>
+          <Select value={code} onValueChange={setCode}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+            <SelectContent>
+              {PENALTY_CODES.map((p) => (<SelectItem key={p.code} value={p.code}>{p.code}: {p.desc}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Periodo</label>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PERIODS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Tiempo del partido (mm:ss)</label>
+          <Input value={time} onChange={(e) => setTime(e.target.value)} placeholder="00:00" className="w-[100px]" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold">Duración sanción</label>
+          <Select value={preset} onValueChange={setPreset}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PENALTY_TIMES.map((t) => (<SelectItem key={t.label} value={t.label}>{t.label}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+        {preset === "Manual" && (
+          <div className="space-y-1">
+            <label className="text-xs font-bold">Minutos</label>
+            <Input type="number" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="2" />
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={save} disabled={saving}>Guardar</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>Cancelar</Button>
+      </div>
+    </div>
   );
 }
 
