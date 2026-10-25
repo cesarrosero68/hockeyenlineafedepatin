@@ -1286,7 +1286,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                     {" — "}
                     {jerseyByPlayerTeam(p.player_id, p.team_id) ? `#${jerseyByPlayerTeam(p.player_id, p.team_id)} ` : ""}{p.player?.first_name} {p.player?.last_name}
                     <span className="text-muted-foreground ml-2">
-                      {p.penalty_code} · P{p.period}{p.penalty_time ? ` · ${p.penalty_time}` : ""}
+                      {p.penalty_code} · <span className="font-semibold text-foreground">{minutesToMmSs(Number(p.penalty_minutes))} min</span> · P{p.period}{p.penalty_time ? ` · ${p.penalty_time}` : ""}
                     </span>
                   </div>
                   <div className="flex items-center shrink-0">
