@@ -110,6 +110,17 @@ export default function AdminMatches() {
         if (matchDay !== filterDate) return false;
       }
       return true;
+    }).sort((a: any, b: any) => {
+      // Arriba: en juego y próximos (el más cercano primero). Abajo: ya jugados (el más reciente primero).
+      const played = (m: any) => (m.status === "closed" || m.status === "locked" ? 1 : 0);
+      if (played(a) !== played(b)) return played(a) - played(b);
+      const ta = a.match_date ? new Date(a.match_date).getTime() : Infinity;
+      const tb = b.match_date ? new Date(b.match_date).getTime() : Infinity;
+      if (!played(a)) {
+        if ((a.status === "in_progress") !== (b.status === "in_progress")) return a.status === "in_progress" ? -1 : 1;
+        return ta - tb;
+      }
+      return tb - ta;
     });
   }, [matches, filterDivision, filterStatus, filterDate]);
 
