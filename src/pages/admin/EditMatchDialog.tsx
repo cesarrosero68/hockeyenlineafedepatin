@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { bogotaInputToUTC, utcToBogotaInput } from "@/lib/timezone";
+import DisciplineReportDialog from "./DisciplineReportDialog";
+import { FileText } from "lucide-react";
 import { Constants } from "@/integrations/supabase/types";
 
 interface Props {
@@ -47,6 +49,7 @@ export default function EditMatchDialog({ open, onOpenChange, match }: Props) {
   const [roundNumber, setRoundNumber] = useState(match?.round_number?.toString() ?? "");
   const [status, setStatus] = useState(match?.status ?? "scheduled");
   const [notes, setNotes] = useState(match?.notes ?? "");
+  const [showReport, setShowReport] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState(home?.team_id ?? "");
   const [awayTeamId, setAwayTeamId] = useState(away?.team_id ?? "");
 
@@ -228,7 +231,12 @@ export default function EditMatchDialog({ open, onOpenChange, match }: Props) {
           </div>
 
           <div className="space-y-1">
-            <Label>Notas</Label>
+            <div className="flex items-center justify-between">
+              <Label>Notas</Label>
+              <Button type="button" size="sm" variant="outline" className="gap-1 h-7" onClick={() => setShowReport(true)}>
+                <FileText className="h-3.5 w-3.5" /> Generar reporte de disciplina
+              </Button>
+            </div>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
@@ -239,6 +247,14 @@ export default function EditMatchDialog({ open, onOpenChange, match }: Props) {
             {editMutation.isPending ? "Guardando..." : "Guardar Cambios"}
           </Button>
         </DialogFooter>
+
+        {match && (
+          <DisciplineReportDialog
+            matchId={showReport ? match.id : null}
+            notesOverride={notes}
+            onClose={() => setShowReport(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
