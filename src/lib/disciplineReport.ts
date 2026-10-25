@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { formatBogota } from "@/lib/timezone";
+import { sortChronological } from "./matchEvents";
 import { buildDisciplinePdf, type DisciplineReportData, type DisciplineSanction } from "./disciplinePdf";
 export type { DisciplineReportData };
 
@@ -52,7 +53,7 @@ export async function loadDisciplineData(matchId: string): Promise<DisciplineRep
   const jersey = (playerId: string | null, teamId: string) =>
     (rosters ?? []).find((r: any) => r.player_id === playerId && r.team_id === teamId)?.jersey_number ?? null;
 
-  const sanctions: DisciplineSanction[] = (pens ?? []).map((p: any) => ({
+  const sanctions: DisciplineSanction[] = sortChronological(pens as any[], "penalty_time").map((p: any) => ({
     player: fullName(p.player) || "—",
     jersey: jersey(p.player_id, p.team_id),
     side: p.team_id === home?.team_id ? "LOC" : "VIS",
