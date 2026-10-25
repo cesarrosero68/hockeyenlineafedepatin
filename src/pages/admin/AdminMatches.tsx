@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play, Plus, Trash2, CalendarDays, List, Download } from "lucide-react";
+import { Calendar, Lock, CheckCircle, AlertTriangle, Pencil, Save, X, Play, Plus, Trash2, CalendarDays, List, Download, FileText } from "lucide-react";
 import { formatBogota, utcToBogotaInput, bogotaInputToUTC } from "@/lib/timezone";
 import { toast } from "@/hooks/use-toast";
 import MatchLivePanel from "./MatchLivePanel";
 import CreateMatchDialog from "./CreateMatchDialog";
 import EditMatchDialog from "./EditMatchDialog";
+import DisciplineReportDialog from "./DisciplineReportDialog";
 import AdminScheduleCalendar from "./AdminScheduleCalendar";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -37,6 +38,7 @@ export default function AdminMatches() {
   const [filterDivision, setFilterDivision] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [liveMatchId, setLiveMatchId] = useState<string | null>(null);
+  const [reportMatchId, setReportMatchId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editMatch, setEditMatch] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -501,6 +503,10 @@ export default function AdminMatches() {
                             </Button>
                           )}
 
+                          <Button size="sm" variant="outline" className="gap-1" onClick={() => setReportMatchId(match.id)}>
+                            <FileText className="h-4 w-4" /> Disciplina
+                          </Button>
+
                           {!isLocked && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -620,6 +626,7 @@ export default function AdminMatches() {
 
           <CreateMatchDialog open={showCreate} onOpenChange={setShowCreate} />
           <EditMatchDialog open={!!editMatch} onOpenChange={(open) => { if (!open) setEditMatch(null); }} match={editMatch} />
+          <DisciplineReportDialog matchId={reportMatchId} onClose={() => setReportMatchId(null)} />
         </>
       )}
     </div>
