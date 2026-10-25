@@ -63,7 +63,8 @@ export async function loadDisciplineData(matchId: string): Promise<DisciplineRep
     rule: p.penalty_code ?? "",
   }));
 
-  const phase = [m.phase, m.round_number ? `J${m.round_number}` : ""].filter(Boolean).join(" ");
+  const phaseRaw = String(m.phase ?? "");
+  const phase = [phaseRaw.charAt(0).toUpperCase() + phaseRaw.slice(1), m.round_number ? `J${m.round_number}` : ""].filter(Boolean).join(" ");
   const closed = m.status === "closed" || m.status === "locked" || m.status === "in_progress";
 
   return {
