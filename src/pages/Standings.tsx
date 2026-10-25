@@ -128,9 +128,9 @@ export default function Standings() {
           <th className="text-left py-2 px-1">#</th>
           <th className="text-left py-2 px-1">Equipo</th>
           <th className="text-center py-2 px-1">PJ</th>
-          <th className="text-center py-2 px-1">G</th>
-          <th className="text-center py-2 px-1">E</th>
-          <th className="text-center py-2 px-1">P</th>
+          <th className="text-center py-2 px-1">PG</th>
+          <th className="text-center py-2 px-1">PP</th>
+          <th className="text-center py-2 px-1">PE</th>
           <th className="text-center py-2 px-1">GF</th>
           <th className="text-center py-2 px-1">GC</th>
           <th className="text-center py-2 px-1">DG</th>
@@ -144,8 +144,8 @@ export default function Standings() {
             <td className="py-2 px-1 font-medium">{s.name}</td>
             <td className="text-center py-2 px-1">{s.played}</td>
             <td className="text-center py-2 px-1">{s.wins}</td>
-            <td className="text-center py-2 px-1">{s.draws}</td>
             <td className="text-center py-2 px-1">{s.losses}</td>
+            <td className="text-center py-2 px-1">{s.draws}</td>
             <td className="text-center py-2 px-1">{s.goals_for}</td>
             <td className="text-center py-2 px-1">{s.goals_against}</td>
             <td className="text-center py-2 px-1">{s.goal_diff}</td>
@@ -225,9 +225,9 @@ export default function Standings() {
                               <th className="text-left py-2 px-1">#</th>
                               <th className="text-left py-2 px-1">Equipo</th>
                               <th className="text-center py-2 px-1">PJ</th>
-                              <th className="text-center py-2 px-1">G</th>
-                              <th className="text-center py-2 px-1">E</th>
-                              <th className="text-center py-2 px-1">P</th>
+                              <th className="text-center py-2 px-1">PG</th>
+                              <th className="text-center py-2 px-1">PP</th>
+                              <th className="text-center py-2 px-1">PE</th>
                               <th className="text-center py-2 px-1">GF</th>
                               <th className="text-center py-2 px-1">GC</th>
                               <th className="text-center py-2 px-1">DG</th>
@@ -241,8 +241,8 @@ export default function Standings() {
                                 <td className="py-2 px-1 font-medium">{s.teams?.name}</td>
                                 <td className="text-center py-2 px-1">{s.played}</td>
                                 <td className="text-center py-2 px-1">{s.wins}</td>
-                                <td className="text-center py-2 px-1">{s.draws}</td>
                                 <td className="text-center py-2 px-1">{s.losses}</td>
+                                <td className="text-center py-2 px-1">{s.draws}</td>
                                 <td className="text-center py-2 px-1">{s.goals_for}</td>
                                 <td className="text-center py-2 px-1">{s.goals_against}</td>
                                 <td className="text-center py-2 px-1">{s.goal_diff}</td>
