@@ -48,6 +48,12 @@ export interface DisciplineReportData {
   notes: string;
 }
 
+/** "JUAN PABLO CHAPETON" -> "Juan Pablo Chapeton" (solo si viene todo en mayúsculas). */
+const titleCase = (t: string): string =>
+  t && t === t.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(t)
+    ? t.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_m, a: string, b: string) => a + b.toUpperCase())
+    : t;
+
 const M = 10; // margen (mm)
 const W = 190; // ancho útil (A4 = 210)
 const GREY: [number, number, number] = [176, 176, 176];
@@ -127,8 +133,8 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
     y += rowH;
   };
   pair("team", d.homeTeam, d.awayTeam, "Equipo Local:", "Equipo Away:");
-  pair("coach", d.homeCoach, d.awayCoach, "Coach Local:", "Coach Away:");
-  pair("del", d.homeDelegate, d.awayDelegate, "Delegado Local:", "Delegado Away:");
+  pair("coach", titleCase(d.homeCoach), titleCase(d.awayCoach), "Coach Local:", "Coach Away:");
+  pair("del", titleCase(d.homeDelegate), titleCase(d.awayDelegate), "Delegado Local:", "Delegado Away:");
 
   // Fila extra (información de la plataforma): lugar, fase, marcador
   const cy = y + rowH / 2;
@@ -192,7 +198,7 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
     const s = shown[r];
     x = M;
     const vals = s
-      ? [s.player, s.jersey === null || s.jersey === "" ? "" : String(s.jersey), s.side, s.period, s.time, s.sanction, s.rule, "SÍ", ""]
+      ? [titleCase(s.player), s.jersey === null || s.jersey === "" ? "" : String(s.jersey), s.side, s.period, s.time, s.sanction, s.rule, "SÍ", ""]
       : ["", "", "", "", "", "", "", "", ""];
     vals.forEach((v, i) => {
       cell(x, y, cols[i], 6.2);
@@ -206,54 +212,122 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
   // ── Informe referee (notas del partido) ──
   bar("INFORME REFEREE:", y);
   y += 5.5;
-  let note = (d.notes ?? "").replace(/\r/g, "").trim();
+  let note = (d.notes ?? "").replace(/\r/g, "").replace(/\t/g, " ").trim();
   if (extra.length) {
     const ex = extra
-      .map((s) => `${s.jersey ? "#" + s.jersey + " " : ""}${s.player} (${s.side}, ${s.period}${s.time ? " " + s.time : ""}, ${s.rule})`)
+      .map((s) => `${s.jersey ? "#" + s.jersey + " " : ""}${titleCase(s.player)} (${s.side}, ${s.period}${s.time ? " " + s.time : ""}, ${s.rule})`)
       .join("; ");
     note += `${note ? "\n" : ""}Sanciones adicionales: ${ex}.`;
   }
   if (d.injuries?.trim()) note += `${note ? "\n" : ""}Lesiones: ${d.injuries.trim()}`;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9.5);
-  const lines: string[] = note ? note.split("\n").flatMap((p) => doc.splitTextToSize(p.trim() || " ", W - 3) as string[]) : [];
 
-  // Espacio: lo que queda de página menos firmas (14 mm); la cancha va solo si cabe
   const pageBottom = 287;
   const signH = 5.5 + 11;
-  const minLines = 10;
-  const maxLinesPage1 = Math.floor((pageBottom - y - signH) / LINE_H);
   const fieldH = 52;
-  const wantedLines = Math.max(minLines, lines.length);
-  const fits = wantedLines * LINE_H + signH + fieldH <= pageBottom - y;
-  const linesToDraw = fits ? wantedLines : Math.max(minLines, Math.min(wantedLines, maxLinesPage1));
+  const PAD = 2;
+  const blocks = note
+    .split("\n")
+    .map((t) => t.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 
-  const informeTop = y;
-  for (let i = 0; i < linesToDraw; i++) {
-    hline(M, y + LINE_H, W);
-    if (lines[i]) text(lines[i], M + 1.5, y + LINE_H / 2, { size: 9.5 });
-    y += LINE_H;
-  }
-  doc.line(M, informeTop, M, y);
-  doc.line(M + W, informeTop, M + W, y);
-  hline(M, informeTop, W);
-
-  // Texto que no cupo en la página 1 → continúa en página 2
-  if (lines.length > linesToDraw) {
-    doc.addPage();
-    let y2 = 15;
-    bar("INFORME REFEREE (continuación):", y2);
-    y2 += 5.5;
-    const rest = lines.slice(linesToDraw);
-    const top2 = y2;
-    rest.forEach((ln) => {
-      hline(M, y2 + LINE_H, W);
-      text(ln, M + 1.5, y2 + LINE_H / 2, { size: 9.5 });
-      y2 += LINE_H;
+  type RLine = { text: string; x: number; w: number; bold: boolean; justify: boolean; before: number };
+  const layout = (size: number): { lines: RLine[]; lh: number } => {
+    const lh = size * 0.46; // mm por renglón
+    const out: RLine[] = [];
+    const innerW = W - 2 * PAD;
+    blocks.forEach((blk, bi) => {
+      const num = blk.match(/^(\d{1,2}[.)])\s+(.*)$/);
+      const isHeading = !num && blk.length <= 60 && !/[.,;]$/.test(blk) && !/:\s*\S/.test(blk);
+      const before = bi === 0 ? 0 : isHeading ? 2.2 : 1.2;
+      if (isHeading) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(size);
+        out.push({ text: blk, x: M + PAD, w: innerW, bold: true, justify: false, before });
+        return;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(size);
+      const indent = num ? 7 : 0;
+      const body = num ? num[2] : blk;
+      const parts = doc.splitTextToSize(body, innerW - indent) as string[];
+      parts.forEach((ln, i) => {
+        if (num && i === 0) out.push({ text: num[1], x: M + PAD + 1, w: 6, bold: false, justify: false, before });
+        out.push({
+          text: ln,
+          x: M + PAD + indent,
+          w: innerW - indent,
+          bold: false,
+          justify: i < parts.length - 1,
+          before: num && i === 0 ? -lh : i === 0 ? before : 0,
+        });
+      });
     });
-    doc.line(M, top2, M, y2);
-    doc.line(M + W, top2, M + W, y2);
-    doc.setPage(1);
+    return { lines: out, lh };
+  };
+  const heightOf = (L: { lines: RLine[]; lh: number }) => L.lines.reduce((h, r) => h + L.lh + r.before, 0) + 2 * PAD;
+  const MIN_BOX = 40;
+
+  const drawBox = (L: { lines: RLine[]; lh: number }, from: number, to: number, boxH: number) => {
+    const top = y;
+    doc.rect(M, top, W, boxH);
+    let cy = top + PAD;
+    for (let i = from; i < to; i++) {
+      const r = L.lines[i];
+      cy += r.before;
+      doc.setFont("helvetica", r.bold ? "bold" : "normal");
+      doc.setFontSize(size_);
+      doc.setTextColor(0);
+      doc.text(r.text, r.x, cy + L.lh * 0.75, r.justify ? { align: "justify", maxWidth: r.w } : undefined);
+      cy += L.lh;
+    }
+    y = top + boxH;
+  };
+
+  // Elige la letra más grande (10 → 8) con la que todo el informe + firmas cabe en la hoja 1.
+  let size_ = 9;
+  let chosen: { lines: RLine[]; lh: number } | null = null;
+  for (const sz of [10, 9.5, 9, 8.5, 8]) {
+    const L = layout(sz);
+    if (Math.max(heightOf(L), MIN_BOX) + signH + 2 <= pageBottom - y) {
+      size_ = sz;
+      chosen = L;
+      break;
+    }
+  }
+
+  if (chosen) {
+    drawBox(chosen, 0, chosen.lines.length, Math.max(heightOf(chosen), Math.min(MIN_BOX + 14, pageBottom - y - signH - 2 - 0.01)));
+    y += 2;
+  } else {
+    // Texto muy largo: letra 9 y continúa en hojas siguientes; firmas y cancha después del final del informe.
+    size_ = 9;
+    const L = layout(9);
+    let i = 0;
+    let first = true;
+    while (i < L.lines.length) {
+      if (!first) {
+        doc.addPage();
+        y = 15;
+        bar("INFORME REFEREE (continuación):", y);
+        y += 5.5;
+      }
+      const room = pageBottom - y - PAD * 2 - (first ? 0 : signH + 2);
+      let h = 0;
+      let j = i;
+      while (j < L.lines.length && h + L.lh + L.lines[j].before <= room) {
+        h += L.lh + L.lines[j].before;
+        j++;
+      }
+      if (j === i) j = i + 1;
+      drawBox(L, i, j, h + 2 * PAD);
+      i = j;
+      first = false;
+    }
+    y += 2;
+    if (pageBottom - y < signH) {
+      doc.addPage();
+      y = 15;
+    }
   }
 
   // ── Firmas ──
@@ -263,12 +337,13 @@ export function buildDisciplinePdf(d: DisciplineReportData): jsPDF {
   text("FIRMA REFEREE #2:", M + 128, y + 2.75, { size: 8.5, bold: true });
   y += 5.5;
   cell(M, y, W, 11);
+  doc.line(M + W / 2, y, M + W / 2, y + 11);
   y += 11 + 3;
 
   // ── Cancha (si hay espacio) ──
   const avail = pageBottom - y;
   if (avail > 30) {
-    let h = Math.min(avail, 58);
+    let h = Math.min(avail, fieldH + 6);
     let w = h * CANCHA_RATIO;
     if (w > W - 10) {
       w = W - 10;
