@@ -14,6 +14,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTournament } from "@/contexts/TournamentContext";
 import { useMatchClock, periodShort } from "@/lib/matchClock";
 
+// Cruces de fase final sin equipo todavia: el texto viene en "notes" como
+// "Local: SEED 1 | Visitante: WIN SUB10-25". Solo se lee ese fragmento.
+function prettyPlaceholder(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.trim().replace(/\s+/g, " ").toUpperCase();
+  if (!s) return null;
+  let m = s.match(/^SEED\s*(\d+)\s*(?:GR\s*([A-Z]))?/);
+  if (m) return m[2] ? `${m[1]}° Grupo ${m[2]}` : `${m[1]}° de la tabla`;
+  m = s.match(/^(WINNER|WIN|LOSER)\b.*?(\d+)\s*$/);
+  if (m) return `${m[1] === "LOSER" ? "Perdedor" : "Ganador"} partido ${m[2]}`;
+  return raw.trim();
+}
+function placeholderFromNotes(notes: string | null | undefined, side: "home" | "away"): string | null {
+  if (!notes) return null;
+  const re = side === "home" ? /Local:\s*([^|]+?)(?:\s*\||\s*$)/ : /Visitante:\s*(.+?)\s*$/;
+  return prettyPlaceholder(notes.match(re)?.[1]);
+}
+
+const phaseLabelEs: Record<string, string> = {
+  playoff: "Clasificación",
+  semifinal: "Semifinal",
+  final: "Final",
+  third_place: "Tercer puesto",
+  ranking: "Definición de puestos",
+};
+
 interface MatchWithDetails {
   id: string;
   match_date: string | null;
@@ -33,6 +59,8 @@ interface MatchWithDetails {
   away_score: number | null;
   home_logo: string | null;
   away_logo: string | null;
+  home_placeholder?: string | null;
+  away_placeholder?: string | null;
   clock_enabled?: boolean | null;
   clock_started_at?: string | null;
   clock_offset_ms?: number | null;
@@ -115,7 +143,7 @@ export default function Schedule() {
       let q: any = supabase
         .from("matches")
         .select(`
-          id, match_date, status, phase, round_number, venue, category_id,
+          id, match_date, status, phase, round_number, venue, category_id, notes,
           clock_enabled, clock_started_at, clock_offset_ms, current_period, period_minutes,
           categories!inner(name, division_id, divisions!inner(id, name)),
           match_teams(side, score_regular, teams!inner(id, name, logo_url, clubs(logo_url)))
@@ -146,6 +174,8 @@ export default function Schedule() {
           away_score: away?.score_regular ?? null,
           home_logo: home?.teams?.logo_url ?? home?.teams?.clubs?.logo_url ?? null,
           away_logo: away?.teams?.logo_url ?? away?.teams?.clubs?.logo_url ?? null,
+          home_placeholder: home?.teams?.name ? null : placeholderFromNotes(m.notes, "home"),
+          away_placeholder: away?.teams?.name ? null : placeholderFromNotes(m.notes, "away"),
           clock_enabled: m.clock_enabled,
           clock_started_at: m.clock_started_at,
           clock_offset_ms: m.clock_offset_ms,
@@ -407,7 +437,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
               <Badge variant="outline" className="text-xs">{match.division_name}</Badge>
               {match.phase !== "regular" && (
                 <Badge variant="outline" className="text-xs">
-                  {match.phase === "semifinal" ? "Semifinal" : match.phase === "playoff" ? "Playoff" : match.phase === "final" ? "Final" : match.phase === "third_place" ? "Tercer Puesto" : match.phase}
+                  {phaseLabelEs[match.phase] ?? match.phase}
                 </Badge>
               )}
             </div>
@@ -423,7 +453,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
               {match.home_logo && (
                 <img src={match.home_logo} alt={match.home_team ?? "Equipo local"} loading="lazy" className="h-10 w-10 object-contain shrink-0" />
               )}
-              <span className="truncate">{match.home_team ?? "Por definir"}</span>
+              <span className={`truncate ${match.home_team ? "" : "italic text-muted-foreground font-medium"}`}>{match.home_team ?? match.home_placeholder ?? "Por definir"}</span>
             </span>
             <div className="flex items-center gap-1 font-display font-bold text-lg min-w-[60px] justify-center">
               {match.status === "closed" || match.status === "in_progress" || match.status === "locked" ? (
@@ -437,7 +467,7 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
               )}
             </div>
             <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm sm:text-base min-w-0">
-              <span className="truncate">{match.away_team ?? "Por definir"}</span>
+              <span className={`truncate ${match.away_team ? "" : "italic text-muted-foreground font-medium"}`}>{match.away_team ?? match.away_placeholder ?? "Por definir"}</span>
               {match.away_logo && (
                 <img src={match.away_logo} alt={match.away_team ?? "Equipo visitante"} loading="lazy" className="h-10 w-10 object-contain shrink-0" />
               )}
