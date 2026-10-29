@@ -111,10 +111,10 @@ function MatchRow({ m, showScore }: { m: HomeMatch; showScore: boolean }) {
   return (
     <Link
       to={`/match/${m.id}`}
-      className="grid grid-cols-[1fr_auto_1fr] sm:grid-cols-[96px_1fr_auto_1fr] items-center gap-x-3 gap-y-1 px-3 sm:px-4 py-3 border-t first:border-t-0 hover:bg-muted/50 transition-colors"
+      className="grid grid-cols-[1fr_auto_1fr] sm:grid-cols-[120px_1fr_auto_1fr] items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-4 border-t first:border-t-0 hover:bg-muted/50 transition-colors"
       style={{ borderLeft: `4px solid ${color}` }}
     >
-      <div className="col-span-3 sm:col-span-1 flex sm:block items-center gap-2 text-xs leading-tight">
+      <div className="col-span-3 sm:col-span-1 flex sm:block items-center gap-2 text-sm leading-tight">
         <span className="font-semibold text-foreground sm:block">{showScore ? day : time}</span>
         {!showScore && <span className="text-muted-foreground sm:hidden">·</span>}
         <span className="font-bold uppercase tracking-wide sm:block" style={{ color }}>
@@ -123,17 +123,17 @@ function MatchRow({ m, showScore }: { m: HomeMatch; showScore: boolean }) {
         </span>
       </div>
       <div className="flex items-center justify-end gap-2 min-w-0 text-right">
-        <span className={cn("text-sm font-semibold break-words", homeWins && "text-green-600 dark:text-green-500")}>
+        <span className={cn("text-base sm:text-lg font-semibold break-words", homeWins && "text-green-600 dark:text-green-500")}>
           {m.home_team ?? m.home_ph ?? "Por definir"}
         </span>
-        <TeamShield name={m.home_team} logo={m.home_logo} />
+        <TeamShield name={m.home_team} logo={m.home_logo} size="md" />
       </div>
-      <div className="font-display text-lg min-w-[58px] text-center rounded-lg bg-muted px-2 py-0.5">
+      <div className="font-display text-xl sm:text-2xl min-w-[64px] text-center rounded-lg bg-muted px-3 py-1">
         {showScore ? `${m.home_score ?? 0} – ${m.away_score ?? 0}` : "VS"}
       </div>
       <div className="flex items-center gap-2 min-w-0">
-        <TeamShield name={m.away_team} logo={m.away_logo} />
-        <span className={cn("text-sm font-semibold break-words", awayWins && "text-green-600 dark:text-green-500")}>
+        <TeamShield name={m.away_team} logo={m.away_logo} size="md" />
+        <span className={cn("text-base sm:text-lg font-semibold break-words", awayWins && "text-green-600 dark:text-green-500")}>
           {m.away_team ?? m.away_ph ?? "Por definir"}
         </span>
       </div>
@@ -387,7 +387,7 @@ export default function HomeTabs({
           ) : (
             upcomingByDay.map((g) => (
               <div key={g.key}>
-                <div className="px-4 py-2 bg-muted/60 text-xs font-bold uppercase tracking-wider text-primary first-letter:uppercase lowercase">{g.label}</div>
+                <div className="px-4 py-2.5 bg-muted/60 text-sm font-bold uppercase tracking-wider text-primary first-letter:uppercase lowercase">{g.label}</div>
                 {g.items.map((m) => <MatchRow key={m.id} m={m} showScore={false} />)}
               </div>
             ))
