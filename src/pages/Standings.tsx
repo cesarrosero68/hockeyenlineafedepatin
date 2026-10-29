@@ -1,4 +1,6 @@
 import Seo from "@/components/Seo";
+import PageHero from "@/components/PageHero";
+import TeamShield from "@/components/home/TeamShield";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3 } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
+
+const MEDAL = ["bg-yellow-500", "bg-slate-400", "bg-amber-700"];
+function Pos({ n }: { n: number }) {
+  return n <= 3 ? (
+    <span className={`inline-grid h-6 w-6 place-items-center rounded-full text-xs font-bold text-white ${MEDAL[n - 1]}`}>{n}</span>
+  ) : (
+    <span className="inline-grid h-6 w-6 place-items-center text-xs text-muted-foreground">{n}</span>
+  );
+}
 
 export default function Standings() {
   const { viewedTournamentId } = useTournament();
@@ -36,7 +47,7 @@ export default function Standings() {
     queryFn: async () => {
       let q: any = supabase
         .from("standings_aggregate")
-        .select("*, teams!inner(name)")
+        .select("*, teams!inner(name, logo_url, clubs(logo_url))")
         .order("points", { ascending: false })
         .order("goal_diff", { ascending: false });
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
@@ -49,7 +60,7 @@ export default function Standings() {
   const { data: teams = [] } = useQuery({
     queryKey: ["standings-teams-groups", viewedTournamentId],
     queryFn: async () => {
-      let q: any = supabase.from("teams").select("id, name, category_id, group_name");
+      let q: any = supabase.from("teams").select("id, name, logo_url, category_id, group_name, clubs(logo_url)");
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
       const { data } = await q;
       return data ?? [];
@@ -90,7 +101,7 @@ export default function Standings() {
     const rows = new Map<string, any>();
     groupTeams.forEach((t: any) =>
       rows.set(t.id, {
-        id: t.id, name: t.name, played: 0, wins: 0, draws: 0, losses: 0,
+        id: t.id, name: t.name, logo: t.logo_url ?? t.clubs?.logo_url ?? null, played: 0, wins: 0, draws: 0, losses: 0,
         goals_for: 0, goals_against: 0, goal_diff: 0, points: 0,
       })
     );
@@ -122,7 +133,7 @@ export default function Standings() {
   };
 
   const StandingsTable = ({ rows }: { rows: any[] }) => (
-    <table className="w-full text-sm">
+    <table className="w-full text-sm sm:text-base">
       <thead>
         <tr className="border-b text-muted-foreground text-xs">
           <th className="text-left py-2 px-1">#</th>
@@ -140,8 +151,8 @@ export default function Standings() {
       <tbody>
         {rows.map((s: any, i: number) => (
           <tr key={s.id} className="border-b last:border-0">
-            <td className="py-2 px-1 text-muted-foreground">{i + 1}</td>
-            <td className="py-2 px-1 font-medium">{s.name}</td>
+            <td className="py-2.5 px-1"><Pos n={i + 1} /></td>
+            <td className="py-2.5 px-1 font-semibold"><span className="flex items-center gap-2"><TeamShield name={s.name} logo={s.logo} />{s.name}</span></td>
             <td className="text-center py-2 px-1">{s.played}</td>
             <td className="text-center py-2 px-1">{s.wins}</td>
             <td className="text-center py-2 px-1">{s.losses}</td>
@@ -157,22 +168,20 @@ export default function Standings() {
   );
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="pb-10">
       <Seo
         title="Tabla de posiciones | Fedepatin"
         description="Posiciones actualizadas por división y categoría: puntos, partidos jugados, goles y diferencia."
         path="/standings"
         jsonLd={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Tabla de posiciones | Fedepatin", description: "Posiciones actualizadas por división y categoría: puntos, partidos jugados, goles y diferencia.", url: "https://hockeyenlineafedepatin.site/standings" }}
       />
-      <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <BarChart3 className="h-7 w-7 text-primary" />
-        Tabla de Posiciones
-      </h1>
+      <PageHero icon={BarChart3} title="Tabla de Posiciones" subtitle="Posiciones por división y categoría" />
+      <div className="container py-6 space-y-6">
 
       <Tabs defaultValue={defaultTab} key={defaultTab}>
         <TabsList className="flex-wrap h-auto gap-1">
           {divisions.map((d: any) => (
-            <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">{d.name}</TabsTrigger>
+            <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">{d.name}</TabsTrigger>
           ))}
         </TabsList>
 
@@ -192,9 +201,9 @@ export default function Standings() {
 
                 if (groups.length > 0) {
                   return (
-                    <Card key={cat.id}>
+                    <Card key={cat.id} className="rounded-2xl shadow-sm overflow-hidden">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-display uppercase">{cat.name}</CardTitle>
+                        <CardTitle className="text-base font-display uppercase">{cat.name}</CardTitle>
                       </CardHeader>
                       <CardContent className="grid gap-6 md:grid-cols-2">
                         {groups.map((g) => (
@@ -209,9 +218,9 @@ export default function Standings() {
                 }
 
                 return (
-                  <Card key={cat.id}>
+                  <Card key={cat.id} className="rounded-2xl shadow-sm overflow-hidden">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-display uppercase">{cat.name}</CardTitle>
+                      <CardTitle className="text-base font-display uppercase">{cat.name}</CardTitle>
                     </CardHeader>
                     <CardContent className="overflow-x-auto">
                       {catStandings.length === 0 ? (
@@ -219,7 +228,7 @@ export default function Standings() {
                           Sin datos aún. Las posiciones se calcularán al cerrar partidos.
                         </p>
                       ) : (
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm sm:text-base">
                           <thead>
                             <tr className="border-b text-muted-foreground text-xs">
                               <th className="text-left py-2 px-1">#</th>
@@ -237,8 +246,8 @@ export default function Standings() {
                           <tbody>
                             {catStandings.map((s: any, i: number) => (
                               <tr key={s.id} className="border-b last:border-0">
-                                <td className="py-2 px-1 text-muted-foreground">{s.rank ?? i + 1}</td>
-                                <td className="py-2 px-1 font-medium">{s.teams?.name}</td>
+                                <td className="py-2.5 px-1"><Pos n={s.rank ?? i + 1} /></td>
+                                <td className="py-2.5 px-1 font-semibold"><span className="flex items-center gap-2"><TeamShield name={s.teams?.name} logo={s.teams?.logo_url ?? s.teams?.clubs?.logo_url} />{s.teams?.name}</span></td>
                                 <td className="text-center py-2 px-1">{s.played}</td>
                                 <td className="text-center py-2 px-1">{s.wins}</td>
                                 <td className="text-center py-2 px-1">{s.losses}</td>
@@ -260,6 +269,7 @@ export default function Standings() {
           );
         })}
       </Tabs>
+      </div>
     </div>
   );
 }
