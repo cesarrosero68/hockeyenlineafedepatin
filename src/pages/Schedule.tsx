@@ -1,4 +1,6 @@
 import Seo from "@/components/Seo";
+import PageHero from "@/components/PageHero";
+import TeamShield from "@/components/home/TeamShield";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -264,20 +266,18 @@ useMemo(() => {
   }
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="pb-10">
       <Seo
         title="Programación de partidos | Fedepatin"
         description="Calendario completo de partidos de hockey en línea: fechas, horarios, sedes y resultados por categoría."
         path="/schedule"
         jsonLd={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Programación de partidos | Fedepatin", description: "Calendario completo de partidos de hockey en línea: fechas, horarios, sedes y resultados por categoría.", url: "https://hockeyenlineafedepatin.site/schedule" }}
       />
-      <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <CalendarIcon className="h-7 w-7 text-primary" />
-        Programación y Resultados
-      </h1>
+      <PageHero icon={CalendarIcon} title="Programación y Resultados" subtitle="Calendario de partidos por fecha" />
+      <div className="container py-6 space-y-6">
 
       {/* Cascading Filters */}
-      <div className="flex flex-wrap gap-3 items-end">
+      <div className="flex flex-wrap gap-3 items-end rounded-2xl border bg-card p-4 shadow-sm">
         <div className="w-full sm:w-auto min-w-[180px]">
           <label className="text-xs font-medium text-muted-foreground mb-1 block flex items-center gap-1">
             <Filter className="h-3 w-3" /> División
@@ -418,27 +418,38 @@ useMemo(() => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
+}
+
+function catColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 17 + name.charCodeAt(i)) % 360;
+  return `hsl(${h} 60% 42%)`;
 }
 
 function MatchCard({ match }: { match: MatchWithDetails }) {
   const time = match.match_date ? formatBogota(match.match_date, "h:mm a") : null;
   const liveClock = useMatchClock(match);
   const showLive = match.status === "in_progress";
+  const showScore = match.status === "closed" || match.status === "in_progress" || match.status === "locked";
+  const done = match.status === "closed" || match.status === "locked";
+  const homeWins = done && (match.home_score ?? 0) > (match.away_score ?? 0);
+  const awayWins = done && (match.away_score ?? 0) > (match.home_score ?? 0);
+  const color = catColor(match.category_name);
 
   return (
     <Link to={`/match/${match.id}`}>
-      <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+      <Card className="overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-shadow cursor-pointer" style={{ borderLeft: `5px solid ${color}` }}>
         <CardContent className="p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary" className="text-xs">{match.category_name}</Badge>
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              {time && <span className="flex items-center gap-1 font-semibold text-foreground"><Clock className="h-4 w-4" />{time}</span>}
+              <span className="font-bold uppercase tracking-wide" style={{ color }}>{match.category_name}</span>
               <Badge variant="outline" className="text-xs">{match.division_name}</Badge>
               {match.phase !== "regular" && (
-                <Badge variant="outline" className="text-xs">
-                  {phaseLabelEs[match.phase] ?? match.phase}
-                </Badge>
+                <Badge variant="outline" className="text-xs">{phaseLabelEs[match.phase] ?? match.phase}</Badge>
               )}
             </div>
             <Badge variant="outline" className={`text-xs ${statusBadgeClasses[match.status] ?? ""}`}>
@@ -448,44 +459,29 @@ function MatchCard({ match }: { match: MatchWithDetails }) {
             </Badge>
           </div>
 
-          <div className="mt-3 flex items-center justify-center gap-4 text-center">
-            <span className="flex-1 flex items-center justify-end gap-2 font-semibold text-sm sm:text-base min-w-0">
-              {match.home_logo && (
-                <img src={match.home_logo} alt={match.home_team ?? "Equipo local"} loading="lazy" className="h-10 w-10 object-contain shrink-0" />
-              )}
-              <span className={`truncate ${match.home_team ? "" : "italic text-muted-foreground font-medium"}`}>{match.home_team ?? match.home_placeholder ?? "Por definir"}</span>
-            </span>
-            <div className="flex items-center gap-1 font-display font-bold text-lg min-w-[60px] justify-center">
-              {match.status === "closed" || match.status === "in_progress" || match.status === "locked" ? (
-                <>
-                  <span>{match.home_score ?? 0}</span>
-                  <span className="text-muted-foreground">-</span>
-                  <span>{match.away_score ?? 0}</span>
-                </>
-              ) : (
-                <span className="text-muted-foreground text-sm">vs</span>
-              )}
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3">
+            <div className="flex min-w-0 flex-col-reverse items-center gap-1 text-center sm:flex-row sm:justify-end sm:gap-2 sm:text-right">
+              <span className={`text-sm sm:text-lg font-semibold leading-tight break-words ${homeWins ? "text-green-600" : ""} ${match.home_team ? "" : "italic text-muted-foreground font-medium"}`}>
+                {match.home_team ?? match.home_placeholder ?? "Por definir"}
+              </span>
+              <TeamShield name={match.home_team} logo={match.home_logo} size="md" />
             </div>
-            <span className="flex-1 flex items-center justify-start gap-2 font-semibold text-sm sm:text-base min-w-0">
-              <span className={`truncate ${match.away_team ? "" : "italic text-muted-foreground font-medium"}`}>{match.away_team ?? match.away_placeholder ?? "Por definir"}</span>
-              {match.away_logo && (
-                <img src={match.away_logo} alt={match.away_team ?? "Equipo visitante"} loading="lazy" className="h-10 w-10 object-contain shrink-0" />
-              )}
-            </span>
+            <div className="min-w-[56px] rounded-lg bg-muted px-2 py-1 text-center font-display text-lg sm:text-2xl font-bold">
+              {showScore ? `${match.home_score ?? 0} – ${match.away_score ?? 0}` : <span className="text-muted-foreground text-base">VS</span>}
+            </div>
+            <div className="flex min-w-0 flex-col items-center gap-1 text-center sm:flex-row sm:gap-2 sm:text-left">
+              <TeamShield name={match.away_team} logo={match.away_logo} size="md" />
+              <span className={`text-sm sm:text-lg font-semibold leading-tight break-words ${awayWins ? "text-green-600" : ""} ${match.away_team ? "" : "italic text-muted-foreground font-medium"}`}>
+                {match.away_team ?? match.away_placeholder ?? "Por definir"}
+              </span>
+            </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-            {time && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />{time}
-              </span>
-            )}
-            {match.venue && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />{match.venue}
-              </span>
-            )}
-          </div>
+          {match.venue && (
+            <div className="mt-3 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3" />{match.venue}
+            </div>
+          )}
         </CardContent>
       </Card>
     </Link>
