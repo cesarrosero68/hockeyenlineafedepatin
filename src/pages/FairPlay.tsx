@@ -1,4 +1,5 @@
 import Seo from "@/components/Seo";
+import PageHero from "@/components/PageHero";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,16 +55,14 @@ export default function FairPlay() {
   const defaultTab = divisions[0]?.id ?? "";
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="pb-10">
       <Seo
         title="Ranking Fair Play | Fedepatin"
         description="Clasificación de juego limpio por equipo según las sanciones registradas en el torneo."
         path="/fair-play"
       />
-      <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <Shield className="h-7 w-7 text-accent" />
-        Fair Play
-      </h1>
+      <PageHero icon={Shield} title="Fair Play" subtitle="Disciplina y juego limpio" />
+      <div className="container py-6 space-y-6">
 
       {fairPlay.length === 0 ? (
         <Card>
@@ -122,6 +121,7 @@ export default function FairPlay() {
           })}
         </Tabs>
       )}
+      </div>
     </div>
   );
 }
