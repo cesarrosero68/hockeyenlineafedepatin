@@ -68,7 +68,7 @@ export default function PublicLayout() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-0.5 flex-nowrap">
+          <nav className="hidden xl:flex items-center gap-0.5 flex-nowrap">
             {navItems.map((item) => (
               <Link
                 key={item.to}
@@ -146,7 +146,7 @@ export default function PublicLayout() {
       <SponsorsMarquee />
 
       {/* Main Content */}
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 pb-20 xl:pb-0">
         <Outlet />
       </main>
 
@@ -170,7 +170,7 @@ export default function PublicLayout() {
       </footer>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t">
+      <nav className="xl:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t">
         <div className="grid grid-cols-6">
           {mobilePrimary.map((item) => {
             const active = location.pathname === item.to;
