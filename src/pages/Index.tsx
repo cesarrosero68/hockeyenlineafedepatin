@@ -283,15 +283,15 @@ export default function Index() {
                 >
                   <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" aria-hidden="true" />
                   <Link to={`/teams?division=${encodeURIComponent(div.id)}`} className="relative flex items-center gap-4 group">
-                    <span className="grid h-20 w-20 md:h-24 md:w-24 shrink-0 place-items-center rounded-2xl bg-white shadow-lg">
+                    <span className="grid h-28 w-28 md:h-36 md:w-36 shrink-0 place-items-center rounded-2xl bg-white shadow-lg">
                       {div.logo_url ? (
-                        <img src={div.logo_url} alt={div.name} className="h-16 w-16 md:h-20 md:w-20 object-contain group-hover:scale-105 transition-transform" loading="lazy" />
+                        <img src={div.logo_url} alt={div.name} className="h-24 w-24 md:h-32 md:w-32 object-contain group-hover:scale-105 transition-transform" loading="lazy" />
                       ) : (
                         <Trophy className="h-10 w-10 text-primary" />
                       )}
                     </span>
                     <span>
-                      <span className="block font-display text-xl md:text-2xl font-bold uppercase leading-tight">{div.name}</span>
+                      <span className="block font-display text-xl md:text-3xl font-bold uppercase leading-tight">{div.name}</span>
                       <span className="text-sm opacity-90">Ver equipos →</span>
                     </span>
                   </Link>
