@@ -1,4 +1,5 @@
 import Seo from "@/components/Seo";
+import PageHero from "@/components/PageHero";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -155,16 +156,14 @@ export default function Podium() {
   const defaultTab = divisions[0]?.id ?? "";
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="pb-10">
       <Seo
         title="Podio y campeones | Fedepatin"
         description="Campeones, subcampeones y premios individuales por categoría del torneo de hockey en línea."
         path="/podium"
       />
-      <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <Trophy className="h-7 w-7 text-secondary" />
-        Podio del Torneo
-      </h1>
+      <PageHero icon={Trophy} title="Podio del Torneo" subtitle="Los mejores de cada categoría" />
+      <div className="container py-6 space-y-6">
 
       {divisions.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Sin datos aún.</CardContent></Card>
@@ -208,6 +207,7 @@ export default function Podium() {
           })}
         </Tabs>
       )}
+      </div>
     </div>
   );
 }
