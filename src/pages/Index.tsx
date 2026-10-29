@@ -283,9 +283,9 @@ export default function Index() {
                 >
                   <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" aria-hidden="true" />
                   <Link to={`/teams?division=${encodeURIComponent(div.id)}`} className="relative flex items-center gap-4 group">
-                    <span className="grid h-28 w-28 md:h-36 md:w-36 shrink-0 place-items-center rounded-2xl bg-white shadow-lg">
+                    <span className="grid h-32 w-32 md:h-44 md:w-44 shrink-0 place-items-center rounded-2xl bg-white shadow-lg">
                       {div.logo_url ? (
-                        <img src={div.logo_url} alt={div.name} className="h-24 w-24 md:h-32 md:w-32 object-contain group-hover:scale-105 transition-transform" loading="lazy" />
+                        <img src={div.logo_url} alt={div.name} className="h-28 w-28 md:h-40 md:w-40 object-contain object-center group-hover:scale-105 transition-transform" loading="lazy" />
                       ) : (
                         <Trophy className="h-10 w-10 text-primary" />
                       )}
