@@ -111,7 +111,7 @@ function MatchRow({ m, showScore }: { m: HomeMatch; showScore: boolean }) {
   return (
     <Link
       to={`/match/${m.id}`}
-      className="grid grid-cols-[1fr_auto_1fr] sm:grid-cols-[120px_1fr_auto_1fr] items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-4 border-t first:border-t-0 hover:bg-muted/50 transition-colors"
+      className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:grid-cols-[120px_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-4 border-t first:border-t-0 hover:bg-muted/50 transition-colors"
       style={{ borderLeft: `4px solid ${color}` }}
     >
       <div className="col-span-3 sm:col-span-1 flex sm:block items-center gap-2 text-sm leading-tight">
@@ -122,18 +122,18 @@ function MatchRow({ m, showScore }: { m: HomeMatch; showScore: boolean }) {
           {phase ? ` · ${phase}` : ""}
         </span>
       </div>
-      <div className="flex items-center justify-end gap-2 min-w-0 text-right">
-        <span className={cn("text-base sm:text-lg font-semibold break-words", homeWins && "text-green-600 dark:text-green-500")}>
+      <div className="flex min-w-0 flex-col-reverse items-center gap-1 text-center sm:flex-row sm:justify-end sm:gap-2 sm:text-right">
+        <span className={cn("text-sm sm:text-lg font-semibold leading-tight break-words", homeWins && "text-green-600 dark:text-green-500")}>
           {m.home_team ?? m.home_ph ?? "Por definir"}
         </span>
         <TeamShield name={m.home_team} logo={m.home_logo} size="md" />
       </div>
-      <div className="font-display text-xl sm:text-2xl min-w-[64px] text-center rounded-lg bg-muted px-3 py-1">
+      <div className="font-display text-lg sm:text-2xl min-w-[52px] sm:min-w-[64px] text-center rounded-lg bg-muted px-2 sm:px-3 py-1">
         {showScore ? `${m.home_score ?? 0} – ${m.away_score ?? 0}` : "VS"}
       </div>
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex min-w-0 flex-col items-center gap-1 text-center sm:flex-row sm:gap-2 sm:text-left">
         <TeamShield name={m.away_team} logo={m.away_logo} size="md" />
-        <span className={cn("text-base sm:text-lg font-semibold break-words", awayWins && "text-green-600 dark:text-green-500")}>
+        <span className={cn("text-sm sm:text-lg font-semibold leading-tight break-words", awayWins && "text-green-600 dark:text-green-500")}>
           {m.away_team ?? m.away_ph ?? "Por definir"}
         </span>
       </div>
@@ -337,24 +337,24 @@ export default function HomeTabs({
   }, [upcoming]);
 
   return (
-    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+    <div className="w-full min-w-0 rounded-2xl border bg-card shadow-sm overflow-hidden">
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full h-auto p-2 gap-1 rounded-none bg-muted/40 overflow-x-auto justify-start sm:justify-between">
-          <TabsTrigger value="next" className="flex-1 gap-1.5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-2 gap-1 rounded-none bg-muted/40">
+          <TabsTrigger value="next" className="flex-col gap-1 px-1 py-2 text-[11px] sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <CalendarDays className="h-4 w-4" />Próximos
           </TabsTrigger>
-          <TabsTrigger value="results" className="flex-1 gap-1.5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="results" className="flex-col gap-1 px-1 py-2 text-[11px] sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <CheckCircle2 className="h-4 w-4" />Resultados
           </TabsTrigger>
-          <TabsTrigger value="table" className="flex-1 gap-1.5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="table" className="flex-col gap-1 px-1 py-2 text-[11px] sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <BarChart3 className="h-4 w-4" />Posiciones
           </TabsTrigger>
-          <TabsTrigger value="scorers" className="flex-1 gap-1.5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="scorers" className="flex-col gap-1 px-1 py-2 text-[11px] sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Target className="h-4 w-4" />Goleadores
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex gap-2 overflow-x-auto px-3 py-3 border-b">
+        <div className="flex gap-2 overflow-x-auto px-3 py-3 border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[{ id: "all", name: "Todas" }, ...categories].map((c) => {
             const on = (c.id === "all" ? cat === "all" : cat === c.id);
             const color = c.id === "all" ? "hsl(var(--primary))" : catColor(c.name);
