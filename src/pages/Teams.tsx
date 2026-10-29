@@ -1,4 +1,6 @@
 import Seo from "@/components/Seo";
+import PageHero from "@/components/PageHero";
+import TeamShield from "@/components/home/TeamShield";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -94,17 +96,15 @@ export default function TeamsPage() {
   }, [requestedDivision, divisionsWithTeams, defaultTab]);
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="pb-10">
       <Seo
         title="Equipos y planteles | Fedepatin Hockey en Línea"
         description="Consulta los equipos y planteles por división y categoría del torneo de hockey en línea de Fedepatin."
         path="/teams"
         jsonLd={{ "@context": "https://schema.org", "@type": "CollectionPage", name: "Equipos y planteles | Fedepatin Hockey en Línea", description: "Consulta los equipos y planteles por división y categoría del torneo de hockey en línea de Fedepatin.", url: "https://hockeyenlineafedepatin.site/teams" }}
       />
-      <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <Users className="h-7 w-7 text-primary" />
-        Equipos Participantes
-      </h1>
+      <PageHero icon={Users} title="Equipos Participantes" subtitle="Planteles por división y categoría" />
+      <div className="container py-6 space-y-6">
 
       {isLoading ? (
         <Card>
@@ -130,7 +130,7 @@ export default function TeamsPage() {
         <Tabs value={activeDivision || defaultTab} onValueChange={setActiveDivision}>
           <TabsList className="flex-wrap h-auto gap-1">
             {divisionsWithTeams.map((d: any) => (
-              <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm">
+              <TabsTrigger key={d.id} value={d.id} className="text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
                 {d.name}
               </TabsTrigger>
             ))}
@@ -188,6 +188,7 @@ export default function TeamsPage() {
           })}
         </Tabs>
       )}
+      </div>
     </div>
   );
 }
@@ -273,18 +274,12 @@ function TeamCard({
   }, [rosterRows, playersMap, expanded, rostersLoading, categoryName, team.id]);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-4 cursor-pointer flex items-center justify-between gap-3" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-3">
-          {(team.logo_url || team.clubs?.logo_url) ? (
-            <img src={team.logo_url || team.clubs?.logo_url} alt={team.name} className="h-10 w-10 object-contain rounded" loading="lazy" />
-          ) : (
-            <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center text-muted-foreground text-[10px] font-bold">
-              {team.name?.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <TeamShield name={team.name} logo={team.logo_url || team.clubs?.logo_url} size="md" />
           <div>
-            <p className="font-display font-bold text-sm uppercase">{team.name}</p>
+            <p className="font-display font-bold text-base uppercase">{team.name}</p>
             {team.clubs?.name && <p className="text-xs text-muted-foreground">{team.clubs.name}</p>}
           </div>
         </div>
