@@ -272,7 +272,7 @@ export default function Index() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid lg:grid-cols-2 gap-4">
               {divisions.map((div: any, idx: number) => (
                 <div
                   key={div.id}
@@ -283,15 +283,15 @@ export default function Index() {
                 >
                   <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" aria-hidden="true" />
                   <Link to={`/teams?division=${encodeURIComponent(div.id)}`} className="relative flex items-center gap-4 group">
-                    <span className="grid h-32 w-32 md:h-44 md:w-44 shrink-0 place-items-center rounded-2xl bg-white shadow-lg">
+                    <span className="grid h-32 w-32 lg:h-44 lg:w-44 shrink-0 place-items-center rounded-2xl bg-white shadow-lg">
                       {div.logo_url ? (
-                        <img src={div.logo_url} alt={div.name} className="h-28 w-28 md:h-40 md:w-40 object-contain object-center group-hover:scale-105 transition-transform" loading="lazy" />
+                        <img src={div.logo_url} alt={div.name} className="h-28 w-28 lg:h-40 lg:w-40 object-contain object-center group-hover:scale-105 transition-transform" loading="lazy" />
                       ) : (
                         <Trophy className="h-10 w-10 text-primary" />
                       )}
                     </span>
-                    <span>
-                      <span className="block font-display text-xl md:text-3xl font-bold uppercase leading-tight">{div.name}</span>
+                    <span className="min-w-0">
+                      <span className="block break-words font-display text-xl md:text-2xl lg:text-3xl font-bold uppercase leading-tight">{div.name}</span>
                       <span className="text-sm opacity-90">Ver equipos →</span>
                     </span>
                   </Link>
