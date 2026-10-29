@@ -1,4 +1,5 @@
 import Seo from "@/components/Seo";
+import PageHero from "@/components/PageHero";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -327,16 +328,14 @@ export default function Stats() {
   }
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="pb-10">
       <Seo
         title="Estadísticas del torneo | Fedepatin"
         description="Líderes en puntos, goles, asistencias y valla menos vencida del torneo de hockey en línea."
         path="/stats"
       />
-      <h1 className="text-3xl font-display font-bold uppercase flex items-center gap-2">
-        <Star className="h-7 w-7 text-secondary" />
-        Estadísticas
-      </h1>
+      <PageHero icon={Star} title="Estadísticas" subtitle="Líderes del torneo" />
+      <div className="container py-6 space-y-6">
 
       {/* Division selector */}
       <div className="max-w-xs">
@@ -372,16 +371,16 @@ export default function Stats() {
             ) : (
               <Tabs defaultValue="points">
                 <TabsList>
-                  <TabsTrigger value="points" className="flex items-center gap-1">
+                  <TabsTrigger value="points" className="flex items-center gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
                     <Star className="h-4 w-4" /> Puntos
                   </TabsTrigger>
-                  <TabsTrigger value="goals" className="flex items-center gap-1">
+                  <TabsTrigger value="goals" className="flex items-center gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
                     <Target className="h-4 w-4" /> Goles
                   </TabsTrigger>
-                  <TabsTrigger value="assists" className="flex items-center gap-1">
+                  <TabsTrigger value="assists" className="flex items-center gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
                     <Crosshair className="h-4 w-4" /> Asistencias
                   </TabsTrigger>
-                  <TabsTrigger value="valla" className="flex items-center gap-1">
+                  <TabsTrigger value="valla" className="flex items-center gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
                     <Shield className="h-4 w-4" /> Valla Menos Vencida
                   </TabsTrigger>
                 </TabsList>
@@ -422,6 +421,7 @@ export default function Stats() {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
