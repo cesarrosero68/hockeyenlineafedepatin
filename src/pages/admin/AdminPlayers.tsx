@@ -10,9 +10,90 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Pencil, Trash2, Save, X, Download, Check, ChevronsUpDown } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Save, X, Download, Check, ChevronsUpDown, Search, UserRound, ClipboardList, Shirt, FilterX, TriangleAlert } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { utils, writeFile } from "xlsx";
+
+const TAB_ACTIVE = "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow";
+const PAGE_STEP = 50;
+
+// Color estable por categoría (mismo criterio que la Programación).
+function catStyle(name?: string | null) {
+  const n = name ?? "";
+  let h = 0;
+  for (let i = 0; i < n.length; i++) h = (h * 17 + n.charCodeAt(i)) % 360;
+  return { color: `hsl(${h} 60% 36%)`, backgroundColor: `hsl(${h} 60% 42% / 0.12)` };
+}
+function CatChip({ name }: { name?: string | null }) {
+  if (!name) return <span className="text-muted-foreground">—</span>;
+  return <span className="inline-block rounded-md px-2 py-0.5 text-xs font-bold" style={catStyle(name)}>{name}</span>;
+}
+function Jersey({ n }: { n: any }) {
+  return n != null && n !== "" ? (
+    <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary font-display text-sm font-bold text-primary-foreground">{n}</span>
+  ) : (
+    <span className="grid h-8 w-8 place-items-center rounded-lg bg-muted text-xs text-muted-foreground">—</span>
+  );
+}
+const ROLE_STYLE: Record<string, string> = {
+  ENTRENADOR: "bg-primary/10 text-primary",
+  ASISTENTE: "bg-secondary/40 text-secondary-foreground",
+  DELEGADO: "bg-muted text-muted-foreground",
+};
+function FormCard({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+  return (
+    <Card className="overflow-hidden rounded-2xl shadow-sm">
+      <div className="flex items-center gap-2 border-b bg-primary/10 px-4 py-2.5 font-display text-base font-bold uppercase text-primary">
+        <Icon className="h-4 w-4" /> {title}
+      </div>
+      <CardContent className="p-4">{children}</CardContent>
+    </Card>
+  );
+}
+function SearchBar({ value, onChange, placeholder, shown, total }: { value: string; onChange: (v: string) => void; placeholder: string; shown: number; total: number }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="relative w-full max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="bg-card pl-9 pr-9" />
+        {value && (
+          <button type="button" aria-label="Limpiar búsqueda" onClick={() => onChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{shown} de {total}</span>
+    </div>
+  );
+}
+function TableShell({ children, remaining, onMore }: { children: React.ReactNode; remaining: number; onMore: () => void }) {
+  return (
+    <Card className="overflow-hidden rounded-2xl shadow-sm">
+      <div className="overflow-x-auto">{children}</div>
+      {remaining > 0 && (
+        <div className="border-t bg-muted/30 p-3 text-center">
+          <Button variant="outline" size="sm" onClick={onMore}>Mostrar {Math.min(PAGE_STEP, remaining)} más ({remaining} restantes)</Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+function Empty({ icon: Icon, text }: { icon: any; text: string }) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-10 text-sm text-muted-foreground">
+      <Icon className="h-8 w-8 opacity-40" /> {text}
+    </div>
+  );
+}
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`space-y-1 ${className ?? ""}`}>
+      <label className="text-xs font-medium">{label}</label>
+      {children}
+    </div>
+  );
+}
+const HEAD = "bg-primary/10 text-xs font-bold uppercase tracking-wide text-primary";
 
 export default function AdminPlayers() {
   const queryClient = useQueryClient();
@@ -33,6 +114,9 @@ export default function AdminPlayers() {
   const [editJersey, setEditJersey] = useState("");
   const [editDob, setEditDob] = useState("");
   const [editVelopro, setEditVelopro] = useState("");
+
+  const [shown, setShown] = useState({ players: PAGE_STEP, rosters: PAGE_STEP, staff: PAGE_STEP });
+  const more = (k: "players" | "rosters" | "staff") => setShown((x) => ({ ...x, [k]: x[k] + PAGE_STEP }));
 
   // Roster form
   const [searchPlayers, setSearchPlayers] = useState("");
@@ -126,7 +210,7 @@ export default function AdminPlayers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("rosters")
-        .select("id, jersey_number, position, team_id, player_id, teams!inner(name, tournament_id, categories(name)), players!rosters_player_id_fkey(first_name, last_name)")
+        .select("id, jersey_number, position, team_id, player_id, teams!inner(name, tournament_id, category_id, categories(name)), players!rosters_player_id_fkey(first_name, last_name)")
         .eq("teams.tournament_id", activeTournamentId as string)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -366,7 +450,7 @@ export default function AdminPlayers() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("team_staff")
-        .select("id, first_name, last_name, role, velopro_number, team_id, teams!inner(name, tournament_id, categories(name, divisions(name)))")
+        .select("id, first_name, last_name, role, velopro_number, team_id, teams!inner(name, tournament_id, category_id, categories(name, divisions(name)))")
         .eq("teams.tournament_id", activeTournamentId as string);
       if (error) throw error;
       return (data as any[]) ?? [];
@@ -381,27 +465,51 @@ export default function AdminPlayers() {
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
+  // Los filtros de División / Categoría de arriba también filtran las listas.
+  const scopeCatIds = useMemo<Set<string> | null>(() => {
+    if (exportCategoryId !== "all") return new Set([exportCategoryId]);
+    if (exportDivisionId !== "all") return new Set(filteredCategories.map((c: any) => c.id));
+    return null;
+  }, [exportCategoryId, exportDivisionId, filteredCategories]);
+
+  // Equipo(s) y categoría de cada jugador, según sus nóminas
+  const playerTeams = useMemo(() => {
+    const m = new Map<string, { team: string; cat: string; catId: string }[]>();
+    (rosters as any[]).forEach((r: any) => {
+      const arr = m.get(r.player_id) ?? [];
+      arr.push({ team: r.teams?.name ?? "", cat: r.teams?.categories?.name ?? "", catId: r.teams?.category_id ?? "" });
+      m.set(r.player_id, arr);
+    });
+    return m;
+  }, [rosters]);
+
   const visiblePlayers = useMemo(() => {
     const q = norm(searchPlayers).trim();
-    if (!q) return players;
-    return (players as any[]).filter((p: any) =>
-      norm(`${p.first_name} ${p.last_name} ${p.velopro_number ?? ""} ${p.document_number ?? ""} ${p.jersey_number ?? ""} ${p.date_of_birth ?? ""}`).includes(q),
+    let base = players as any[];
+    if (scopeCatIds) base = base.filter((p: any) => (playerTeams.get(p.id) ?? []).some((t) => scopeCatIds.has(t.catId)));
+    if (!q) return base;
+    return base.filter((p: any) =>
+      norm(`${p.first_name} ${p.last_name} ${p.velopro_number ?? ""} ${p.document_number ?? ""} ${p.jersey_number ?? ""} ${p.date_of_birth ?? ""} ${(playerTeams.get(p.id) ?? []).map((t) => t.team + " " + t.cat).join(" ")}`).includes(q),
     );
-  }, [players, searchPlayers]);
+  }, [players, searchPlayers, scopeCatIds, playerTeams]);
 
   const visibleRosters = useMemo(() => {
     const q = norm(searchRosters).trim();
-    if (!q) return rosters;
-    return (rosters as any[]).filter((r: any) =>
+    let base = rosters as any[];
+    if (scopeCatIds) base = base.filter((r: any) => scopeCatIds.has(r.teams?.category_id));
+    if (!q) return base;
+    return base.filter((r: any) =>
       norm(`${r.players?.first_name ?? ""} ${r.players?.last_name ?? ""} ${r.teams?.name ?? ""} ${r.teams?.categories?.name ?? ""} ${r.jersey_number ?? ""} ${r.position ?? ""}`).includes(q),
     );
-  }, [rosters, searchRosters]);
+  }, [rosters, searchRosters, scopeCatIds]);
 
   const visibleStaff = useMemo(() => {
     const q = norm(searchStaff).trim();
+    let pre = staff as any[];
+    if (scopeCatIds) pre = pre.filter((st: any) => scopeCatIds.has(st.teams?.category_id));
     const base = !q
-      ? (staff as any[])
-      : (staff as any[]).filter((st: any) =>
+      ? pre
+      : pre.filter((st: any) =>
           norm(`${st.first_name ?? ""} ${st.last_name ?? ""} ${st.teams?.name ?? ""} ${st.teams?.categories?.name ?? ""} ${st.teams?.categories?.divisions?.name ?? ""} ${st.role ?? ""} ${st.velopro_number ?? ""}`).includes(q),
         );
     // Ordena por categoría > equipo > rol > apellido, para que los homónimos
@@ -412,7 +520,7 @@ export default function AdminPlayers() {
       String(a.role ?? "").localeCompare(String(b.role ?? "")) ||
       String(a.last_name ?? "").localeCompare(String(b.last_name ?? "")),
     );
-  }, [staff, searchStaff]);
+  }, [staff, searchStaff, scopeCatIds]);
 
   const createStaffMutation = useMutation({
     mutationFn: async () => {
@@ -531,17 +639,25 @@ export default function AdminPlayers() {
     return <div className="flex justify-center py-8"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
   }
 
+  const POSITIONS = (
+    <>
+      <SelectItem value="NONE">—</SelectItem>
+      <SelectItem value="ARQUERO">Arquero</SelectItem>
+      <SelectItem value="DEFENSA">Defensa</SelectItem>
+      <SelectItem value="DELANTERO">Delantero</SelectItem>
+      <SelectItem value="JUGADOR">Jugador</SelectItem>
+    </>
+  );
+  const teamOptions = teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>);
+  const filterActive = exportDivisionId !== "all" || exportCategoryId !== "all";
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold uppercase">
           <Users className="h-6 w-6 text-primary" /> Gestión de Jugadores
         </h1>
-        {activeTournament && (
-          <Badge variant="default" className="text-xs">
-            Gestionando: {activeTournament.name}
-          </Badge>
-        )}
+        {activeTournament && <Badge className="text-xs">Gestionando: {activeTournament.name}</Badge>}
       </div>
 
       {!activeTournamentId && (
@@ -554,487 +670,393 @@ export default function AdminPlayers() {
 
       {activeTournamentId && (
         <>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-2 items-end flex-wrap">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">División</label>
-                  <Select
-                    value={exportDivisionId}
-                    onValueChange={(v) => {
-                      setExportDivisionId(v);
-                      setExportCategoryId("all");
-                    }}
-                  >
-                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas las divisiones</SelectItem>
-                      {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Categoría</label>
-                  <Select value={exportCategoryId} onValueChange={setExportCategoryId}>
-                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas las categorías</SelectItem>
-                      {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleExportExcel} className="gap-1">
-                  <Download className="h-4 w-4" /> Descargar Excel
+          {/* Filtro y exportación */}
+          <Card className="overflow-hidden rounded-2xl shadow-sm">
+            <CardContent className="flex flex-wrap items-end gap-3 p-4">
+              <Field label="División">
+                <Select value={exportDivisionId} onValueChange={(v) => { setExportDivisionId(v); setExportCategoryId("all"); }}>
+                  <SelectTrigger className="w-[200px] bg-card"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las divisiones</SelectItem>
+                    {divisions.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Categoría">
+                <Select value={exportCategoryId} onValueChange={setExportCategoryId}>
+                  <SelectTrigger className="w-[200px] bg-card"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las categorías</SelectItem>
+                    {filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {filterActive && (
+                <Button variant="ghost" size="sm" className="gap-1" onClick={() => { setExportDivisionId("all"); setExportCategoryId("all"); }}>
+                  <FilterX className="h-4 w-4" /> Quitar filtro
                 </Button>
+              )}
+              <div className="ml-auto flex flex-col items-end gap-1">
+                <Button onClick={handleExportExcel} className="gap-1"><Download className="h-4 w-4" /> Descargar Excel</Button>
+                <span className="text-[11px] text-muted-foreground">El filtro aplica a las listas y al Excel</span>
               </div>
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="players">
-            <TabsList>
-              <TabsTrigger value="players">Jugadores</TabsTrigger>
-              <TabsTrigger value="rosters">Nóminas</TabsTrigger>
-              <TabsTrigger value="staff">Cuerpo Técnico</TabsTrigger>
+          <Tabs defaultValue="players" className="space-y-4">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl p-1 sm:inline-grid sm:w-auto">
+              <TabsTrigger value="players" className={`gap-2 px-4 py-2 ${TAB_ACTIVE}`}>
+                <UserRound className="h-4 w-4" /> <span>Jugadores</span>
+                <span className="rounded-full bg-black/10 px-1.5 text-[11px]">{visiblePlayers.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="rosters" className={`gap-2 px-4 py-2 ${TAB_ACTIVE}`}>
+                <Shirt className="h-4 w-4" /> <span>Nóminas</span>
+                <span className="rounded-full bg-black/10 px-1.5 text-[11px]">{visibleRosters.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="staff" className={`gap-2 px-4 py-2 ${TAB_ACTIVE}`}>
+                <ClipboardList className="h-4 w-4" /> <span className="hidden sm:inline">Cuerpo Técnico</span><span className="sm:hidden">Staff</span>
+                <span className="rounded-full bg-black/10 px-1.5 text-[11px]">{visibleStaff.length}</span>
+              </TabsTrigger>
             </TabsList>
 
+            {/* ---------------- JUGADORES ---------------- */}
             <TabsContent value="players" className="space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex gap-2 items-end flex-wrap">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Nombre</label>
-                      <Input value={newFirst} onChange={e => setNewFirst(e.target.value)} placeholder="Nombre" className="w-[150px]" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Apellido</label>
-                      <Input value={newLast} onChange={e => setNewLast(e.target.value)} placeholder="Apellido" className="w-[150px]" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">#</label>
-                      <Input value={newJersey} onChange={e => setNewJersey(e.target.value)} placeholder="#" className="w-[60px]" type="number" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Nacimiento</label>
-                      <Input value={newDob} onChange={e => setNewDob(e.target.value)} type="date" className="w-[150px]" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Documento / ID Jugador</label>
-                      <Input value={newDocNumber} onChange={e => setNewDocNumber(e.target.value)} placeholder="Opcional" className="w-[150px]" />
-                    </div>
-                    <Button onClick={() => createPlayerMutation.mutate()} disabled={!newFirst.trim() || !newLast.trim() || createPlayerMutation.isPending} className="gap-1">
-                      <Plus className="h-4 w-4" /> Agregar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex items-center gap-2">
-                <Input
-                  value={searchPlayers}
-                  onChange={e => setSearchPlayers(e.target.value)}
-                  placeholder="Buscar por nombre, apellido, VeloPro, documento, # o fecha…"
-                  className="max-w-[420px]"
-                />
-                {searchPlayers && (
-                  <Button variant="ghost" size="sm" onClick={() => setSearchPlayers("")} className="gap-1">
-                    <X className="h-4 w-4" /> Limpiar
+              <FormCard icon={Plus} title="Agregar jugador">
+                <div className="flex flex-wrap items-end gap-3">
+                  <Field label="Nombre"><Input value={newFirst} onChange={e => setNewFirst(e.target.value)} placeholder="Nombre" className="w-[150px]" /></Field>
+                  <Field label="Apellido"><Input value={newLast} onChange={e => setNewLast(e.target.value)} placeholder="Apellido" className="w-[150px]" /></Field>
+                  <Field label="#"><Input value={newJersey} onChange={e => setNewJersey(e.target.value)} placeholder="#" className="w-[70px]" type="number" /></Field>
+                  <Field label="Nacimiento"><Input value={newDob} onChange={e => setNewDob(e.target.value)} type="date" className="w-[150px]" /></Field>
+                  <Field label="Documento / ID Jugador"><Input value={newDocNumber} onChange={e => setNewDocNumber(e.target.value)} placeholder="Opcional" className="w-[170px]" /></Field>
+                  <Button onClick={() => createPlayerMutation.mutate()} disabled={!newFirst.trim() || !newLast.trim() || createPlayerMutation.isPending} className="gap-1">
+                    <Plus className="h-4 w-4" /> Agregar
                   </Button>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {visiblePlayers.length} de {players.length}
-                </span>
-              </div>
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">Después de crearlo, asígnalo a un equipo en la pestaña Nóminas.</p>
+              </FormCard>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Apellido</TableHead>
-                    <TableHead>Nacimiento</TableHead>
-                    <TableHead>VeloPro</TableHead>
-                    <TableHead className="w-[120px]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visiblePlayers.map((p: any) => (
-                    <TableRow key={p.id}>
-                      {editingId === p.id ? (
-                        <>
-                          <TableCell><Input value={editJersey} onChange={e => setEditJersey(e.target.value)} className="h-8 w-[60px]" type="number" /></TableCell>
-                          <TableCell><Input value={editFirst} onChange={e => setEditFirst(e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Input value={editLast} onChange={e => setEditLast(e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Input value={editDob} onChange={e => setEditDob(e.target.value)} className="h-8 w-[140px]" type="date" /></TableCell>
-                          <TableCell><Input value={editVelopro} onChange={e => setEditVelopro(e.target.value)} className="h-8 w-[110px]" placeholder="VeloPro" /></TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="sm" className="h-8 w-8 p-0" onClick={() => updatePlayerMutation.mutate({ id: p.id, first_name: editFirst, last_name: editLast, jersey_number: editJersey, date_of_birth: editDob, velopro_number: editVelopro })}><Save className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell>{p.jersey_number ?? "—"}</TableCell>
-                          <TableCell>{p.first_name}</TableCell>
-                          <TableCell>{p.last_name}</TableCell>
-                          <TableCell>{p.date_of_birth ?? "—"}</TableCell>
-                          <TableCell>{p.velopro_number ?? "—"}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); setEditDob(p.date_of_birth ?? ""); setEditVelopro(p.velopro_number ?? ""); }}><Pencil className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${p.first_name} ${p.last_name}? Esta acción no se puede deshacer y también eliminará sus nóminas asociadas.`)) deletePlayerMutation.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      )}
+              <SearchBar value={searchPlayers} onChange={setSearchPlayers} placeholder="Buscar por nombre, equipo, VeloPro, documento, # o fecha…" shown={visiblePlayers.length} total={players.length} />
+
+              <TableShell remaining={visiblePlayers.length - shown.players} onMore={() => more("players")}>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className={`w-[60px] ${HEAD}`}>#</TableHead>
+                      <TableHead className={HEAD}>Jugador</TableHead>
+                      <TableHead className={HEAD}>Equipo y categoría</TableHead>
+                      <TableHead className={HEAD}>Nacimiento</TableHead>
+                      <TableHead className={HEAD}>VeloPro</TableHead>
+                      <TableHead className={`w-[110px] ${HEAD}`}>Acciones</TableHead>
                     </TableRow>
-                  ))}
-                  {visiblePlayers.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
-                        {searchPlayers ? `Sin resultados para "${searchPlayers}".` : "Sin jugadores aún en esta edición."}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {visiblePlayers.slice(0, shown.players).map((p: any) => {
+                      const pt = playerTeams.get(p.id) ?? [];
+                      return (
+                        <TableRow key={p.id} className="odd:bg-muted/30">
+                          {editingId === p.id ? (
+                            <>
+                              <TableCell><Input value={editJersey} onChange={e => setEditJersey(e.target.value)} className="h-8 w-[64px]" type="number" /></TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Input value={editFirst} onChange={e => setEditFirst(e.target.value)} className="h-8 min-w-[110px]" placeholder="Nombre" />
+                                  <Input value={editLast} onChange={e => setEditLast(e.target.value)} className="h-8 min-w-[110px]" placeholder="Apellido" />
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{pt.length ? pt.map((t) => t.team).join(", ") : "Sin equipo"}</TableCell>
+                              <TableCell><Input value={editDob} onChange={e => setEditDob(e.target.value)} className="h-8 w-[140px]" type="date" /></TableCell>
+                              <TableCell><Input value={editVelopro} onChange={e => setEditVelopro(e.target.value)} className="h-8 w-[110px]" placeholder="VeloPro" /></TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button size="sm" className="h-8 w-8 p-0" title="Guardar" onClick={() => updatePlayerMutation.mutate({ id: p.id, first_name: editFirst, last_name: editLast, jersey_number: editJersey, date_of_birth: editDob, velopro_number: editVelopro })}><Save className="h-4 w-4" /></Button>
+                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Cancelar" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
+                                </div>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell><Jersey n={p.jersey_number} /></TableCell>
+                              <TableCell className="leading-tight">
+                                <span className="block font-semibold">{p.last_name}</span>
+                                <span className="block text-sm text-muted-foreground">{p.first_name}</span>
+                              </TableCell>
+                              <TableCell>
+                                {pt.length === 0 ? (
+                                  <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Sin equipo</span>
+                                ) : (
+                                  <div className="space-y-1">
+                                    {pt.map((t, i) => (
+                                      <div key={i} className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-medium">{t.team}</span>
+                                        <CatChip name={t.cat} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-sm">{p.date_of_birth ?? "—"}</TableCell>
+                              <TableCell>
+                                {p.velopro_number ? (
+                                  <span className="font-mono text-sm">{p.velopro_number}</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><TriangleAlert className="h-3 w-3" /> Falta</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Editar" onClick={() => { setEditingId(p.id); setEditFirst(p.first_name); setEditLast(p.last_name); setEditJersey(String(p.jersey_number ?? "")); setEditDob(p.date_of_birth ?? ""); setEditVelopro(p.velopro_number ?? ""); }}><Pencil className="h-4 w-4" /></Button>
+                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" title="Eliminar" onClick={() => { if (window.confirm(`¿Eliminar a ${p.first_name} ${p.last_name}? Esta acción no se puede deshacer y también eliminará sus nóminas asociadas.`)) deletePlayerMutation.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              </TableCell>
+                            </>
+                          )}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                {visiblePlayers.length === 0 && (
+                  <Empty icon={UserRound} text={searchPlayers ? `Sin resultados para "${searchPlayers}".` : filterActive ? "No hay jugadores con este filtro." : "Sin jugadores aún en esta edición."} />
+                )}
+              </TableShell>
             </TabsContent>
 
+            {/* ---------------- NÓMINAS ---------------- */}
             <TabsContent value="rosters" className="space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex gap-2 items-end flex-wrap">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Jugador</label>
-                      <Popover open={rosterPlayerOpen} onOpenChange={setRosterPlayerOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={rosterPlayerOpen}
-                            className="w-[220px] justify-between font-normal"
-                          >
-                            <span className="truncate">
-                              {rosterPlayerId
-                                ? (() => {
-                                    const sel = players.find((p: any) => p.id === rosterPlayerId);
-                                    return sel ? `${sel.first_name} ${sel.last_name}` : "Seleccionar jugador";
-                                  })()
-                                : "Seleccionar jugador"}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[280px] p-0">
-                          <Command
-                            filter={(value, search) => {
-                              const target = norm(value);
-                              const query = norm(search);
-                              return target.includes(query) ? 1 : 0;
-                            }}
-                          >
-                            <CommandInput placeholder="Buscar jugador…" />
-                            <CommandList>
-                              <CommandEmpty>Sin resultados.</CommandEmpty>
-                              <CommandGroup>
-                                {players.map((p: any) => (
-                                  <CommandItem
-                                    key={p.id}
-                                    value={`${p.first_name} ${p.last_name} ${p.velopro_number ?? ""} ${p.document_number ?? ""}`}
-                                    onSelect={() => {
-                                      setRosterPlayerId(p.id);
-                                      setRosterPlayerOpen(false);
-                                    }}
-                                  >
-                                    <Check
-                                      className={`mr-2 h-4 w-4 ${rosterPlayerId === p.id ? "opacity-100" : "opacity-0"}`}
-                                    />
-                                    {p.first_name} {p.last_name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Equipo</label>
-                      <Select value={rosterTeamId} onValueChange={setRosterTeamId}>
-                        <SelectTrigger className="w-[220px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
-                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium"># Camiseta</label>
-                      <Input value={rosterJersey} onChange={e => setRosterJersey(e.target.value)} placeholder="#" className="w-[60px]" type="number" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Posición</label>
-                      <Input value={rosterPosition} onChange={e => setRosterPosition(e.target.value)} placeholder="Posición" className="w-[120px]" />
-                    </div>
-                    <Button onClick={() => createRosterMutation.mutate()} disabled={!rosterPlayerId || !rosterTeamId || createRosterMutation.isPending} className="gap-1">
-                      <Plus className="h-4 w-4" /> Asignar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex items-center gap-2">
-                <Input
-                  value={searchRosters}
-                  onChange={e => setSearchRosters(e.target.value)}
-                  placeholder="Buscar por jugador, equipo, # o posición…"
-                  className="max-w-[420px]"
-                />
-                {searchRosters && (
-                  <Button variant="ghost" size="sm" onClick={() => setSearchRosters("")} className="gap-1">
-                    <X className="h-4 w-4" /> Limpiar
+              <FormCard icon={Plus} title="Asignar jugador a un equipo">
+                <div className="flex flex-wrap items-end gap-3">
+                  <Field label="Jugador">
+                    <Popover open={rosterPlayerOpen} onOpenChange={setRosterPlayerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" aria-expanded={rosterPlayerOpen} className="w-[230px] justify-between font-normal">
+                          <span className="truncate">
+                            {rosterPlayerId
+                              ? (() => {
+                                  const sel = players.find((p: any) => p.id === rosterPlayerId);
+                                  return sel ? `${sel.first_name} ${sel.last_name}` : "Seleccionar jugador";
+                                })()
+                              : "Seleccionar jugador"}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command
+                          filter={(value, search) => {
+                            const target = norm(value);
+                            const query = norm(search);
+                            return target.includes(query) ? 1 : 0;
+                          }}
+                        >
+                          <CommandInput placeholder="Buscar jugador…" />
+                          <CommandList>
+                            <CommandEmpty>Sin resultados.</CommandEmpty>
+                            <CommandGroup>
+                              {players.map((p: any) => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={`${p.first_name} ${p.last_name} ${p.velopro_number ?? ""} ${p.document_number ?? ""}`}
+                                  onSelect={() => { setRosterPlayerId(p.id); setRosterPlayerOpen(false); }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${rosterPlayerId === p.id ? "opacity-100" : "opacity-0"}`} />
+                                  {p.first_name} {p.last_name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </Field>
+                  <Field label="Equipo">
+                    <Select value={rosterTeamId} onValueChange={setRosterTeamId}>
+                      <SelectTrigger className="w-[230px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                      <SelectContent>{teamOptions}</SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="# Camiseta"><Input value={rosterJersey} onChange={e => setRosterJersey(e.target.value)} placeholder="#" className="w-[80px]" type="number" /></Field>
+                  <Field label="Posición"><Input value={rosterPosition} onChange={e => setRosterPosition(e.target.value)} placeholder="Posición" className="w-[130px]" /></Field>
+                  <Button onClick={() => createRosterMutation.mutate()} disabled={!rosterPlayerId || !rosterTeamId || createRosterMutation.isPending} className="gap-1">
+                    <Plus className="h-4 w-4" /> Asignar
                   </Button>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {visibleRosters.length} de {rosters.length}
-                </span>
-              </div>
+                </div>
+              </FormCard>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Jugador</TableHead>
-                    <TableHead>Equipo</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>#</TableHead>
-                    <TableHead>Posición</TableHead>
-                    <TableHead className="w-[90px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleRosters.map((r: any) => (
-                    <TableRow key={r.id}>
-                      {editingRosterId === r.id ? (
-                        <>
-                          <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
-                          <TableCell>
-                            <Select value={editRosterTeamId} onValueChange={setEditRosterTeamId}>
-                              <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{(r.teams as any)?.categories?.name ?? "—"}</TableCell>
-                          <TableCell>
-                            <Input value={editRosterJersey} onChange={e => setEditRosterJersey(e.target.value)} className="h-8 w-[60px]" type="number" />
-                          </TableCell>
-                          <TableCell>
-                            <Select value={editRosterPosition} onValueChange={setEditRosterPosition}>
-                              <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="NONE">—</SelectItem>
-                                <SelectItem value="ARQUERO">Arquero</SelectItem>
-                                <SelectItem value="DEFENSA">Defensa</SelectItem>
-                                <SelectItem value="DELANTERO">Delantero</SelectItem>
-                                <SelectItem value="JUGADOR">Jugador</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => updateRosterMutation.mutate({ id: r.id, team_id: editRosterTeamId, jersey_number: editRosterJersey, position: editRosterPosition })}
-                                disabled={!editRosterTeamId || updateRosterMutation.isPending}
-                              >
-                                <Save className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingRosterId(null)}><X className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell>{r.players?.first_name} {r.players?.last_name}</TableCell>
-                          <TableCell>{r.teams?.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{(r.teams as any)?.categories?.name ?? "—"}</TableCell>
-                          <TableCell>{r.jersey_number ?? "—"}</TableCell>
-                          <TableCell>
-                            <Select
-                              value={r.position ?? "NONE"}
-                              onValueChange={(v) =>
-                                updateRosterPositionMutation.mutate({ id: r.id, position: v === "NONE" ? "" : v })
-                              }
-                            >
-                              <SelectTrigger className="w-[130px] h-8 text-xs">
-                                <SelectValue placeholder="—" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="NONE">—</SelectItem>
-                                <SelectItem value="ARQUERO">Arquero</SelectItem>
-                                <SelectItem value="DEFENSA">Defensa</SelectItem>
-                                <SelectItem value="DELANTERO">Delantero</SelectItem>
-                                <SelectItem value="JUGADOR">Jugador</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0"
-                                onClick={() => {
-                                  setEditingRosterId(r.id);
-                                  setEditRosterTeamId(r.team_id ?? "");
-                                  setEditRosterJersey(String(r.jersey_number ?? ""));
-                                  setEditRosterPosition(r.position ?? "NONE");
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Quitar a ${r.players?.first_name} ${r.players?.last_name} del equipo ${r.teams?.name}? Esta acción no se puede deshacer.`)) deleteRosterMutation.mutate(r.id); }}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      )}
+              <SearchBar value={searchRosters} onChange={setSearchRosters} placeholder="Buscar por jugador, equipo, # o posición…" shown={visibleRosters.length} total={rosters.length} />
+
+              <TableShell remaining={visibleRosters.length - shown.rosters} onMore={() => more("rosters")}>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className={`w-[60px] ${HEAD}`}>#</TableHead>
+                      <TableHead className={HEAD}>Jugador</TableHead>
+                      <TableHead className={HEAD}>Equipo</TableHead>
+                      <TableHead className={HEAD}>Categoría</TableHead>
+                      <TableHead className={HEAD}>Posición</TableHead>
+                      <TableHead className={`w-[100px] ${HEAD}`}>Acciones</TableHead>
                     </TableRow>
-                  ))}
-                  {visibleRosters.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
-                        {searchRosters ? `Sin resultados para "${searchRosters}".` : "Sin nóminas aún en esta edición."}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleRosters.slice(0, shown.rosters).map((r: any) => (
+                      <TableRow key={r.id} className="odd:bg-muted/30">
+                        {editingRosterId === r.id ? (
+                          <>
+                            <TableCell><Input value={editRosterJersey} onChange={e => setEditRosterJersey(e.target.value)} className="h-8 w-[64px]" type="number" /></TableCell>
+                            <TableCell className="font-semibold">{r.players?.last_name} <span className="font-normal text-muted-foreground">{r.players?.first_name}</span></TableCell>
+                            <TableCell>
+                              <Select value={editRosterTeamId} onValueChange={setEditRosterTeamId}>
+                                <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>{teamOptions}</SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell><CatChip name={(r.teams as any)?.categories?.name} /></TableCell>
+                            <TableCell>
+                              <Select value={editRosterPosition} onValueChange={setEditRosterPosition}>
+                                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                <SelectContent>{POSITIONS}</SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" className="h-8 w-8 p-0" title="Guardar" onClick={() => updateRosterMutation.mutate({ id: r.id, team_id: editRosterTeamId, jersey_number: editRosterJersey, position: editRosterPosition })} disabled={!editRosterTeamId || updateRosterMutation.isPending}><Save className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Cancelar" onClick={() => setEditingRosterId(null)}><X className="h-4 w-4" /></Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell><Jersey n={r.jersey_number} /></TableCell>
+                            <TableCell className="leading-tight">
+                              <span className="block font-semibold">{r.players?.last_name}</span>
+                              <span className="block text-sm text-muted-foreground">{r.players?.first_name}</span>
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">{r.teams?.name}</TableCell>
+                            <TableCell><CatChip name={(r.teams as any)?.categories?.name} /></TableCell>
+                            <TableCell>
+                              <Select value={r.position ?? "NONE"} onValueChange={(v) => updateRosterPositionMutation.mutate({ id: r.id, position: v === "NONE" ? "" : v })}>
+                                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                <SelectContent>{POSITIONS}</SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Editar" onClick={() => { setEditingRosterId(r.id); setEditRosterTeamId(r.team_id ?? ""); setEditRosterJersey(String(r.jersey_number ?? "")); setEditRosterPosition(r.position ?? "NONE"); }}><Pencil className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" title="Quitar del equipo" onClick={() => { if (window.confirm(`¿Quitar a ${r.players?.first_name} ${r.players?.last_name} del equipo ${r.teams?.name}? Esta acción no se puede deshacer.`)) deleteRosterMutation.mutate(r.id); }}><Trash2 className="h-4 w-4" /></Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {visibleRosters.length === 0 && (
+                  <Empty icon={Shirt} text={searchRosters ? `Sin resultados para "${searchRosters}".` : filterActive ? "No hay nóminas con este filtro." : "Sin nóminas aún en esta edición."} />
+                )}
+              </TableShell>
             </TabsContent>
 
+            {/* ---------------- CUERPO TÉCNICO ---------------- */}
             <TabsContent value="staff" className="space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex gap-2 items-end flex-wrap">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Equipo</label>
-                      <Select value={staffTeamId} onValueChange={setStaffTeamId}>
-                        <SelectTrigger className="w-[320px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
-                        <SelectContent>{teams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} — {(t.categories as any)?.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Nombre</label>
-                      <Input value={staffFirst} onChange={e => setStaffFirst(e.target.value)} placeholder="Nombre" className="w-[160px]" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Apellido</label>
-                      <Input value={staffLast} onChange={e => setStaffLast(e.target.value)} placeholder="Apellido" className="w-[160px]" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Rol</label>
-                      <Select value={staffRole} onValueChange={setStaffRole}>
-                        <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ENTRENADOR">Entrenador</SelectItem>
-                          <SelectItem value="ASISTENTE">Asistente</SelectItem>
-                          <SelectItem value="DELEGADO">Delegado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={() => createStaffMutation.mutate()} disabled={!staffTeamId || !staffFirst || !staffLast || createStaffMutation.isPending} className="gap-1">
-                      <Plus className="h-4 w-4" /> Agregar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex items-center gap-2">
-                <Input
-                  value={searchStaff}
-                  onChange={e => setSearchStaff(e.target.value)}
-                  placeholder="Buscar por nombre, apellido, equipo, rol o VeloPro…"
-                  className="max-w-[420px]"
-                />
-                {searchStaff && (
-                  <Button variant="ghost" size="sm" onClick={() => setSearchStaff("")} className="gap-1">
-                    <X className="h-4 w-4" /> Limpiar
+              <FormCard icon={Plus} title="Agregar cuerpo técnico">
+                <div className="flex flex-wrap items-end gap-3">
+                  <Field label="Equipo">
+                    <Select value={staffTeamId} onValueChange={setStaffTeamId}>
+                      <SelectTrigger className="w-[300px]"><SelectValue placeholder="Seleccionar equipo" /></SelectTrigger>
+                      <SelectContent>{teamOptions}</SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Nombre"><Input value={staffFirst} onChange={e => setStaffFirst(e.target.value)} placeholder="Nombre" className="w-[160px]" /></Field>
+                  <Field label="Apellido"><Input value={staffLast} onChange={e => setStaffLast(e.target.value)} placeholder="Apellido" className="w-[160px]" /></Field>
+                  <Field label="Rol">
+                    <Select value={staffRole} onValueChange={setStaffRole}>
+                      <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ENTRENADOR">Entrenador</SelectItem>
+                        <SelectItem value="ASISTENTE">Asistente</SelectItem>
+                        <SelectItem value="DELEGADO">Delegado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Button onClick={() => createStaffMutation.mutate()} disabled={!staffTeamId || !staffFirst || !staffLast || createStaffMutation.isPending} className="gap-1">
+                    <Plus className="h-4 w-4" /> Agregar
                   </Button>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {visibleStaff.length} de {staff.length}
-                </span>
-              </div>
+                </div>
+              </FormCard>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Equipo</TableHead>
-                    <TableHead>Rol</TableHead>
-                    <TableHead>VeloPro</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleStaff.map((st: any) => (
-                    <TableRow key={st.id}>
-                      {editingStaffId === st.id ? (
-                        <>
-                          <TableCell className="flex gap-1">
-                            <Input value={editStaffFirst} onChange={e => setEditStaffFirst(e.target.value)} className="h-8 w-[110px]" placeholder="Nombre" />
-                            <Input value={editStaffLast} onChange={e => setEditStaffLast(e.target.value)} className="h-8 w-[110px]" placeholder="Apellido" />
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-medium">{st.teams?.categories?.name ?? "—"}</span>
-                            <span className="block text-xs text-muted-foreground">{st.teams?.categories?.divisions?.name ?? ""}</span>
-                          </TableCell>
-                          <TableCell>{st.teams?.name}</TableCell>
-                          <TableCell>
-                            <Select value={editStaffRole} onValueChange={setEditStaffRole}>
-                              <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ENTRENADOR">Entrenador</SelectItem>
-                                <SelectItem value="ASISTENTE">Asistente</SelectItem>
-                                <SelectItem value="DELEGADO">Delegado</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell><Input value={editStaffVelopro} onChange={e => setEditStaffVelopro(e.target.value)} className="h-8 w-[110px]" placeholder="VeloPro" /></TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateStaffMutation.mutate({ id: st.id, first_name: editStaffFirst, last_name: editStaffLast, role: editStaffRole, velopro_number: editStaffVelopro })}><Save className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingStaffId(null)}><X className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell>{st.first_name} {st.last_name}</TableCell>
-                          <TableCell>
-                            <span className="font-medium">{st.teams?.categories?.name ?? "—"}</span>
-                            <span className="block text-xs text-muted-foreground">{st.teams?.categories?.divisions?.name ?? ""}</span>
-                          </TableCell>
-                          <TableCell>{st.teams?.name}</TableCell>
-                          <TableCell>{st.role}</TableCell>
-                          <TableCell>{st.velopro_number ?? "—"}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingStaffId(st.id); setEditStaffFirst(st.first_name); setEditStaffLast(st.last_name); setEditStaffRole(st.role); setEditStaffVelopro(st.velopro_number ?? ""); }}><Pencil className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar a ${st.first_name} ${st.last_name} (${st.role}) de ${st.teams?.name}? Esta acción no se puede deshacer.`)) deleteStaffMutation.mutate(st.id); }}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      )}
+              <SearchBar value={searchStaff} onChange={setSearchStaff} placeholder="Buscar por nombre, equipo, rol o VeloPro…" shown={visibleStaff.length} total={staff.length} />
+
+              <TableShell remaining={visibleStaff.length - shown.staff} onMore={() => more("staff")}>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className={HEAD}>Nombre</TableHead>
+                      <TableHead className={HEAD}>Categoría</TableHead>
+                      <TableHead className={HEAD}>Equipo</TableHead>
+                      <TableHead className={HEAD}>Rol</TableHead>
+                      <TableHead className={HEAD}>VeloPro</TableHead>
+                      <TableHead className={`w-[100px] ${HEAD}`}>Acciones</TableHead>
                     </TableRow>
-                  ))}
-                  {visibleStaff.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
-                        {searchStaff ? `Sin resultados para "${searchStaff}".` : "Sin cuerpo técnico aún en esta edición."}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleStaff.slice(0, shown.staff).map((st: any) => (
+                      <TableRow key={st.id} className="odd:bg-muted/30">
+                        {editingStaffId === st.id ? (
+                          <>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Input value={editStaffFirst} onChange={e => setEditStaffFirst(e.target.value)} className="h-8 min-w-[110px]" placeholder="Nombre" />
+                                <Input value={editStaffLast} onChange={e => setEditStaffLast(e.target.value)} className="h-8 min-w-[110px]" placeholder="Apellido" />
+                              </div>
+                            </TableCell>
+                            <TableCell><CatChip name={st.teams?.categories?.name} /></TableCell>
+                            <TableCell className="text-sm font-medium">{st.teams?.name}</TableCell>
+                            <TableCell>
+                              <Select value={editStaffRole} onValueChange={setEditStaffRole}>
+                                <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ENTRENADOR">Entrenador</SelectItem>
+                                  <SelectItem value="ASISTENTE">Asistente</SelectItem>
+                                  <SelectItem value="DELEGADO">Delegado</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell><Input value={editStaffVelopro} onChange={e => setEditStaffVelopro(e.target.value)} className="h-8 w-[110px]" placeholder="VeloPro" /></TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" className="h-8 w-8 p-0" title="Guardar" onClick={() => updateStaffMutation.mutate({ id: st.id, first_name: editStaffFirst, last_name: editStaffLast, role: editStaffRole, velopro_number: editStaffVelopro })}><Save className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Cancelar" onClick={() => setEditingStaffId(null)}><X className="h-4 w-4" /></Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="font-semibold">{st.first_name} {st.last_name}</TableCell>
+                            <TableCell>
+                              <CatChip name={st.teams?.categories?.name} />
+                              <span className="mt-0.5 block text-[11px] text-muted-foreground">{st.teams?.categories?.divisions?.name ?? ""}</span>
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">{st.teams?.name}</TableCell>
+                            <TableCell>
+                              <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${ROLE_STYLE[st.role] ?? "bg-muted"}`}>{st.role}</span>
+                            </TableCell>
+                            <TableCell>{st.velopro_number ? <span className="font-mono text-sm">{st.velopro_number}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Editar" onClick={() => { setEditingStaffId(st.id); setEditStaffFirst(st.first_name); setEditStaffLast(st.last_name); setEditStaffRole(st.role); setEditStaffVelopro(st.velopro_number ?? ""); }}><Pencil className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" title="Eliminar" onClick={() => { if (window.confirm(`¿Eliminar a ${st.first_name} ${st.last_name} (${st.role}) de ${st.teams?.name}? Esta acción no se puede deshacer.`)) deleteStaffMutation.mutate(st.id); }}><Trash2 className="h-4 w-4" /></Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {visibleStaff.length === 0 && (
+                  <Empty icon={ClipboardList} text={searchStaff ? `Sin resultados para "${searchStaff}".` : filterActive ? "No hay cuerpo técnico con este filtro." : "Sin cuerpo técnico aún en esta edición."} />
+                )}
+              </TableShell>
             </TabsContent>
           </Tabs>
         </>
