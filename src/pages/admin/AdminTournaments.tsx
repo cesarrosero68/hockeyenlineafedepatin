@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Database, Pencil, Plus, Power } from "lucide-react";
+import { Database, Pencil, Plus, Power, CalendarDays, CheckCircle2 } from "lucide-react";
+import { StatChip } from "@/components/admin/AdminBits";
 import { toast } from "sonner";
 
 type T = { id: string; name: string; year: number | null; semester: string | null; season: string | null; status: string };
@@ -69,18 +69,20 @@ export default function AdminTournaments() {
     }
   };
 
+  const activeOne = tournaments.find((t) => t.status === "active");
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold uppercase">
           <Database className="h-6 w-6 text-primary" /> Torneos
-        </h2>
+        </h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />Nuevo</Button>
+            <Button onClick={openNew} className="gap-1"><Plus className="h-4 w-4" />Nuevo torneo</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Editar" : "Nuevo"} torneo</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display uppercase text-primary">{editing ? "Editar" : "Nuevo"} torneo</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
@@ -98,36 +100,47 @@ export default function AdminTournaments() {
                   </SelectContent>
                 </Select>
               </div>
+              {form.status === "active" && (
+                <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">Solo puede haber un torneo activo: al guardar, los demás pasan a "Finalizado".</p>
+              )}
             </div>
             <DialogFooter><Button onClick={save}>Guardar</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {tournaments.map(t => (
-          <Card key={t.id}>
-            <CardHeader className="flex flex-row items-start justify-between pb-2">
-              <div>
-                <CardTitle className="text-base">{t.name}</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">{t.year} · {t.semester || t.season || ""}</p>
+      <div className="flex flex-wrap gap-3">
+        <StatChip icon={Database} label="Torneos" value={tournaments.length} />
+        <StatChip icon={CheckCircle2} label="Edición activa" value={activeOne?.name ?? "Ninguna"} warn={!activeOne} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {tournaments.map(t => {
+          const isActive = t.status === "active";
+          return (
+            <Card key={t.id} className={`overflow-hidden rounded-2xl shadow-sm ${isActive ? "border-primary/50" : ""}`}>
+              <div className={`flex items-center justify-between border-b px-4 py-2.5 ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide">
+                  {isActive ? <CheckCircle2 className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}
+                  {isActive ? "Edición activa" : "Finalizado"}
+                </span>
+                <span className="text-xs font-semibold">{t.year ?? ""}</span>
               </div>
-              <Badge variant={t.status === "active" ? "default" : "secondary"}>
-                {t.status === "active" ? "Activo" : "Finalizado"}
-              </Badge>
-            </CardHeader>
-            <CardContent className="flex gap-2 flex-wrap">
-              <Button variant="outline" size="sm" onClick={() => openEdit(t)}>
-                <Pencil className="h-3 w-3 mr-1" />Editar
-              </Button>
-              {t.status !== "active" && (
-                <Button variant="default" size="sm" onClick={() => activate(t)}>
-                  <Power className="h-3 w-3 mr-1" />Activar
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+              <CardContent className="space-y-3 p-4">
+                <div>
+                  <div className="font-display text-lg font-bold uppercase leading-tight">{t.name}</div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{[t.semester, t.season].filter(Boolean).join(" · ") || "Sin semestre/temporada"}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(t)} className="gap-1"><Pencil className="h-3.5 w-3.5" />Editar</Button>
+                  {!isActive && (
+                    <Button size="sm" onClick={() => { if (window.confirm(`¿Poner "${t.name}" como edición activa? La edición actual pasará a Finalizado.`)) activate(t); }} className="gap-1"><Power className="h-3.5 w-3.5" />Activar</Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
