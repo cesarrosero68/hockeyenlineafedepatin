@@ -58,15 +58,15 @@ export const PROTOCOLOS: Record<string, Protocolo> = {
     ],
   },
   "Sub-14": {
-    equipos: 4, partidos: 22, tiempo: "15 min", sancion: "90 seg", goleada: "8 goles",
+    equipos: 4, partidos: 20, tiempo: "15 min", sancion: "90 seg", goleada: "8 goles",
     regular: [
       "4 equipos, todos contra todos en 3 vueltas.",
       "18 partidos regulares: cada equipo juega 9.",
     ],
     final: [
-      "Semifinales directas: 1° vs 4° y 2° vs 3°.",
-      "Tercer puesto (perdedores) y final (ganadores).",
-      "4 partidos de fase final: semis el 5-dic; tercer puesto y final el 6-dic.",
+      "Final directa, sin semifinales (solo hay 4 equipos).",
+      "1° vs 2°: final (oro). 3° vs 4°: tercer puesto (bronce).",
+      "2 partidos de fase final el 6-dic.",
     ],
   },
   "Sub-16 Mixto": {
