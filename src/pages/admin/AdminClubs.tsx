@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Plus, Pencil, Trash2, Save, X, Upload, ImageIcon, Loader2 } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, Save, X, Upload, Loader2, Users, ImageOff, Building2 } from "lucide-react";
+import TeamShield from "@/components/home/TeamShield";
+import { CatChip, FormCard, Field, SearchBar, Empty, StatChip } from "@/components/admin/AdminBits";
 import { toast } from "@/hooks/use-toast";
 
 const BUCKET = "club-logos";
@@ -39,6 +40,8 @@ export default function AdminClubs() {
   const [editName, setEditName] = useState("");
   const [newName, setNewName] = useState("");
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showEmpty, setShowEmpty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const targetClubId = useRef<string | null>(null);
   const teamFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -82,17 +85,27 @@ export default function AdminClubs() {
 
   const isLoading = loadingClubs || loadingTeams;
 
-  const clubGroups = useMemo(() => {
-    const clubById = new Map(clubs.map((c: any) => [c.id, c]));
-    const groups = new Map<string, { club: any; teams: any[] }>();
-    for (const t of teams as any[]) {
-      const club = clubById.get(t.club_id);
-      if (!club) continue;
-      if (!groups.has(club.id)) groups.set(club.id, { club, teams: [] });
-      groups.get(club.id)!.teams.push(t);
-    }
-    return Array.from(groups.values()).sort((a, b) => a.club.name.localeCompare(b.club.name));
+  const norm = (v: any) => String(v ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // Todos los clubes con sus equipos de esta edición (los que no tienen equipos quedan al final)
+  const allGroups = useMemo(() => {
+    const byClub = new Map<string, { club: any; teams: any[] }>();
+    (clubs as any[]).forEach((c) => byClub.set(c.id, { club: c, teams: [] }));
+    for (const t of teams as any[]) byClub.get(t.club_id)?.teams.push(t);
+    return Array.from(byClub.values()).sort((a, b) => a.club.name.localeCompare(b.club.name));
   }, [clubs, teams]);
+
+  const withTeams = allGroups.filter((g) => g.teams.length > 0);
+  const withoutTeams = allGroups.filter((g) => g.teams.length === 0);
+  const missingClubLogos = withTeams.filter((g) => !g.club.logo_url).length;
+  const missingTeamLogos = (teams as any[]).filter((t) => !t.logo_url && !(clubs as any[]).find((c) => c.id === t.club_id)?.logo_url).length;
+
+  const clubGroups = useMemo(() => {
+    const base = showEmpty ? allGroups : withTeams;
+    const q = norm(search).trim();
+    if (!q) return base;
+    return base.filter((g) => norm(`${g.club.name} ${g.teams.map((t: any) => `${t.name} ${t.categories?.name ?? ""}`).join(" ")}`).includes(q));
+  }, [allGroups, showEmpty, search]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -101,8 +114,10 @@ export default function AdminClubs() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-clubs-crud"] });
+      setSearch(newName);
+      setShowEmpty(true);
       setNewName("");
-      toast({ title: "Club creado" });
+      toast({ title: "Club creado", description: "Aparece abajo. Sube su logo y créale equipos en Equipos." });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -203,31 +218,31 @@ export default function AdminClubs() {
     <div className="space-y-6">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       <input ref={teamFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleTeamFile} />
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold uppercase">
           <Shield className="h-6 w-6 text-primary" /> Gestión de Clubes
         </h1>
-        {activeTournament && (
-          <Badge variant="default" className="text-xs">
-            Mostrando equipos de: {activeTournament.name}
-          </Badge>
-        )}
+        {activeTournament && <Badge className="text-xs">Mostrando equipos de: {activeTournament.name}</Badge>}
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-2 items-end flex-wrap">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Nombre</label>
-              <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nombre del club" className="w-[200px]" />
-            </div>
-            <Button onClick={() => createMutation.mutate()} disabled={!newName.trim() || createMutation.isPending} className="gap-1">
-              <Plus className="h-4 w-4" /> Agregar
-            </Button>
-            <p className="text-xs text-muted-foreground">El logo se sube después de crear el club. Los clubes son compartidos entre todas las ediciones.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap gap-3">
+        <StatChip icon={Building2} label="Clubes con equipos" value={withTeams.length} />
+        <StatChip icon={Users} label="Equipos en la edición" value={(teams as any[]).length} />
+        <StatChip icon={ImageOff} label="Clubes sin logo" value={missingClubLogos} warn={missingClubLogos > 0} />
+        <StatChip icon={ImageOff} label="Equipos sin ningún logo" value={missingTeamLogos} warn={missingTeamLogos > 0} />
+      </div>
+
+      <FormCard icon={Plus} title="Agregar club">
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Nombre">
+            <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nombre del club" className="w-[240px]" />
+          </Field>
+          <Button onClick={() => createMutation.mutate()} disabled={!newName.trim() || createMutation.isPending} className="gap-1">
+            <Plus className="h-4 w-4" /> Agregar
+          </Button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">El logo se sube después de crear el club. Los clubes son compartidos entre todas las ediciones.</p>
+      </FormCard>
 
       {!activeTournamentId && (
         <Card>
@@ -238,92 +253,74 @@ export default function AdminClubs() {
       )}
 
       {activeTournamentId && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[60px]">Logo</TableHead>
-              <TableHead>Club</TableHead>
-              <TableHead>Equipo</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead className="w-[170px]">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {clubGroups.map(({ club, teams: clubTeams }) =>
-              clubTeams.map((t: any, i: number) => (
-                <TableRow key={t.id} className={i === 0 ? "border-t-2" : ""}>
-                  {i === 0 ? (
-                    <>
-                      <TableCell rowSpan={clubTeams.length} className="align-top pt-3">
-                        {club.logo_url ? (
-                          <img src={club.logo_url} alt={`Logo ${club.name}`} className="h-10 w-10 object-contain rounded border bg-muted" loading="lazy" />
-                        ) : (
-                          <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center text-muted-foreground">
-                            <ImageIcon className="h-4 w-4" />
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell rowSpan={clubTeams.length} className="align-top pt-3 font-semibold">
-                        {editingId === club.id ? (
-                          <div className="flex items-center gap-1">
-                            <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 w-[140px]" />
-                            <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateMutation.mutate({ id: club.id, name: editName })}><Save className="h-4 w-4" /></Button>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
-                          </div>
-                        ) : (
-                          club.name
-                        )}
-                      </TableCell>
-                    </>
-                  ) : null}
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {t.logo_url ? (
-                        <img src={t.logo_url} alt={`Logo ${t.name}`} className="h-8 w-8 object-contain rounded border bg-muted" loading="lazy" />
-                      ) : (
-                        <div className="h-8 w-8 rounded border bg-muted flex items-center justify-center text-muted-foreground">
-                          <ImageIcon className="h-3.5 w-3.5" />
-                        </div>
-                      )}
-                      <span>{t.name}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 gap-1 px-2"
-                        disabled={uploadingId === t.id}
-                        onClick={() => pickTeamFile(t.id)}
-                        title="Subir logo del equipo"
-                      >
-                        {uploadingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                        <span className="text-[11px]">Logo equipo</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{t.categories?.name}</TableCell>
-                  {i === 0 ? (
-                    <TableCell rowSpan={clubTeams.length} className="align-top pt-2">
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="outline" className="h-8 gap-1 px-2" disabled={uploadingId === club.id} onClick={() => pickFile(club.id)}>
-                          {uploadingId === club.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                          <span className="text-xs">Logo</span>
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setEditingId(club.id); setEditName(club.name); }}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (window.confirm(`¿Eliminar el club "${club.name}"? Esta acción no se puede deshacer.`)) deleteMutation.mutate(club.id); }}><Trash2 className="h-4 w-4" /></Button>
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchBar value={search} onChange={setSearch} placeholder="Buscar club, equipo o categoría…" shown={clubGroups.length} total={showEmpty ? allGroups.length : withTeams.length} />
+            {withoutTeams.length > 0 && (
+              <label className="flex cursor-pointer items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs">
+                <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
+                Mostrar clubes sin equipos en esta edición ({withoutTeams.length})
+              </label>
+            )}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            {clubGroups.map(({ club, teams: clubTeams }) => (
+              <Card key={club.id} className="overflow-hidden rounded-2xl shadow-sm">
+                <div className="flex items-center gap-3 border-b bg-primary/10 px-4 py-3">
+                  <TeamShield name={club.name} logo={club.logo_url} size="lg" />
+                  <div className="min-w-0 flex-1 leading-tight">
+                    {editingId === club.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8" autoFocus />
+                        <Button size="sm" className="h-8 w-8 shrink-0 p-0" title="Guardar" onClick={() => updateMutation.mutate({ id: club.id, name: editName })}><Save className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0" title="Cancelar" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
                       </div>
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              ))
-            )}
-            {clubGroups.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
-                  Sin equipos aún en esta edición.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                    ) : (
+                      <p className="truncate font-display text-lg font-bold uppercase text-primary">{club.name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {clubTeams.length} {clubTeams.length === 1 ? "equipo" : "equipos"}
+                      {!club.logo_url && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">Sin logo</span>}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="sm" variant="outline" className="h-8 gap-1 bg-card px-2" disabled={uploadingId === club.id} onClick={() => pickFile(club.id)} title="Subir logo del club">
+                      {uploadingId === club.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      <span className="text-xs">Logo</span>
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Cambiar nombre" onClick={() => { setEditingId(club.id); setEditName(club.name); }}><Pencil className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" title="Eliminar club" onClick={() => { if (window.confirm(`¿Eliminar el club "${club.name}"? Esta acción no se puede deshacer.`)) deleteMutation.mutate(club.id); }}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+
+                {clubTeams.length === 0 ? (
+                  <p className="px-4 py-4 text-sm text-muted-foreground">Sin equipos en esta edición.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {clubTeams.map((t: any) => (
+                      <li key={t.id} className="flex items-center gap-3 px-4 py-2 hover:bg-muted/40">
+                        <TeamShield name={t.name} logo={t.logo_url ?? club.logo_url} size="md" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold">{t.name}</p>
+                          {!t.logo_url && <p className="text-[11px] text-muted-foreground">{club.logo_url ? "Usa el logo del club" : "Sin logo"}</p>}
+                        </div>
+                        <CatChip name={t.categories?.name} />
+                        <Button size="sm" variant="ghost" className="h-8 gap-1 px-2" disabled={uploadingId === t.id} onClick={() => pickTeamFile(t.id)} title="Subir logo propio del equipo">
+                          {uploadingId === t.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          <span className="hidden text-[11px] sm:inline">Logo equipo</span>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            ))}
+          </div>
+          {clubGroups.length === 0 && (
+            <Card><Empty icon={Shield} text={search ? `Sin resultados para "${search}".` : "Sin equipos aún en esta edición."} /></Card>
+          )}
+        </>
       )}
     </div>
   );
