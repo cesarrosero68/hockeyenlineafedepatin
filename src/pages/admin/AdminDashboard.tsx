@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, Upload, Palette, FileSpreadsheet, Database, Star, Megaphone, ExternalLink, Menu, UserRound } from "lucide-react";
+import { LayoutDashboard, Users, Trophy, Calendar, FileText, Shield, LogOut, ClipboardList, Upload, Palette, FileSpreadsheet, Database, Star, Megaphone, ExternalLink, Menu, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -10,7 +10,13 @@ import { useTournament } from "@/contexts/TournamentContext";
 type NavItem = { to: string; label: string; icon: any; exact?: boolean };
 
 const navGroups: { title: string | null; items: NavItem[] }[] = [
-  { title: null, items: [{ to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true }] },
+  {
+    title: null,
+    items: [
+      { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+      { to: "/admin/protocols", label: "Protocolos", icon: ClipboardList },
+    ],
+  },
   {
     title: "Competencia",
     items: [
