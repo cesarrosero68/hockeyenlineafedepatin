@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { FormCard } from "@/components/admin/AdminBits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Megaphone, Trash2, Plus, ArrowUp, ArrowDown, Loader2, FileSpreadsheet, ImageIcon, BarChart3 } from "lucide-react";
+import { Megaphone, Trash2, Plus, ArrowUp, ArrowDown, Loader2, FileSpreadsheet, ImageIcon, BarChart3, Settings2 } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
 import type { Sponsor } from "@/components/SponsorsMarquee";
 import { formatBogota } from "@/lib/timezone";
@@ -43,6 +44,8 @@ function isoDay(d: Date) {
 
 interface ClickRow { sponsor_id: string | null; clicked_at: string | null; device_type: string | null }
 interface ViewRow { page: string; viewed_at: string | null; device_type: string | null }
+
+const HEAD = "bg-primary/10 text-xs font-bold uppercase tracking-wide text-primary";
 
 export default function AdminSponsors() {
   const qc = useQueryClient();
@@ -301,9 +304,8 @@ export default function AdminSponsors() {
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       <input ref={newLogoRef} type="file" accept="image/*" className="hidden" onChange={pickNewLogo} />
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Configuración</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+      <FormCard icon={Settings2} title={`Configuración`}>
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label className="text-xs">Edición</Label>
             <Select value={effectiveId} onValueChange={setTournamentId}>
@@ -332,12 +334,11 @@ export default function AdminSponsors() {
             />
             <span className="text-sm">Mostrar barra de patrocinadores</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormCard>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Añadir patrocinador</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] items-end">
+      <FormCard icon={Plus} title={`Añadir patrocinador`}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto] items-end">
           <div>
             <Label className="text-xs">Nombre</Label>
             <Input className="mt-1" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nombre del patrocinador" />
@@ -361,31 +362,30 @@ export default function AdminSponsors() {
           <Button onClick={addSponsor} disabled={busy || !effectiveId}>
             {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />} Añadir
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </FormCard>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Patrocinadores ({sponsors.length})</CardTitle></CardHeader>
-        <CardContent>
+      <FormCard icon={Megaphone} title={`Patrocinadores (${sponsors.length})`}>
+        <div>
           {isLoading ? (
             <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
           ) : sponsors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aún no hay patrocinadores en esta edición.</p>
+            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground"><Megaphone className="h-8 w-8 opacity-40" /> Aún no hay patrocinadores en esta edición.</div>
           ) : (
-            <Table>
+            <Card className="overflow-hidden rounded-xl border shadow-none"><Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">Logo</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Sitio web</TableHead>
-                  <TableHead className="w-24">Activo</TableHead>
-                  <TableHead className="w-32">Orden</TableHead>
-                  <TableHead className="w-16" />
+                  <TableHead className={`${HEAD} w-24`}>Logo</TableHead>
+                  <TableHead className={HEAD}>Nombre</TableHead>
+                  <TableHead className={HEAD}>Sitio web</TableHead>
+                  <TableHead className={`${HEAD} w-24`}>Activo</TableHead>
+                  <TableHead className={`${HEAD} w-32`}>Orden</TableHead>
+                  <TableHead className={`${HEAD} w-16`} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sponsors.map((s, i) => (
-                  <TableRow key={s.id}>
+                  <TableRow key={s.id} className="odd:bg-muted/30">
                     <TableCell>
                       <button onClick={() => pickLogo(s.id)} className="flex h-10 w-16 items-center justify-center rounded border bg-muted/40 overflow-hidden">
                         {s.logo_url
@@ -405,30 +405,30 @@ export default function AdminSponsors() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="outline" onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="outline" onClick={() => move(i, 1)} disabled={i === sponsors.length - 1}><ArrowDown className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="outline" title="Subir" onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="outline" title="Bajar" onClick={() => move(i, 1)} disabled={i === sponsors.length - 1}><ArrowDown className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => remove(s.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <Button size="icon" variant="ghost" title="Eliminar" onClick={() => remove(s.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></Card>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </FormCard>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Analítica
-          </CardTitle>
-          <Button variant="outline" size="sm" onClick={exportAnalytics}>
+      <Card className="overflow-hidden rounded-2xl shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-primary/10 px-4 py-2.5">
+          <span className="flex items-center gap-2 font-display text-base font-bold uppercase text-primary">
+            <BarChart3 className="h-4 w-4" /> Analítica
+          </span>
+          <Button variant="outline" size="sm" onClick={exportAnalytics} className="bg-card">
             <FileSpreadsheet className="h-4 w-4 mr-1" /> Exportar Excel
           </Button>
-        </CardHeader>
+        </div>
         <CardContent className="space-y-6">
           <div className="grid gap-3 sm:grid-cols-[auto_auto_1fr] items-end">
             <div>
@@ -449,22 +449,22 @@ export default function AdminSponsors() {
 
           <div>
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Clics por patrocinador</h3>
-            <Table>
+            <Card className="overflow-hidden rounded-xl border shadow-none"><Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Sitio web</TableHead>
-                  <TableHead className="text-right">Clics totales</TableHead>
-                  <TableHead className="text-right">Clics móvil</TableHead>
-                  <TableHead className="text-right">Clics desktop</TableHead>
-                  <TableHead>Último clic</TableHead>
+                  <TableHead className={HEAD}>Nombre</TableHead>
+                  <TableHead className={HEAD}>Sitio web</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>Clics totales</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>Clics móvil</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>Clics desktop</TableHead>
+                  <TableHead className={HEAD}>Último clic</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sponsorStats.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-sm text-muted-foreground">Sin datos.</TableCell></TableRow>
                 ) : sponsorStats.map((r) => (
-                  <TableRow key={r.sponsor.id}>
+                  <TableRow key={r.sponsor.id} className="odd:bg-muted/30">
                     <TableCell>{r.sponsor.name}</TableCell>
                     <TableCell>
                       {r.sponsor.website_url ? (
@@ -480,25 +480,25 @@ export default function AdminSponsors() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></Card>
           </div>
 
           <div>
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Visitas por página</h3>
-            <Table>
+            <Card className="overflow-hidden rounded-xl border shadow-none"><Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Página</TableHead>
-                  <TableHead className="text-right">Visitas totales</TableHead>
-                  <TableHead className="text-right">Móvil</TableHead>
-                  <TableHead className="text-right">Desktop</TableHead>
+                  <TableHead className={HEAD}>Página</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>Visitas totales</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>Móvil</TableHead>
+                  <TableHead className={`${HEAD} text-right`}>Desktop</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pageStats.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-sm text-muted-foreground">Sin datos.</TableCell></TableRow>
                 ) : pageStats.map((p) => (
-                  <TableRow key={p.page}>
+                  <TableRow key={p.page} className="odd:bg-muted/30">
                     <TableCell>{p.page}</TableCell>
                     <TableCell className="text-right font-semibold">{p.total}</TableCell>
                     <TableCell className="text-right">{p.mobile}</TableCell>
@@ -506,7 +506,7 @@ export default function AdminSponsors() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table></Card>
           </div>
         </CardContent>
       </Card>
