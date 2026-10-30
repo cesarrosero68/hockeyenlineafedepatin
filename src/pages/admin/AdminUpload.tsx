@@ -392,9 +392,9 @@ function ScheduleUpload() {
 
       {rows.length > 1 && errors.length === 0 && (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Vista previa — {rows.length - 1} partidos</CardTitle>
+          <Card className="overflow-hidden rounded-2xl shadow-sm">
+            <CardHeader className="border-b bg-primary/10 py-3">
+              <CardTitle className="font-display text-base font-bold uppercase text-primary">Vista previa — {rows.length - 1} partidos</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-auto max-h-[400px]">
@@ -402,7 +402,7 @@ function ScheduleUpload() {
                   <TableHeader>
                     <TableRow>
                       {rows[0].map((h, i) => (
-                        <TableHead key={i} className="text-xs whitespace-nowrap">{h}</TableHead>
+                        <TableHead key={i} className={`${HEAD} whitespace-nowrap`}>{h}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -778,9 +778,9 @@ function RosterUpload() {
 
       {rows.length > 1 && errors.length === 0 && (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Vista previa — {rows.length - 1} jugadores</CardTitle>
+          <Card className="overflow-hidden rounded-2xl shadow-sm">
+            <CardHeader className="border-b bg-primary/10 py-3">
+              <CardTitle className="font-display text-base font-bold uppercase text-primary">Vista previa — {rows.length - 1} jugadores</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-auto max-h-[400px]">
@@ -788,7 +788,7 @@ function RosterUpload() {
                   <TableHeader>
                     <TableRow>
                       {rows[0].map((h, i) => (
-                        <TableHead key={i} className="text-xs whitespace-nowrap">{h}</TableHead>
+                        <TableHead key={i} className={`${HEAD} whitespace-nowrap`}>{h}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -823,35 +823,37 @@ function RosterUpload() {
   );
 }
 
+const HEAD = "bg-primary/10 text-xs font-bold uppercase tracking-wide text-primary";
+
 // ---- Main page ----
 export default function AdminUpload() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-display font-bold uppercase flex items-center gap-2">
           <Upload className="h-6 w-6 text-primary" />
-          Cargue Masivo
+          Cargue masivo (CSV)
         </h1>
-        <a href="/manual-cargue-csv.txt" download className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <a href="/manual-cargue-csv.txt" download className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10">
           <Download className="h-4 w-4" /> Descargar manual de cargue
         </a>
       </div>
 
       <Tabs defaultValue="schedule">
-        <TabsList>
-          <TabsTrigger value="schedule" className="gap-1">
+        <TabsList className="h-auto p-1">
+          <TabsTrigger value="schedule" className="gap-1.5 px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
             <FileText className="h-4 w-4" /> Programación
           </TabsTrigger>
-          <TabsTrigger value="roster" className="gap-1">
+          <TabsTrigger value="roster" className="gap-1.5 px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
             <FileText className="h-4 w-4" /> Jugadores / Roster
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="schedule" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Cargar Programación de Partidos</CardTitle>
-              <CardDescription>
+          <Card className="overflow-hidden rounded-2xl shadow-sm">
+            <CardHeader className="border-b bg-primary/10 py-3">
+              <CardTitle className="font-display text-base font-bold uppercase text-primary">Cargar Programación de Partidos</CardTitle>
+              <CardDescription className="pt-1">
                 Suba un archivo .csv con las columnas: <code className="text-xs bg-muted px-1 rounded">division, categoria, equipo_local, equipo_visitante, fecha, fase, ronda</code>.
                 Formatos de fecha aceptados: <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DD</code>, <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DDTHH:mm</code>, o <code className="text-xs bg-muted px-1 rounded">M/D/YYYY</code> (hora Bogotá).
               </CardDescription>
@@ -863,10 +865,10 @@ export default function AdminUpload() {
         </TabsContent>
 
         <TabsContent value="roster" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Cargar Jugadores y Roster</CardTitle>
-              <CardDescription>
+          <Card className="overflow-hidden rounded-2xl shadow-sm">
+            <CardHeader className="border-b bg-primary/10 py-3">
+              <CardTitle className="font-display text-base font-bold uppercase text-primary">Cargar Jugadores y Roster</CardTitle>
+              <CardDescription className="pt-1">
                 Suba un archivo .csv con las columnas: <code className="text-xs bg-muted px-1 rounded">nombre, apellido, dorsal, equipo, categoria, division</code>.
                 Columnas opcionales: <code className="text-xs bg-muted px-1 rounded">posicion, fecha_nacimiento, velopro, documento</code>.
                 Los equipos, categorías y divisiones deben existir previamente en la edición activa.
