@@ -27,7 +27,7 @@ export default function AdminHome() {
       const [d, tm, m, p, closed, live] = await Promise.all([
         c("divisions"), c("teams"), c("matches"), c("rosters"),
         c("matches").in("status", ["closed", "locked"]),
-        c("matches").eq("status", "live"),
+        c("matches").eq("status", "in_progress"),
       ]);
       const firstError = d.error ?? tm.error ?? m.error ?? p.error ?? closed.error ?? live.error;
       if (firstError) throw firstError;
