@@ -59,9 +59,10 @@ export default function TeamsPage() {
   const { data: teams = [], isLoading: loadingTeams, isError: errorTeams } = useQuery({
     queryKey: ["all-teams", viewedTournamentId],
     queryFn: async () => {
-      let q: any = supabase
+      let q: any = (supabase as any)
         .from("teams")
         .select("id, name, logo_url, category_id, group_name, clubs(name, logo_url)")
+        .eq("hidden_public", false)
         .order("name");
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
       const { data, error } = await q;
