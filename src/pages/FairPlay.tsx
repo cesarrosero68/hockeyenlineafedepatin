@@ -79,6 +79,30 @@ export default function FairPlay() {
       return totals;
     },
   });
+  // Partidos jugados por equipo (partidos cerrados o bloqueados del torneo).
+  const { data: playedByTeam = {} } = useQuery({
+    queryKey: ["fair-play-played", viewedTournamentId],
+    queryFn: async () => {
+      const counts: Record<string, number> = {};
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        let q: any = supabase
+          .from("matches")
+          .select("id, match_teams(team_id)")
+          .in("status", ["closed", "locked"])
+          .range(from, from + PAGE - 1);
+        if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
+        const { data } = await q;
+        (data ?? []).forEach((m: any) =>
+          (m.match_teams ?? []).forEach((mt: any) => {
+            counts[mt.team_id] = (counts[mt.team_id] ?? 0) + 1;
+          })
+        );
+        if (!data || data.length < PAGE) break;
+      }
+      return counts;
+    },
+  });
   const minsOf = (f: any): number => exactMinutes[f.team_id] ?? Number(f.total_penalty_minutes ?? 0);
 
   if (isLoading) {
@@ -136,6 +160,7 @@ export default function FairPlay() {
                             <tr className="border-b text-muted-foreground text-xs">
                               <th className="text-left py-2 px-1">#</th>
                               <th className="text-left py-2 px-1">Equipo</th>
+                              <th className="text-center py-2 px-1">PJ</th>
                               <th className="text-center py-2 px-1">Penalidades</th>
                               <th className="text-center py-2 px-1">Tiempo penalización (min:seg)</th>
                             </tr>
@@ -145,6 +170,7 @@ export default function FairPlay() {
                               <tr key={f.id} className="border-b last:border-0">
                                 <td className="py-2.5 px-1"><Pos n={i + 1} /></td>
                                 <td className="py-2.5 px-1 font-semibold"><span className="flex items-center gap-2"><TeamShield name={f.teams?.name} logo={f.teams?.logo_url ?? f.teams?.clubs?.logo_url} />{f.teams?.name}</span></td>
+                                <td className="text-center py-2 px-1">{playedByTeam[f.team_id] ?? 0}</td>
                                 <td className="text-center py-2 px-1">{f.total_penalties}</td>
                                 <td className="text-center py-2 px-1 tabular-nums">{mmss(minsOf(f))}</td>
                               </tr>
