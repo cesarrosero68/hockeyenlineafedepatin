@@ -55,7 +55,7 @@ export default function Index() {
           id, status, current_period, period_minutes,
           clock_enabled, clock_started_at, clock_offset_ms,
           categories(name),
-          match_teams(side, score_regular, teams!inner(id, name, logo_url)),
+          match_teams(side, score_regular, teams!inner(id, name, logo_url, clubs(logo_url))),
           penalties(id, team_id, penalty_code, penalty_time, penalty_minutes, period, ended_early, created_at, player_id)
         `)
         .eq("tournament_id", viewedTournamentId as string)
@@ -76,8 +76,8 @@ export default function Index() {
           category_name: m.categories?.name ?? "",
           home_team: home?.teams?.name ?? "Local",
           away_team: away?.teams?.name ?? "Visitante",
-          home_logo: home?.teams?.logo_url ?? null,
-          away_logo: away?.teams?.logo_url ?? null,
+          home_logo: home?.teams?.logo_url ?? home?.teams?.clubs?.logo_url ?? null,
+          away_logo: away?.teams?.logo_url ?? away?.teams?.clubs?.logo_url ?? null,
           home_score: home?.score_regular ?? 0,
           away_score: away?.score_regular ?? 0,
           home_team_id: home?.teams?.id ?? null,
