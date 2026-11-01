@@ -60,7 +60,7 @@ export default function Standings() {
   const { data: teams = [] } = useQuery({
     queryKey: ["standings-teams-groups", viewedTournamentId],
     queryFn: async () => {
-      let q: any = supabase.from("teams").select("id, name, logo_url, category_id, group_name, clubs(logo_url)");
+      let q: any = supabase.from("teams").select("id, name, logo_url, category_id, group_name, tiebreak_order, clubs(logo_url)");
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
       const { data } = await q;
       return data ?? [];
@@ -101,7 +101,7 @@ export default function Standings() {
     const rows = new Map<string, any>();
     groupTeams.forEach((t: any) =>
       rows.set(t.id, {
-        id: t.id, name: t.name, logo: t.logo_url ?? t.clubs?.logo_url ?? null, played: 0, wins: 0, draws: 0, losses: 0,
+        id: t.id, name: t.name, logo: t.logo_url ?? t.clubs?.logo_url ?? null, tiebreak: t.tiebreak_order ?? 999, played: 0, wins: 0, draws: 0, losses: 0,
         goals_for: 0, goals_against: 0, goal_diff: 0, points: 0,
       })
     );
@@ -128,7 +128,7 @@ export default function Standings() {
     return Array.from(rows.values())
       .map((r) => ({ ...r, goal_diff: r.goals_for - r.goals_against }))
       .sort((x, y) =>
-        y.points - x.points || y.goal_diff - x.goal_diff || y.goals_for - x.goals_for || x.name.localeCompare(y.name)
+        y.points - x.points || y.goal_diff - x.goal_diff || y.goals_for - x.goals_for || x.tiebreak - y.tiebreak || x.name.localeCompare(y.name)
       );
   };
 
