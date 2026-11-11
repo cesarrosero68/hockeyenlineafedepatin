@@ -15,6 +15,16 @@ import {
 } from "@/components/ui/select";
 import { Star, Target, Crosshair, Shield } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
+import TeamShield from "@/components/home/TeamShield";
+
+const MEDAL = ["bg-yellow-500", "bg-slate-400", "bg-amber-700"];
+function Pos({ n }: { n: number }) {
+  return n <= 3 ? (
+    <span className={`inline-grid h-6 w-6 place-items-center rounded-full text-xs font-bold text-white ${MEDAL[n - 1]}`}>{n}</span>
+  ) : (
+    <span className="inline-grid h-6 w-6 place-items-center text-xs text-muted-foreground">{n}</span>
+  );
+}
 
 export default function Stats() {
   const { viewedTournamentId } = useTournament();
@@ -98,7 +108,7 @@ export default function Stats() {
       if (categoryIds.length === 0) return [];
       let q: any = supabase
         .from("teams")
-        .select("id, name, category_id, clubs(name)")
+        .select("id, name, category_id, logo_url, clubs(name, logo_url)")
         .in("category_id", categoryIds);
       if (viewedTournamentId) q = q.eq("tournament_id", viewedTournamentId);
       const { data } = await q;
@@ -198,7 +208,7 @@ export default function Stats() {
       if (teamIds.length === 0) return [];
       const { data } = await supabase
         .from("teams")
-        .select("id, name, club_id, clubs(name)")
+        .select("id, name, club_id, logo_url, clubs(name, logo_url)")
         .in("id", teamIds);
       return data ?? [];
     },
@@ -207,9 +217,9 @@ export default function Stats() {
   });
 
   const teamsMap = useMemo(() => {
-    const map: Record<string, { teamName: string; clubName: string }> = {};
+    const map: Record<string, { teamName: string; clubName: string; logo: string | null }> = {};
     teams.forEach((t: any) => {
-      map[t.id] = { teamName: t.name, clubName: t.clubs?.name ?? "" };
+      map[t.id] = { teamName: t.name, clubName: t.clubs?.name ?? "", logo: t.logo_url ?? t.clubs?.logo_url ?? null };
     });
     return map;
   }, [teams]);
@@ -256,6 +266,8 @@ export default function Stats() {
         jersey: p?.jersey_number ?? 0,
         name: p ? `${p.first_name} ${p.last_name}` : "Jugador",
         clubName: team?.clubName || team?.teamName || "",
+        teamName: team?.teamName || "",
+        logo: team?.logo ?? null,
         goals,
         assists,
         points: goals + assists,
@@ -313,6 +325,7 @@ export default function Stats() {
         teamId: t.id,
         teamName: t.name,
         clubName: t.clubs?.name ?? "",
+        logo: t.logo_url ?? t.clubs?.logo_url ?? null,
         goalsAgainst: goalsAgainst[t.id] ?? 0,
         goalkeepers: gkByTeam[t.id] ?? [],
       }))
@@ -359,18 +372,18 @@ export default function Stats() {
         const hasData = leaderboard.length > 0;
 
         return (
-          <div key={cat.id} className="space-y-3">
-            <h2 className="text-xl font-display font-bold uppercase">{cat.name}</h2>
-
+          <Card key={cat.id} className="rounded-2xl shadow-sm overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-display uppercase">{cat.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
             {!hasData ? (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                  Sin estadísticas registradas aún
-                </CardContent>
-              </Card>
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Sin estadísticas registradas aún
+              </p>
             ) : (
               <Tabs defaultValue="points">
-                <TabsList>
+                <TabsList className="flex-wrap h-auto gap-1 mb-3">
                   <TabsTrigger value="points" className="flex items-center gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow">
                     <Star className="h-4 w-4" /> Puntos
                   </TabsTrigger>
@@ -418,7 +431,8 @@ export default function Stats() {
                 </TabsContent>
               </Tabs>
             )}
-          </div>
+            </CardContent>
+          </Card>
         );
       })}
       </div>
@@ -428,96 +442,90 @@ export default function Stats() {
 
 function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortBy: string }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-display uppercase">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-muted-foreground text-xs">
-              <th className="text-left py-2 px-1">#</th>
-              <th className="text-left py-2 px-1">Jugador</th>
-              <th className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>G</th>
-              <th className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>A</th>
-              <th className={`text-center py-2 px-1 ${sortBy === "points" ? "font-bold" : ""}`}>Pts</th>
+    <div className="overflow-x-auto">
+      <h3 className="text-xs font-display uppercase font-bold mb-2">{title}</h3>
+      <table className="w-full text-sm sm:text-base">
+        <thead>
+          <tr className="border-b text-muted-foreground text-xs">
+            <th className="text-left py-2 px-1">#</th>
+            <th className="text-left py-2 px-1">Jugador</th>
+            <th className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>G</th>
+            <th className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>A</th>
+            <th className={`text-center py-2 px-1 ${sortBy === "points" ? "font-bold" : ""}`}>Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.slice(0, 20).map((s: any, i: number) => (
+            <tr key={i} className="border-b last:border-0">
+              <td className="py-2.5 px-1"><Pos n={s.rank} /></td>
+              <td className="py-2.5 px-1">
+                <span className="flex items-center gap-2">
+                  <TeamShield name={s.teamName || s.clubName} logo={s.logo} />
+                  <span>
+                    <span className="block font-semibold">
+                      {s.jersey ? `#${s.jersey} ` : ""}
+                      {s.name}
+                    </span>
+                    {s.clubName && <span className="block text-xs text-muted-foreground">{s.clubName}</span>}
+                  </span>
+                </span>
+              </td>
+              <td className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>{s.goals}</td>
+              <td className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>{s.assists}</td>
+              <td className={`text-center py-2 px-1 ${sortBy === "points" ? "font-bold" : ""}`}>{s.points}</td>
             </tr>
-          </thead>
-          <tbody>
-            {data.slice(0, 20).map((s: any, i: number) => (
-              <tr key={i} className="border-b last:border-0">
-                <td className="py-2 px-1 text-muted-foreground">{s.rank}</td>
-                <td className="py-2 px-1">
-                  <div className="font-medium">
-                    {s.jersey ? `#${s.jersey} ` : ""}
-                    {s.name}
-                  </div>
-                  {s.clubName && (
-                    <div className="text-xs text-muted-foreground">{s.clubName}</div>
-                  )}
-                </td>
-                <td className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>{s.goals}</td>
-                <td className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>{s.assists}</td>
-                <td className={`text-center py-2 px-1 ${sortBy === "points" ? "font-bold" : ""}`}>{s.points}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function VallaTable({ data }: { data: any[] }) {
   if (data.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-6 text-center text-muted-foreground text-sm">
-          Sin datos registrados aún
-        </CardContent>
-      </Card>
-    );
+    return <p className="text-sm text-muted-foreground py-4 text-center">Sin datos registrados aún</p>;
   }
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-display uppercase">Valla Menos Vencida</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-muted-foreground text-xs">
-              <th className="text-left py-2 px-1 w-10">#</th>
-              <th className="text-left py-2 px-1">Equipo</th>
-              <th className="text-center py-2 px-1 font-bold w-16">GC</th>
+    <div className="overflow-x-auto">
+      <h3 className="text-xs font-display uppercase font-bold mb-2">Valla Menos Vencida</h3>
+      <table className="w-full text-sm sm:text-base">
+        <thead>
+          <tr className="border-b text-muted-foreground text-xs">
+            <th className="text-left py-2 px-1 w-10">#</th>
+            <th className="text-left py-2 px-1">Equipo</th>
+            <th className="text-center py-2 px-1 font-bold w-16">GC</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((t: any, i: number) => (
+            <tr key={t.teamId} className="border-b last:border-0 align-top">
+              <td className="py-2.5 px-1"><Pos n={i + 1} /></td>
+              <td className="py-2.5 px-1">
+                <span className="flex items-start gap-2">
+                  <TeamShield name={t.teamName} logo={t.logo} />
+                  <span>
+                    <span className="block font-semibold">{t.teamName}</span>
+                    {t.clubName && t.clubName !== t.teamName && (
+                      <span className="block text-xs text-muted-foreground">{t.clubName}</span>
+                    )}
+                    {t.goalkeepers.length > 0 && (
+                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                        {t.goalkeepers.map((gk: any, idx: number) => (
+                          <span key={idx} className="text-xs text-muted-foreground">
+                            {gk.jersey ? `#${gk.jersey} ` : ""}
+                            {gk.name}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </span>
+                </span>
+              </td>
+              <td className="text-center py-2.5 px-1 font-bold">{t.goalsAgainst}</td>
             </tr>
-          </thead>
-          <tbody>
-            {data.map((t: any, i: number) => (
-              <tr key={t.teamId} className="border-b last:border-0 align-top">
-                <td className="py-2 px-1 text-muted-foreground">{i + 1}</td>
-                <td className="py-2 px-1">
-                  <div className="font-medium">{t.teamName}</div>
-                  {t.clubName && t.clubName !== t.teamName && (
-                    <div className="text-xs text-muted-foreground">{t.clubName}</div>
-                  )}
-                  {t.goalkeepers.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                      {t.goalkeepers.map((gk: any, idx: number) => (
-                        <span key={idx} className="text-xs text-muted-foreground">
-                          {gk.jersey ? `#${gk.jersey} ` : ""}
-                          {gk.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td className="text-center py-2 px-1 font-bold">{t.goalsAgainst}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
