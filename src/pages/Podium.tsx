@@ -37,7 +37,7 @@ export default function Podium() {
     queryKey: ["podium-matches", currentId],
     queryFn: async () => {
       let q: any = (supabase.from("matches") as any)
-        .select("id, phase, category_id, status, tournament_id, match_teams(team_id, is_winner, teams(name, logo_url, clubs(logo_url)))")
+        .select("id, phase, category_id, status, tournament_id, match_teams(team_id, is_winner, score_regular, score_extra, teams(name, logo_url, clubs(logo_url)))")
         .in("phase", ["final", "third_place"])
         .in("status", ["closed", "locked"]);
       if (currentId) q = q.eq("tournament_id", currentId);
@@ -55,6 +55,16 @@ export default function Podium() {
       if (currentId) q = q.eq("tournament_id", currentId);
       const { data } = await q;
       return data ?? [];
+    },
+  });
+
+  // Equipos del torneo (para mostrar el escudo junto al MVP y la Valla)
+  const { data: teamsList = [] } = useQuery({
+    queryKey: ["podium-teams", currentId],
+    queryFn: async () => {
+      let q: any = supabase.from("teams").select("id, name, category_id, logo_url, clubs(logo_url)");
+      if (currentId) q = q.eq("tournament_id", currentId);
+      return (await q).data ?? [];
     },
   });
 
@@ -95,37 +105,53 @@ export default function Podium() {
     },
   });
 
-  const getPodium = (categoryId: string): { first?: PodiumTeam; second?: PodiumTeam; third?: PodiumTeam } => {
+  // Quién ganó un partido: el marcado como ganador; si nadie, el de mayor marcador. Empate sin marcar = sin ganador.
+  const resolveWinner = (m: any): { win?: any; lose?: any } => {
+    const mts: any[] = m?.match_teams ?? [];
+    if (mts.length !== 2) return {};
+    const flagged = mts.find((x: any) => x.is_winner);
+    if (flagged) return { win: flagged, lose: mts.find((x: any) => x !== flagged) };
+    const sc = (x: any) => [x.score_regular ?? 0, x.score_extra ?? 0];
+    const [a, b] = mts;
+    const [ar, ae] = sc(a), [br, be] = sc(b);
+    if (ar !== br) return ar > br ? { win: a, lose: b } : { win: b, lose: a };
+    if (ae !== be) return ae > be ? { win: a, lose: b } : { win: b, lose: a };
+    return {};
+  };
+
+  // El podio se llena SOLO con la final y el tercer puesto ya jugados (cerrados). Sin respaldo de la tabla.
+  const getPodium = (categoryId: string): { first?: PodiumTeam; second?: PodiumTeam; third?: PodiumTeam; finished: boolean } => {
     const finalMatch: any = matches.find((m: any) => m.category_id === categoryId && m.phase === "final");
     const thirdMatch: any = matches.find((m: any) => m.category_id === categoryId && m.phase === "third_place");
     let first: PodiumTeam | undefined, second: PodiumTeam | undefined, third: PodiumTeam | undefined;
     if (finalMatch) {
-      const winner = finalMatch.match_teams?.find((mt: any) => mt.is_winner);
-      const loser = finalMatch.match_teams?.find((mt: any) => !mt.is_winner);
-      first = toTeam(winner?.teams);
-      second = toTeam(loser?.teams);
+      const { win, lose } = resolveWinner(finalMatch);
+      first = toTeam(win?.teams);
+      second = toTeam(lose?.teams);
     }
     if (thirdMatch) {
-      const winner = thirdMatch.match_teams?.find((mt: any) => mt.is_winner);
-      third = toTeam(winner?.teams);
+      third = toTeam(resolveWinner(thirdMatch).win?.teams);
     }
-    if (!first || !second || !third) {
-      const cs = (standings as any[])
-        .filter((s: any) => s.category_id === categoryId)
-        .sort((a: any, b: any) => (a.rank ?? 99) - (b.rank ?? 99));
-      first = first ?? toTeam(cs[0]?.teams);
-      second = second ?? toTeam(cs[1]?.teams);
-      third = third ?? toTeam(cs[2]?.teams);
-    }
-    return { first, second, third };
+    return { first, second, third, finished: !!first };
   };
 
-  const getMvpInfo = (categoryId: string) => {
+  const teamLogoByName = (categoryId: string, name?: string) => {
+    if (!name) return null;
+    const t: any = (teamsList as any[]).find((x: any) => x.category_id === categoryId && x.name === name);
+    return t ? (t.logo_url ?? t.clubs?.logo_url ?? null) : null;
+  };
+  const teamLogoById = (id?: string) => {
+    const t: any = (teamsList as any[]).find((x: any) => x.id === id);
+    return t ? (t.logo_url ?? t.clubs?.logo_url ?? null) : null;
+  };
+
+  const getMvpInfo = (categoryId: string, finished: boolean) => {
     // Check manual override first
     const manual = (awards as any[]).find((a: any) => a.category_id === categoryId && a.award_type === "mvp");
     if (manual?.notes) {
-      return { name: manual.notes, jersey: undefined, team: undefined, extra: undefined };
+      return { name: manual.notes, jersey: undefined, team: undefined, extra: undefined, logo: null };
     }
+    if (!finished) return null;
     // Auto from view
     const auto = (autoMvps as any[]).find((m: any) => m.category_id === categoryId);
     if (auto) {
@@ -134,17 +160,19 @@ export default function Podium() {
         jersey: auto.jersey_number,
         team: auto.team_name,
         extra: `${auto.goals}G + ${auto.assists}A`,
+        logo: teamLogoByName(categoryId, auto.team_name),
       };
     }
     return null;
   };
 
-  const getDefenseInfo = (categoryId: string) => {
+  const getDefenseInfo = (categoryId: string, finished: boolean) => {
     // Check manual override first
     const manual = (awards as any[]).find((a: any) => a.category_id === categoryId && a.award_type === "best_goalkeeper");
     if (manual?.notes) {
-      return { name: manual.notes, jersey: undefined, team: undefined, extra: undefined };
+      return { name: manual.notes, jersey: undefined, team: undefined, extra: undefined, logo: null };
     }
+    if (!finished) return null;
     // Auto from view
     const auto = (autoDefense as any[]).find((d: any) => d.category_id === categoryId);
     if (auto) {
@@ -153,6 +181,7 @@ export default function Podium() {
         jersey: undefined,
         team: `${auto.goals_against} goles en contra`,
         extra: undefined,
+        logo: teamLogoById(auto.team_id),
       };
     }
     return null;
@@ -185,9 +214,9 @@ export default function Podium() {
             return (
               <TabsContent key={div.id} value={div.id} className="space-y-6">
                 {divCats.map((cat: any) => {
-                  const { first, second, third } = getPodium(cat.id);
-                  const mvpInfo = getMvpInfo(cat.id);
-                  const defenseInfo = getDefenseInfo(cat.id);
+                  const { first, second, third, finished } = getPodium(cat.id);
+                  const mvpInfo = getMvpInfo(cat.id, finished);
+                  const defenseInfo = getDefenseInfo(cat.id, finished);
                   return (
                     <Card key={cat.id}>
                       <CardHeader className="pb-2">
@@ -199,7 +228,7 @@ export default function Podium() {
                           <PodiumSpot rank={1} team={first} />
                           <PodiumSpot rank={3} team={third} />
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-2 pt-3 border-t">
+                        <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t">
                           <AwardLine emoji="🏅" label="MVP" info={mvpInfo} />
                           <AwardLine emoji="🛡️" label="Valla Menos Vencida" info={defenseInfo} />
                         </div>
@@ -227,8 +256,12 @@ function PodiumSpot({ rank, team }: { rank: 1 | 2 | 3; team?: PodiumTeam }) {
   return (
     <div className={`flex flex-col items-center gap-2 ${config.scale}`}>
       <Icon className={config.iconClass} style={{ color: config.color }} />
-      {team && <TeamShield name={team.name} logo={team.logo} size={rank === 1 ? "lg" : "md"} />}
-      <div className="text-xs font-semibold text-center min-h-[2.5rem] flex items-center">
+      {team ? (
+        <TeamShield name={team.name} logo={team.logo} size="lg" className="h-20 w-20 sm:h-24 sm:w-24 text-2xl sm:text-3xl" />
+      ) : (
+        <span className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-dashed border-muted-foreground/30 grid place-items-center text-2xl text-muted-foreground/40">?</span>
+      )}
+      <div className="text-sm sm:text-base font-semibold text-center min-h-[2.5rem] flex items-center">
         {team?.name ?? <span className="text-muted-foreground italic">Por definir</span>}
       </div>
       <div
@@ -244,22 +277,33 @@ function PodiumSpot({ rank, team }: { rank: 1 | 2 | 3; team?: PodiumTeam }) {
 function AwardLine({ emoji, label, info }: {
   emoji: string;
   label: string;
-  info: { name: string; jersey?: number; team?: string; extra?: string } | null;
+  info: { name: string; jersey?: number; team?: string; extra?: string; logo?: string | null } | null;
 }) {
   return (
-    <div className="flex items-start gap-2 text-sm">
-      <span className="text-lg leading-none">{emoji}</span>
-      <div>
-        <span className="font-medium">{label}:</span>{" "}
+    <div className="flex items-center gap-3">
+      {info ? (
+        <TeamShield
+          name={info.team && !info.team.includes("goles") ? info.team : info.name}
+          logo={info.logo}
+          className="h-14 w-14 text-lg shrink-0"
+        />
+      ) : (
+        <span className="text-3xl leading-none">{emoji}</span>
+      )}
+      <div className="min-w-0">
+        <div className="text-xs font-display uppercase tracking-wide text-muted-foreground">{emoji} {label}</div>
         {info ? (
-          <span>
-            {info.name}
-            {info.jersey != null && <span className="text-muted-foreground"> #{info.jersey}</span>}
-            {info.team && <span className="text-muted-foreground"> — {info.team}</span>}
-            {info.extra && <span className="text-muted-foreground"> ({info.extra})</span>}
-          </span>
+          <>
+            <div className="text-base sm:text-lg font-semibold leading-tight">
+              {info.name}
+              {info.jersey != null && <span className="text-muted-foreground font-normal"> #{info.jersey}</span>}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {[info.team, info.extra && `(${info.extra})`].filter(Boolean).join(" ")}
+            </div>
+          </>
         ) : (
-          <span className="text-muted-foreground italic">Por definir</span>
+          <div className="text-base text-muted-foreground italic">Por definir</div>
         )}
       </div>
     </div>
