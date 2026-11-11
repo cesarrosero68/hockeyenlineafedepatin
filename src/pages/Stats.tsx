@@ -6,13 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Star, Target, Crosshair, Shield } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
 import TeamShield from "@/components/home/TeamShield";
@@ -350,21 +343,20 @@ export default function Stats() {
       <PageHero icon={Star} title="Estadísticas" subtitle="Líderes del torneo" />
       <div className="container py-6 space-y-6">
 
-      {/* Division selector */}
-      <div className="max-w-xs">
-        <Select value={activeDivisionId} onValueChange={setSelectedDivision}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccionar División" />
-          </SelectTrigger>
-          <SelectContent>
-            {divisions.map((d: any) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Division selector (mismo formato que Posiciones) */}
+      <Tabs value={activeDivisionId} onValueChange={setSelectedDivision}>
+        <TabsList className="flex-wrap h-auto gap-1">
+          {divisions.map((d: any) => (
+            <TabsTrigger
+              key={d.id}
+              value={d.id}
+              className="text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+            >
+              {d.name}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Category sections */}
       {categories.map((cat: any) => {
