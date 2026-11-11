@@ -27,7 +27,7 @@ export const PROTOCOLOS: Record<string, Protocolo> = {
       "Juego 1: 4° vs 5° de la tabla.",
       "Semifinales: 1° vs ganador del Juego 1, y 2° vs 3°.",
       "Tercer puesto (perdedores de semis) y final (ganadores de semis).",
-      "5 partidos de fase final: Juego 1 y semis el 22-nov; tercer puesto y final el 5-dic.",
+      "5 partidos de fase final: Juego 1 el 22-nov; semifinales, tercer puesto y final el 5-dic.",
     ],
   },
   "Sub-10": {
@@ -42,7 +42,7 @@ export const PROTOCOLOS: Record<string, Protocolo> = {
       "2 juegos de puestos 5-8 entre los perdedores de los cruces.",
       "5° puesto (ganadores de puestos 5-8) y 7° puesto (perdedores).",
       "Tercer puesto y final.",
-      "12 partidos de fase final: cruces el 1-nov y el resto el 5 y 6-dic.",
+      "12 partidos de fase final: cruces el 1-nov, semifinales y puestos 5-8 el 21-nov, 5° y 7° puesto el 22-nov; tercer puesto y final el 5-dic.",
     ],
   },
   "Sub-12": {
@@ -54,19 +54,19 @@ export const PROTOCOLOS: Record<string, Protocolo> = {
     final: [
       "Final directa, sin semifinales.",
       "1° vs 2°: final (oro). 3° vs 4°: tercer puesto (bronce). 5° vs 6°: quinto puesto.",
-      "3 partidos de fase final: quinto puesto y tercer puesto el 5-dic; final el 6-dic.",
+      "3 partidos de fase final: quinto puesto el 22-nov; tercer puesto y final el 5-dic.",
     ],
   },
   "Sub-14": {
-    equipos: 4, partidos: 20, tiempo: "15 min", sancion: "90 seg", goleada: "8 goles",
+    equipos: 4, partidos: 22, tiempo: "15 min", sancion: "90 seg", goleada: "8 goles",
     regular: [
       "4 equipos, todos contra todos en 3 vueltas.",
       "18 partidos regulares: cada equipo juega 9.",
     ],
     final: [
-      "Final directa, sin semifinales (solo hay 4 equipos).",
-      "1° vs 2°: final (oro). 3° vs 4°: tercer puesto (bronce).",
-      "2 partidos de fase final el 6-dic.",
+      "Semifinales directas: 1° vs 4° y 2° vs 3°.",
+      "Tercer puesto (perdedores de semis) y final (ganadores de semis).",
+      "4 partidos de fase final el 6-dic.",
     ],
   },
   "Sub-16 Mixto": {
@@ -101,6 +101,7 @@ export const REGLAS_GENERALES: string[] = [
   "Reloj: cronómetro detenido.",
   "Calentamiento: 2 min. Entretiempo: 2 min.",
   "Tiempos muertos: 1 por periodo.",
+  "Puntos: victoria 3, empate 1.",
   "Seeds: posición en la fase preliminar.",
 ];
 
@@ -112,5 +113,5 @@ export const DESEMPATES: string[] = [
 export const CALENDARIO: { titulo: string; detalle: string }[] = [
   { titulo: "Grupo 1 · Sub-8, Sub-12 y Sub-16 Mixto", detalle: "F1 22-23 ago · F3 12-13 sep · F5 24-25 oct · F7 21-22 nov" },
   { titulo: "Grupo 2 · Sub-10, Sub-14 y Femenino", detalle: "F2 5-6 sep · F4 26-27 sep · F6 31 oct-1 nov · F8 28-29 nov" },
-  { titulo: "Finales · todas las categorías", detalle: "5 y 6 de diciembre" },
+  { titulo: "Finales", detalle: "Sábado 5 de diciembre: Sub-8, Sub-10 y Sub-12 · Domingo 6 de diciembre: Sub-14, Sub-16 Mixto y Femenino" },
 ];
