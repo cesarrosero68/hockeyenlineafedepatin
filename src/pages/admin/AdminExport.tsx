@@ -183,15 +183,42 @@ export default function AdminExport() {
           };
         },
         posiciones: () => {
-          const rows = (standingsRes.data ?? []).map((s: any) => ({
-            categoria: s.categories?.name ?? "", division: s.categories?.divisions?.name ?? "", rank: s.rank,
-            equipo: s.teams?.name ?? "", pj: s.played, g: s.wins, e: s.draws, p: s.losses,
+          // Grupo y desempate manual de cada equipo (Sub-10 tiene 2 grupos)
+          const teamInfo = new Map<string, { grupo: string; orden: number }>();
+          (teamsRes.data ?? []).forEach((t: any) =>
+            teamInfo.set(t.id, { grupo: (t.group_name ?? "").toString().trim(), orden: t.tiebreak_order ?? 999 }),
+          );
+          const base = (standingsRes.data ?? []).map((s: any) => ({
+            categoria: s.categories?.name ?? "", division: s.categories?.divisions?.name ?? "",
+            grupo: teamInfo.get(s.team_id)?.grupo ?? "", orden: teamInfo.get(s.team_id)?.orden ?? 999,
+            rankBase: s.rank, equipo: s.teams?.name ?? "", pj: s.played, g: s.wins, e: s.draws, p: s.losses,
             gf: s.goals_for, gc: s.goals_against, dg: s.goal_diff, pts: s.points,
-          })).sort((a: any, b: any) => byText("categoria")(a, b) || (a.rank ?? 99) - (b.rank ?? 99));
+          }));
+          // Categorías con más de un grupo: el Rank se recalcula dentro de cada grupo
+          const gruposPorCat = new Map<string, Set<string>>();
+          base.forEach((r: any) => {
+            if (!r.grupo) return;
+            if (!gruposPorCat.has(r.categoria)) gruposPorCat.set(r.categoria, new Set());
+            gruposPorCat.get(r.categoria)!.add(r.grupo);
+          });
+          const porGrupo = new Map<string, any[]>();
+          base.forEach((r: any) => {
+            const k = `${r.categoria}|${(gruposPorCat.get(r.categoria)?.size ?? 0) > 1 ? r.grupo : ""}`;
+            if (!porGrupo.has(k)) porGrupo.set(k, []);
+            porGrupo.get(k)!.push(r);
+          });
+          porGrupo.forEach((arr, k) => {
+            if (k.endsWith("|")) { arr.forEach((r) => (r.rank = r.rankBase)); return; }
+            arr.sort((a, b) => (b.pts - a.pts) || (b.dg - a.dg) || (b.gf - a.gf) || (a.orden - b.orden));
+            arr.forEach((r, i) => (r.rank = i + 1));
+          });
+          const rows = base.sort((a: any, b: any) =>
+            byText("categoria")(a, b) || String(a.grupo).localeCompare(String(b.grupo)) || (a.rank ?? 99) - (b.rank ?? 99));
           return {
             name: "Posiciones", title: "Tabla de posiciones", rows, categoryKey: "categoria",
             columns: [
               { header: "Categoría", key: "categoria" }, { header: "División", key: "division" },
+              { header: "Grupo", key: "grupo", align: "center" },
               { header: "Rank", key: "rank", align: "center" }, { header: "Equipo", key: "equipo", bold: true },
               { header: "PJ", key: "pj", align: "center" }, { header: "G", key: "g", align: "center" },
               { header: "E", key: "e", align: "center" }, { header: "P", key: "p", align: "center" },
