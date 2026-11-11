@@ -6,6 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trophy, Medal, Award, Crown } from "lucide-react";
 import { useTournament } from "@/contexts/TournamentContext";
+import TeamShield from "@/components/home/TeamShield";
+
+type PodiumTeam = { name: string; logo: string | null };
+const toTeam = (t: any): PodiumTeam | undefined =>
+  t?.name ? { name: t.name, logo: t.logo_url ?? t.clubs?.logo_url ?? null } : undefined;
 
 export default function Podium() {
   const { currentId } = useTournament();
@@ -32,7 +37,7 @@ export default function Podium() {
     queryKey: ["podium-matches", currentId],
     queryFn: async () => {
       let q: any = (supabase.from("matches") as any)
-        .select("id, phase, category_id, status, tournament_id, match_teams(team_id, is_winner, teams(name))")
+        .select("id, phase, category_id, status, tournament_id, match_teams(team_id, is_winner, teams(name, logo_url, clubs(logo_url)))")
         .in("phase", ["final", "third_place"])
         .in("status", ["closed", "locked"]);
       if (currentId) q = q.eq("tournament_id", currentId);
@@ -45,7 +50,7 @@ export default function Podium() {
     queryKey: ["podium-standings", currentId],
     queryFn: async () => {
       let q: any = (supabase.from("standings_aggregate" as any) as any)
-        .select("category_id, team_id, rank, teams(name)")
+        .select("category_id, team_id, rank, teams(name, logo_url, clubs(logo_url))")
         .order("rank");
       if (currentId) q = q.eq("tournament_id", currentId);
       const { data } = await q;
@@ -90,27 +95,27 @@ export default function Podium() {
     },
   });
 
-  const getPodium = (categoryId: string): { first?: string; second?: string; third?: string } => {
+  const getPodium = (categoryId: string): { first?: PodiumTeam; second?: PodiumTeam; third?: PodiumTeam } => {
     const finalMatch: any = matches.find((m: any) => m.category_id === categoryId && m.phase === "final");
     const thirdMatch: any = matches.find((m: any) => m.category_id === categoryId && m.phase === "third_place");
-    let first: string | undefined, second: string | undefined, third: string | undefined;
+    let first: PodiumTeam | undefined, second: PodiumTeam | undefined, third: PodiumTeam | undefined;
     if (finalMatch) {
       const winner = finalMatch.match_teams?.find((mt: any) => mt.is_winner);
       const loser = finalMatch.match_teams?.find((mt: any) => !mt.is_winner);
-      first = winner?.teams?.name;
-      second = loser?.teams?.name;
+      first = toTeam(winner?.teams);
+      second = toTeam(loser?.teams);
     }
     if (thirdMatch) {
       const winner = thirdMatch.match_teams?.find((mt: any) => mt.is_winner);
-      third = winner?.teams?.name;
+      third = toTeam(winner?.teams);
     }
     if (!first || !second || !third) {
       const cs = (standings as any[])
         .filter((s: any) => s.category_id === categoryId)
         .sort((a: any, b: any) => (a.rank ?? 99) - (b.rank ?? 99));
-      first = first ?? cs[0]?.teams?.name;
-      second = second ?? cs[1]?.teams?.name;
-      third = third ?? cs[2]?.teams?.name;
+      first = first ?? toTeam(cs[0]?.teams);
+      second = second ?? toTeam(cs[1]?.teams);
+      third = third ?? toTeam(cs[2]?.teams);
     }
     return { first, second, third };
   };
@@ -212,7 +217,7 @@ export default function Podium() {
   );
 }
 
-function PodiumSpot({ rank, team }: { rank: 1 | 2 | 3; team?: string }) {
+function PodiumSpot({ rank, team }: { rank: 1 | 2 | 3; team?: PodiumTeam }) {
   const config = {
     1: { color: "#FFD700", height: "h-32 sm:h-40", icon: Crown, iconClass: "h-10 w-10", label: "1°", scale: "scale-110", ring: "ring-2 ring-yellow-400" },
     2: { color: "#C0C0C0", height: "h-24 sm:h-28", icon: Medal, iconClass: "h-8 w-8", label: "2°", scale: "", ring: "" },
@@ -222,8 +227,9 @@ function PodiumSpot({ rank, team }: { rank: 1 | 2 | 3; team?: string }) {
   return (
     <div className={`flex flex-col items-center gap-2 ${config.scale}`}>
       <Icon className={config.iconClass} style={{ color: config.color }} />
+      {team && <TeamShield name={team.name} logo={team.logo} size={rank === 1 ? "lg" : "md"} />}
       <div className="text-xs font-semibold text-center min-h-[2.5rem] flex items-center">
-        {team ?? <span className="text-muted-foreground italic">Por definir</span>}
+        {team?.name ?? <span className="text-muted-foreground italic">Por definir</span>}
       </div>
       <div
         className={`w-full ${config.height} rounded-t-lg flex items-start justify-center pt-2 font-display font-bold text-2xl ${config.ring}`}
