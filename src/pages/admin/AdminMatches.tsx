@@ -179,8 +179,7 @@ export default function AdminMatches() {
         const { data: goals } = await supabase
           .from("goal_events")
           .select("team_id")
-          .eq("match_id", matchId)
-          .eq("is_shootout", false);
+          .eq("match_id", matchId);
 
         const homeGoals = goals?.filter((g) => g.team_id === homeTeam.team_id).length ?? 0;
         const awayGoals = goals?.filter((g) => g.team_id === awayTeam.team_id).length ?? 0;

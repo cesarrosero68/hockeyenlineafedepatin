@@ -25,6 +25,7 @@ import {
   usePenaltyClock,
 } from "@/lib/matchClock";
 import { toast } from "@/hooks/use-toast";
+import ShootoutPanel from "./ShootoutPanel";
 
 const PENALTY_CODES = [
   { code: "BC", desc: "BODY CHECKING" },
@@ -139,6 +140,23 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     retry: 2,
   });
 
+  // ¿Este partido va a overtime? (por defecto NO). Consulta aparte porque la columna es nueva.
+  const { data: otData } = useQuery({
+    queryKey: ["live-match-ot", matchId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("matches")
+        .select("overtime_enabled")
+        .eq("id", matchId!)
+        .single();
+      if (error) throw error;
+      return data as { overtime_enabled: boolean | null };
+    },
+    enabled: open && !!matchId,
+    staleTime: 10_000,
+  });
+  const overtimeEnabled = otData?.overtime_enabled === true;
+
   useEffect(() => {
     if (!open || !matchId) return;
     let timerId: ReturnType<typeof setTimeout> | undefined;
@@ -149,6 +167,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           await restoreSession({ forceRefresh: true });
           await Promise.all([
             queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] }),
+            queryClient.refetchQueries({ queryKey: ["live-match-ot", matchId] }),
             queryClient.refetchQueries({ queryKey: ["live-match-rosters", matchId] }),
             queryClient.refetchQueries({ queryKey: ["match-goals", matchId] }),
             queryClient.refetchQueries({ queryKey: ["match-penalties", matchId] }),
@@ -331,8 +350,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { data: allGoals } = await supabase
         .from("goal_events")
         .select("team_id")
-        .eq("match_id", matchId)
-        .eq("is_shootout", false);
+        .eq("match_id", matchId);
 
       const homeGoals = allGoals?.filter((g) => g.team_id === homeTeam?.team_id).length ?? 0;
       const awayGoals = allGoals?.filter((g) => g.team_id === awayTeam?.team_id).length ?? 0;
@@ -366,7 +384,13 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       setGoalAssistId("");
       setGoalTime("");
       setGoalTimeTouched(false);
-      toast({ title: "Gol registrado" });
+      if (goalPeriod === "3") {
+        // Gol en overtime: el partido termina. Se pausa el reloj.
+        updateClock.mutate({ clock_started_at: null, clock_offset_ms: Math.round(elapsedMs((matchData as any) ?? {})) });
+        toast({ title: "Gol en overtime", description: "El partido termina. Revisa el marcador y ciérralo." });
+      } else {
+        toast({ title: "Gol registrado" });
+      }
     },
     onError: (e: Error) => {
       clearMutationTimeout("addGoal");
@@ -383,8 +407,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
       const { data: allGoals } = await supabase
         .from("goal_events")
         .select("team_id")
-        .eq("match_id", matchId!)
-        .eq("is_shootout", false);
+        .eq("match_id", matchId!);
       const homeGoals = allGoals?.filter((g) => g.team_id === homeTeam?.team_id).length ?? 0;
       const awayGoals = allGoals?.filter((g) => g.team_id === awayTeam?.team_id).length ?? 0;
       await Promise.all(
@@ -593,7 +616,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
     });
   const nextPeriod = () =>
     updateClock.mutate({
-      current_period: Math.min(3, currentPeriod + 1),
+      current_period: Math.min(overtimeEnabled ? 3 : 2, currentPeriod + 1),
       clock_started_at: null,
       clock_offset_ms: 0,
     });
@@ -840,9 +863,34 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
             />
           </div>
 
+          <div className="flex flex-wrap items-center gap-3 pt-2 rounded border p-2">
+            <Switch
+              id="ot-enabled"
+              checked={overtimeEnabled}
+              onCheckedChange={async (checked) => {
+                const { error } = await (supabase as any)
+                  .from("matches")
+                  .update({ overtime_enabled: checked })
+                  .eq("id", matchId!);
+                if (error) {
+                  toast({ title: "No se pudo cambiar", description: error.message, variant: "destructive" });
+                  return;
+                }
+                queryClient.refetchQueries({ queryKey: ["live-match-ot", matchId] });
+              }}
+              disabled={!matchId}
+            />
+            <label htmlFor="ot-enabled" className="text-sm lg:text-base font-medium">
+              ¿Va a overtime? {overtimeEnabled ? "Sí" : "No"}
+            </label>
+            <span className="text-[11px] text-muted-foreground">
+              Si es Sí: aparece el OT. Un gol en OT termina el partido; si el OT termina empatado, aparece la planilla de shootouts.
+            </span>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2 pt-2">
             <span className="text-xs text-muted-foreground">Período actual (corregir):</span>
-            {PERIODS.map((p) => (
+            {PERIODS.filter((p) => p.value !== "3" || overtimeEnabled || currentPeriod === 3).map((p) => (
               <Button
                 key={p.value}
                 size="sm"
@@ -942,6 +990,24 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
           </div>
         </div>
 
+        {/* Shootouts: solo si el partido va a OT, está en OT y sigue empatado (o ya se definió por shootout) */}
+        {matchId && homeTeam && awayTeam && overtimeEnabled && currentPeriod === 3 &&
+          ((homeTeam.score_regular ?? 0) === (awayTeam.score_regular ?? 0) || goals.some((g: any) => g.is_shootout)) && (
+          <ShootoutPanel
+            matchId={matchId}
+            tournamentId={(matchData as any)?.tournament_id ?? null}
+            home={{ teamId: homeTeam.team_id, name: homeTeam.teams?.name ?? "Local" }}
+            away={{ teamId: awayTeam.team_id, name: awayTeam.teams?.name ?? "Visitante" }}
+            homePlayers={playersForTeam(homeTeam.team_id)}
+            awayPlayers={playersForTeam(awayTeam.team_id)}
+            finalized={goals.some((g: any) => g.is_shootout)}
+            onChanged={() => {
+              queryClient.refetchQueries({ queryKey: ["match-goals", matchId] });
+              queryClient.refetchQueries({ queryKey: ["live-match-detail", matchId] });
+            }}
+          />
+        )}
+
         <Tabs defaultValue="goals" className="mt-4">
           <TabsList className="w-full lg:hidden">
             <TabsTrigger value="goals" className="flex-1">
@@ -988,7 +1054,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {PERIODS.map((p) => (
+                      {PERIODS.filter((p) => p.value !== "3" || overtimeEnabled).map((p) => (
                         <SelectItem key={p.value} value={p.value}>
                           {p.label}
                         </SelectItem>
@@ -1094,7 +1160,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       </span>
                     )}
                     <span className="text-muted-foreground ml-2">
-                      {PERIODS.find((p) => p.value === String(g.period))?.label} {g.game_time ?? ""}
+                      {g.is_shootout ? "SO" : PERIODS.find((p) => p.value === String(g.period))?.label} {g.game_time ?? ""}
                     </span>
                   </div>
                   <div className="flex items-center shrink-0">
@@ -1153,7 +1219,7 @@ export default function MatchLivePanel({ matchId, open, onOpenChange }: MatchLiv
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {PERIODS.map((p) => (
+                      {PERIODS.filter((p) => p.value !== "3" || overtimeEnabled).map((p) => (
                         <SelectItem key={p.value} value={p.value}>
                           {p.label}
                         </SelectItem>
