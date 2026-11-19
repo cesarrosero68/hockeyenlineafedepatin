@@ -142,7 +142,7 @@ export default function AdminExport() {
               fecha: i.fecha, sortDate: i.sortDate, categoria: i.categoria, fase: i.fase, local: i.local, visitante: i.visitante,
               resultado: i.resultado, goleador: fullName(playerMap.get(g.scorer_player_id)),
               dorsal: rosterJerseyMap.get(g.scorer_player_id) ?? "", equipo: g.teams?.name ?? "",
-              asistencia: fullName(playerMap.get(g.assist_player_id)), periodo: g.period, tiempo: g.game_time ?? "",
+              asistencia: fullName(playerMap.get(g.assist_player_id)), periodo: g.is_shootout ? "SO" : g.period, tiempo: g.game_time ?? "",
               overtime: (g.period != null && Number(g.period) > 3) || g.is_overtime ? "Sí" : "No",
             };
           }).sort(byText("categoria", "sortDate"));
