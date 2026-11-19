@@ -79,6 +79,20 @@ export default function MatchDetail() {
     staleTime: 30_000,
   });
 
+  const { data: shootoutKicks } = useQuery({
+    queryKey: ["match-shootout-kicks", id],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("shootout_kicks")
+        .select("id, team_id, kick_number, player_id, scored")
+        .eq("match_id", id!)
+        .order("kick_number");
+      return (data ?? []) as { id: string; team_id: string; kick_number: number; player_id: string | null; scored: boolean }[];
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
   const { data: penaltiesList } = useQuery({
     queryKey: ["match-penalties", id],
     queryFn: async () => {
@@ -290,8 +304,10 @@ export default function MatchDetail() {
                       )}
                     </div>
                   )}
-                  {showScore && hasOT && m.status !== "in_progress" && (
-                    <span className="mt-2 text-xs font-semibold tracking-wider text-red-200">TIEMPO EXTRA</span>
+                  {showScore && (hasOT || hasSO) && m.status !== "in_progress" && (
+                    <span className="mt-2 text-xs font-semibold tracking-wider text-red-200">
+                      {hasSO ? "DEFINIDO POR SHOOTOUT" : "TIEMPO EXTRA"}
+                    </span>
                   )}
                   {m.status === "in_progress" && (
                     <div className="mt-3 flex items-center gap-2 rounded-full bg-black/25 px-3 py-1">
@@ -467,6 +483,66 @@ export default function MatchDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Shootouts: solo si el partido tuvo cobros */}
+          {shootoutKicks && shootoutKicks.length > 0 && homeTeam && awayTeam && (() => {
+            const kicksOf = (teamId: string) => shootoutKicks.filter((k) => k.team_id === teamId);
+            const soScore = (teamId: string) => kicksOf(teamId).filter((k) => k.scored).length;
+            const rounds = Math.max(kicksOf(homeTeam.team_id).length, kicksOf(awayTeam.team_id).length);
+            const kickName = (k: any) => {
+              if (!k) return null;
+              const r = (rosters ?? []).find((r: any) => r.player_id === k.player_id && r.team_id === k.team_id) as any;
+              return {
+                scored: k.scored,
+                label: r ? `${r.jersey_number ? `#${r.jersey_number} ` : ""}${personName(r.player)}` : "—",
+              };
+            };
+            const cell = (k: any) => {
+              const info = kickName(k);
+              if (!info) return <span className="text-muted-foreground">—</span>;
+              return (
+                <span className="flex items-center gap-1.5">
+                  <span className={info.scored ? "font-bold text-green-600" : "font-bold text-red-600"}>{info.scored ? "✓" : "✗"}</span>
+                  <span className="truncate">{info.label}</span>
+                </span>
+              );
+            };
+            return (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-display uppercase flex items-center gap-2">
+                    <Target className="h-4 w-4" /> Shootouts
+                    <span className="ml-auto tabular-nums text-base font-bold">
+                      {homeName} {soScore(homeTeam.team_id)} – {soScore(awayTeam.team_id)} {awayName}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">#</TableHead>
+                        <TableHead><TeamCellInline teamId={homeTeam.team_id} /></TableHead>
+                        <TableHead><TeamCellInline teamId={awayTeam.team_id} /></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Array.from({ length: rounds }, (_, i) => i + 1).map((n) => (
+                        <TableRow key={n}>
+                          <TableCell className="font-semibold">{n}</TableCell>
+                          <TableCell>{cell(kicksOf(homeTeam.team_id).find((k) => k.kick_number === n))}</TableCell>
+                          <TableCell>{cell(kicksOf(awayTeam.team_id).find((k) => k.kick_number === n))}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    El equipo ganador del shootout suma 1 gol al marcador final del partido.
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Resumen de sanciones */}
           <Card>
