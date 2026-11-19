@@ -19,6 +19,12 @@ function Pos({ n }: { n: number }) {
   );
 }
 
+// Fase regular vs. fases finales (semifinal, final, tercer puesto, definición de puestos, etc.)
+const isFinalPhase = (e: any) => {
+  const m = Array.isArray(e?.matches) ? e.matches[0] : e?.matches;
+  return !!m?.phase && m.phase !== "regular";
+};
+
 export default function Stats() {
   const { viewedTournamentId } = useTournament();
   const [selectedDivision, setSelectedDivision] = useState<string>("");
@@ -64,7 +70,7 @@ export default function Stats() {
 
       let q: any = supabase
         .from("goal_events")
-        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id, status, tournament_id)")
+        .select("scorer_player_id, assist_player_id, team_id, match_id, matches!inner(category_id, status, tournament_id, phase)")
         .in("matches.category_id", categoryIds);
       if (viewedTournamentId) q = q.eq("matches.tournament_id", viewedTournamentId);
       const { data } = await q;
@@ -219,22 +225,34 @@ export default function Stats() {
 
   // Compute stats per category + track player→team mapping
   const statsByCategory = useMemo(() => {
-    const result: Record<string, { goals: Record<string, number>; assists: Record<string, number>; playerTeam: Record<string, string> }> = {};
+    const result: Record<
+      string,
+      {
+        goals: Record<string, number>;
+        assists: Record<string, number>;
+        goalsFin: Record<string, number>;
+        assistsFin: Record<string, number>;
+        playerTeam: Record<string, string>;
+      }
+    > = {};
 
     categories.forEach((c) => {
-      result[c.id] = { goals: {}, assists: {}, playerTeam: {} };
+      result[c.id] = { goals: {}, assists: {}, goalsFin: {}, assistsFin: {}, playerTeam: {} };
     });
 
     goalEvents.forEach((e: any) => {
       const catId = e.matches?.category_id;
       if (!catId || !result[catId]) return;
 
+      const fin = isFinalPhase(e);
       if (e.scorer_player_id) {
         result[catId].goals[e.scorer_player_id] = (result[catId].goals[e.scorer_player_id] || 0) + 1;
+        if (fin) result[catId].goalsFin[e.scorer_player_id] = (result[catId].goalsFin[e.scorer_player_id] || 0) + 1;
         if (e.team_id) result[catId].playerTeam[e.scorer_player_id] = e.team_id;
       }
       if (e.assist_player_id) {
         result[catId].assists[e.assist_player_id] = (result[catId].assists[e.assist_player_id] || 0) + 1;
+        if (fin) result[catId].assistsFin[e.assist_player_id] = (result[catId].assistsFin[e.assist_player_id] || 0) + 1;
         if (e.team_id) result[catId].playerTeam[e.assist_player_id] = e.team_id;
       }
     });
@@ -252,6 +270,8 @@ export default function Stats() {
       const p = playersMap[pid];
       const goals = catStats.goals[pid] || 0;
       const assists = catStats.assists[pid] || 0;
+      const goalsFin = catStats.goalsFin[pid] || 0;
+      const assistsFin = catStats.assistsFin[pid] || 0;
       const teamId = catStats.playerTeam[pid];
       const team = teamId ? teamsMap[teamId] : undefined;
       return {
@@ -263,7 +283,13 @@ export default function Stats() {
         logo: team?.logo ?? null,
         goals,
         assists,
+        goalsFin,
+        assistsFin,
+        goalsReg: goals - goalsFin,
+        assistsReg: assists - assistsFin,
         points: goals + assists,
+        pointsFin: goalsFin + assistsFin,
+        pointsReg: goals + assists - goalsFin - assistsFin,
       };
     });
 
@@ -288,7 +314,12 @@ export default function Stats() {
 
     // Count goals against each team
     const goalsAgainst: Record<string, number> = {};
-    teamsInCat.forEach((t: any) => (goalsAgainst[t.id] = 0));
+    const goalsAgainstFin: Record<string, number> = {};
+    teamsInCat.forEach((t: any) => {
+      goalsAgainst[t.id] = 0;
+      goalsAgainstFin[t.id] = 0;
+    });
+    const finGoal = (e: any) => isFinalPhase(e);
 
     goalEvents.forEach((e: any) => {
       const teamsInMatch = matchTeamsByMatch[e.match_id];
@@ -297,6 +328,7 @@ export default function Stats() {
       teamsInMatch.forEach((tid) => {
         if (tid !== e.team_id && teamIdSet.has(tid)) {
           goalsAgainst[tid] = (goalsAgainst[tid] ?? 0) + 1;
+          if (finGoal(e)) goalsAgainstFin[tid] = (goalsAgainstFin[tid] ?? 0) + 1;
         }
       });
     });
@@ -320,6 +352,8 @@ export default function Stats() {
         clubName: t.clubs?.name ?? "",
         logo: t.logo_url ?? t.clubs?.logo_url ?? null,
         goalsAgainst: goalsAgainst[t.id] ?? 0,
+        goalsAgainstFin: goalsAgainstFin[t.id] ?? 0,
+        goalsAgainstReg: (goalsAgainst[t.id] ?? 0) - (goalsAgainstFin[t.id] ?? 0),
         goalkeepers: gkByTeam[t.id] ?? [],
       }))
       .sort((a, b) => a.goalsAgainst - b.goalsAgainst || a.teamName.localeCompare(b.teamName));
@@ -432,7 +466,28 @@ export default function Stats() {
   );
 }
 
+// Columnas según la pestaña. "Reg." = fase regular, "Fin." = fases finales (semis, final, 3.º puesto, definición de puestos).
+const STAT_COLS: Record<string, { key: string; label: string; title: string; bold?: boolean }[]> = {
+  points: [
+    { key: "goals", label: "G", title: "Goles" },
+    { key: "assists", label: "A", title: "Asistencias" },
+    { key: "points", label: "Pts", title: "Puntos totales", bold: true },
+    { key: "pointsFin", label: "Fin.", title: "Puntos en fases finales" },
+  ],
+  goals: [
+    { key: "goalsReg", label: "Reg.", title: "Goles en fase regular" },
+    { key: "goalsFin", label: "Fin.", title: "Goles en fases finales" },
+    { key: "goals", label: "G", title: "Goles totales", bold: true },
+  ],
+  assists: [
+    { key: "assistsReg", label: "Reg.", title: "Asistencias en fase regular" },
+    { key: "assistsFin", label: "Fin.", title: "Asistencias en fases finales" },
+    { key: "assists", label: "A", title: "Asistencias totales", bold: true },
+  ],
+};
+
 function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortBy: string }) {
+  const cols = STAT_COLS[sortBy] ?? STAT_COLS.points;
   return (
     <div className="overflow-x-auto">
       <h3 className="text-xs font-display uppercase font-bold mb-2">{title}</h3>
@@ -441,9 +496,11 @@ function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortB
           <tr className="border-b text-muted-foreground text-xs">
             <th className="text-left py-2 px-1">#</th>
             <th className="text-left py-2 px-1">Jugador</th>
-            <th className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>G</th>
-            <th className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>A</th>
-            <th className={`text-center py-2 px-1 ${sortBy === "points" ? "font-bold" : ""}`}>Pts</th>
+            {cols.map((c) => (
+              <th key={c.key} title={c.title} className={`text-center py-2 px-1 ${c.bold ? "font-bold" : ""}`}>
+                {c.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -462,9 +519,11 @@ function StatsTable({ title, data, sortBy }: { title: string; data: any[]; sortB
                   </span>
                 </span>
               </td>
-              <td className={`text-center py-2 px-1 ${sortBy === "goals" ? "font-bold" : ""}`}>{s.goals}</td>
-              <td className={`text-center py-2 px-1 ${sortBy === "assists" ? "font-bold" : ""}`}>{s.assists}</td>
-              <td className={`text-center py-2 px-1 ${sortBy === "points" ? "font-bold" : ""}`}>{s.points}</td>
+              {cols.map((c) => (
+                <td key={c.key} className={`text-center py-2 px-1 ${c.bold ? "font-bold" : ""}`}>
+                  {s[c.key]}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
@@ -485,7 +544,9 @@ function VallaTable({ data }: { data: any[] }) {
           <tr className="border-b text-muted-foreground text-xs">
             <th className="text-left py-2 px-1 w-10">#</th>
             <th className="text-left py-2 px-1">Equipo</th>
-            <th className="text-center py-2 px-1 font-bold w-16">GC</th>
+            <th className="text-center py-2 px-1 w-12" title="Goles en contra en fase regular">Reg.</th>
+            <th className="text-center py-2 px-1 w-12" title="Goles en contra en fases finales">Fin.</th>
+            <th className="text-center py-2 px-1 font-bold w-14" title="Goles en contra totales">GC</th>
           </tr>
         </thead>
         <tbody>
@@ -513,6 +574,8 @@ function VallaTable({ data }: { data: any[] }) {
                   </span>
                 </span>
               </td>
+              <td className="text-center py-2.5 px-1">{t.goalsAgainstReg}</td>
+              <td className="text-center py-2.5 px-1">{t.goalsAgainstFin > 0 ? t.goalsAgainstFin : "—"}</td>
               <td className="text-center py-2.5 px-1 font-bold">{t.goalsAgainst}</td>
             </tr>
           ))}
